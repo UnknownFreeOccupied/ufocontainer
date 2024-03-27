@@ -100,12 +100,12 @@ class Range
 
 	Range(T lower, T upper) : lower_(lower), upper_(upper) { assert(lower <= upper); }
 
-	template <typename V, typename = std::enable_if_t<std::is_arithmetic_v<V>>>
+	template <class V, std::enable_if_t<std::is_arithmetic_v<V>, bool> = true>
 	Range(V value) : Range(value, value)
 	{
 	}
 
-	template <typename V, typename = std::enable_if_t<std::is_arithmetic_v<V>>>
+	template <class V, std::enable_if_t<std::is_arithmetic_v<V>, bool> = true>
 	Range(V lower, V upper)
 	{
 		setRange(lower, upper);
@@ -113,7 +113,7 @@ class Range
 
 	Range(Range const &other) = default;
 
-	template <typename T2>
+	template <class T2>
 	Range(Range<T2> other) : Range(other.lower(), other.upper())
 	{
 	}
@@ -122,7 +122,7 @@ class Range
 
 	Range &operator=(Range const &rhs) = default;
 
-	template <typename T2>
+	template <class T2>
 	Range &operator=(Range<T2> rhs)
 	{
 		setRange(rhs.lower(), rhs.upper());
@@ -145,13 +145,13 @@ class Range
 		upper_ = upper;
 	}
 
-	template <typename V, typename = std::enable_if_t<std::is_arithmetic_v<V>>>
+	template <class V, std::enable_if_t<std::is_arithmetic_v<V>, bool> = true>
 	constexpr void setValue(V value)
 	{
 		setRange(value, value);
 	}
 
-	template <typename V, typename = std::enable_if_t<std::is_arithmetic_v<V>>>
+	template <class V, std::enable_if_t<std::is_arithmetic_v<V>, bool> = true>
 	constexpr void setRange(V lower, V upper)
 	{
 		assert(lower <= upper);
@@ -206,19 +206,19 @@ class Range
 		return lower_ <= range.lower_ && range.upper_ <= upper_;
 	}
 
-	template <typename T2>
+	template <class T2>
 	[[nodiscard]] constexpr bool contains(Range<T2> range) const noexcept
 	{
 		return contains(range.lower(), range.upper());
 	}
 
-	template <typename V, typename = std::enable_if_t<std::is_arithmetic_v<V>>>
+	template <class V, std::enable_if_t<std::is_arithmetic_v<V>, bool> = true>
 	[[nodiscard]] constexpr bool contains(V value) const noexcept
 	{
 		return contains(value, value);
 	}
 
-	template <typename V, typename = std::enable_if_t<std::is_arithmetic_v<V>>>
+	template <class V, std::enable_if_t<std::is_arithmetic_v<V>, bool> = true>
 	[[nodiscard]] constexpr bool contains(V lower, V upper) const noexcept
 	{
 		assert(lower <= upper);
@@ -257,23 +257,23 @@ class Range
 	// Friends
 	//
 
-	template <typename T2>
+	template <class T2>
 	friend bool operator==(Range<T2> lhs, Range<T2> rhs);
-	template <typename T2>
+	template <class T2>
 	friend bool operator!=(Range<T2> lhs, Range<T2> rhs);
-	template <typename T2>
+	template <class T2>
 	friend bool operator<(Range<T2> lhs, Range<T2> rhs);
-	template <typename T2>
+	template <class T2>
 	friend bool operator<=(Range<T2> lhs, Range<T2> rhs);
-	template <typename T2>
+	template <class T2>
 	friend bool operator>(Range<T2> lhs, Range<T2> rhs);
-	template <typename T2>
+	template <class T2>
 	friend bool operator>=(Range<T2> lhs, Range<T2> rhs);
 
-	template <typename T2>
+	template <class T2>
 	friend void swap(Range<T2> &lhs, Range<T2> &rhs) noexcept(noexcept(lhs.swap(rhs)));
 
-	template <typename T2>
+	template <class T2>
 	friend std::ostream &operator<<(std::ostream &os, Range<T2> range);
 
  private:
@@ -281,49 +281,49 @@ class Range
 	T upper_;
 };
 
-template <typename T>
+template <class T>
 bool operator==(Range<T> lhs, Range<T> rhs)
 {
 	return lhs.lower_ == rhs.lower_ && lhs.upper_ == rhs.upper_;
 }
 
-template <typename T>
+template <class T>
 bool operator!=(Range<T> lhs, Range<T> rhs)
 {
 	return lhs.lower_ != rhs.lower_ || lhs.upper_ != rhs.upper_;
 }
 
-template <typename T>
+template <class T>
 bool operator<(Range<T> lhs, Range<T> rhs)
 {
 	return lhs.upper_ < rhs.lower_;
 }
 
-template <typename T>
+template <class T>
 bool operator<=(Range<T> lhs, Range<T> rhs)
 {
 	return lhs.upper_ <= rhs.lower_;
 }
 
-template <typename T>
+template <class T>
 bool operator>(Range<T> lhs, Range<T> rhs)
 {
 	return lhs.lower_ > rhs.upper_;
 }
 
-template <typename T>
+template <class T>
 bool operator>=(Range<T> lhs, Range<T> rhs)
 {
 	return lhs.lower_ >= rhs.upper_;
 }
 
-template <typename T>
+template <class T>
 void swap(Range<T> &lhs, Range<T> &rhs) noexcept(noexcept(lhs.swap(rhs)))
 {
 	lhs.swap(rhs);
 }
 
-template <typename T>
+template <class T>
 std::ostream &operator<<(std::ostream &os, Range<T> range)
 {
 	if (range.lower() == range.upper()) {
