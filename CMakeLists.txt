@@ -43,6 +43,16 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
 
 # Only enable tests when we're the root project
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+	# Treat warnings as errors
+	set_target_properties(ufocontainer PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+
+	# Turn all warnings on
+	if (MSVC)
+		target_compile_options(ufocontainer INTERFACE /W4)
+	else()
+		target_compile_options(ufocontainer INTERFACE -Wall -Wextra -pedantic)
+	endif()
+
   add_subdirectory(tests)
 endif()
 
