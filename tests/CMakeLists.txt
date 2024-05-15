@@ -7,7 +7,10 @@ include("${PROJECT_SOURCE_DIR}/3rdparty/catch2/catch2.cmake")
 # # set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
 
 add_executable(ufocontainer_tests
+	octree_map_test.cpp
 	range_test.cpp
+	tree_index_test.cpp
+	tree_node_test.cpp
 )
 
 target_link_libraries(ufocontainer_tests PRIVATE UFO::Container Catch2::Catch2WithMain)
@@ -16,10 +19,3 @@ list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)
 include(Catch)
 catch_discover_tests(ufocontainer_tests)
-
-add_custom_command(
-	TARGET ufocontainer_tests
-	COMMENT "Running UFO container tests"
-	POST_BUILD 
-	COMMAND ufocontainer_tests
-)

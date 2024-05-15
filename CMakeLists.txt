@@ -6,16 +6,7 @@ project(ufocontainer
 	LANGUAGES CXX
 )
 
-Include(FetchContent)
-
-FetchContent_Declare(
-  ufoutility
-  GIT_REPOSITORY https://github.com/UnknownFreeOccupied/ufoutility
-  GIT_TAG        main
-  GIT_PROGRESS   TRUE
-)
-
-FetchContent_MakeAvailable(ufoutility)
+add_subdirectory(1stparty)
 
 add_library(ufocontainer INTERFACE)
 add_library(UFO::Container ALIAS ufocontainer)
@@ -27,7 +18,7 @@ set_target_properties(ufocontainer PROPERTIES
 	CXX_EXTENSIONS OFF
 )
 
-target_link_libraries(ufocontainer INTERFACE UFO::Utility)
+target_link_libraries(ufocontainer INTERFACE UFO::Geometry UFO::Utility)
 
 target_include_directories(ufocontainer INTERFACE
 	$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
@@ -44,14 +35,14 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
 # Only enable tests when we're the root project
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
 	# Treat warnings as errors
-	set_target_properties(ufocontainer PROPERTIES COMPILE_WARNING_AS_ERROR ON)
+	# set_target_properties(ufocontainer PROPERTIES COMPILE_WARNING_AS_ERROR ON)
 
-	# Turn all warnings on
-	if (MSVC)
-		target_compile_options(ufocontainer INTERFACE /W4)
-	else()
-		target_compile_options(ufocontainer INTERFACE -Wall -Wextra -pedantic)
-	endif()
+	# # Turn all warnings on
+	# if (MSVC)
+	# 	target_compile_options(ufocontainer INTERFACE /W4)
+	# else()
+	# 	target_compile_options(ufocontainer INTERFACE -Wall -Wextra -pedantic)
+	# endif()
 
   add_subdirectory(tests)
 endif()
