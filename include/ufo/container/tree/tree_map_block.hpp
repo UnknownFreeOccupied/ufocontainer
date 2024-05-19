@@ -52,20 +52,21 @@
 // STL
 #include <array>
 #include <cstddef>
+#include <memory>
 #include <utility>
+#include <vector>
 
 namespace ufo
 {
 template <class T, TreeType TT>
 struct TreeMapBlock {
 	using Code                     = typename TreeTypes<TT>::Code;
+	using Point                    = typename TreeTypes<TT>::Point;
 	static constexpr auto const BF = branchingFactor(TT);
-	using Iterator =
-	    typename TreeMapValueContainer<Code, typename TreeTypes<TT>::Point, T>::iterator;
 
 	Code                             parent_code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
-	std::array<std::pair<Iterator, Iterator>, BF> value;
+	std::unique_ptr<std::array<std::vector<std::pair<Point, T>>, BF>> value = nullptr;
 
 	constexpr TreeMapBlock() = default;
 
@@ -78,7 +79,6 @@ struct TreeMapBlock {
 	constexpr void fill(TreeMapBlock const& parent, std::size_t offset)
 	{
 		this->parent_code = parent.parent_code.child(offset);
-		fillValue(parent, offset);
 	}
 
 	/*!
@@ -88,26 +88,6 @@ struct TreeMapBlock {
 	{
 		// One less than the parent
 		return parent_code.depth() - 1;
-	}
-
- protected:
-	void fillValue(TreeMapBlock const& parent, std::size_t offset)
-	{
-		auto d             = parent.depth() - 1;
-		auto [first, last] = parent.value[offset];
-		for (std::size_t i{}; BF > i; ++i) {
-			if (first->code.offset(d) != offset) {
-				value[i] = {first, first};
-				continue;
-			}
-			value[i].first = first;
-			for (; first != last; ++first) {
-				if (first->code.offset(d) != offset) {
-					break;
-				}
-			}
-			value[i].second = first;
-		}
 	}
 };
 }  // namespace ufo
