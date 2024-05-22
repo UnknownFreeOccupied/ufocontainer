@@ -45,58 +45,93 @@
 // STL
 #include <array>
 #include <iterator>
+#include <memory>
+#include <queue>
+#include <tuple>
 #include <type_traits>
 #include <utility>
+#include <vector>
 
 namespace ufo
 {
-template <class Iterator, class T, bool IsConst>
+template <class TreeMap>
 class TreeMapIterator
 {
-	template <class Iterator2, class T2, bool IsConst2>
+	template <class TreeMap2>
 	friend class TreeMapIterator;
+
+	static constexpr bool const IsConst = std::is_const_v<TreeMap>;
+
+	using Index = typename TreeMap::Index;
 
  public:
 	//
 	// Tags
 	//
 
-	using iterator_category = typename Iterator::iterator_category;
-	using difference_type   = typename Iterator::difference_type;
-	using value_type        = std::conditional_t<IsConst, T const, T>;
-	using reference         = value_type&;
-	using pointer           = value_type*;
+	using iterator_category = std::forward_iterator_tag;
+	using difference_type   = std::ptrdiff_t;
+	using value_type        = typename TreeMap::value_type;
+	using reference         = std::conditional_t<IsConst, value_type const&, value_type&>;
+	using pointer           = std::conditional_t<IsConst, value_type const*, value_type*>;
 
 	TreeMapIterator()                             = default;
 	TreeMapIterator(TreeMapIterator const& other) = default;
 	TreeMapIterator(TreeMapIterator&& other)      = default;
 
-	template <class Iterator2, bool WasConst,
-	          typename std::enable_if_t<IsConst && !WasConst, bool> = true>
-	TreeMapIterator(TreeMapIterator<Iterator2, T, WasConst> const& rhs) : it_(rhs.it_)
+	template <class TreeMap2,
+	          typename std::enable_if_t<
+	              IsConst && !TreeMapIterator<TreeMap2>::IsConst &&
+	              std::is_same_v<std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
+	TreeMapIterator(TreeMapIterator<TreeMap2> const& other)
+	    : tm_(other.tm_)
+	    , first_(other.first_)
+	    , last_(other.last_)
+	    , inner_nodes_(other.inner_nodes_)
+	    , return_nodes_(other.return_nodes_)
+	    , inner_index_(other.inner_index_)
+	    , return_index_(other.return_index_)
 	{
 	}
 
-	TreeMapIterator(Iterator it) : it_(it) {}
+	TreeMapIterator(TreeMap* tm, Index node) : tm_(tm)
+	{
+		if (tm_->isParent(node)) {
+			inner_nodes_[inner_index_++] = node;
+			next();
+		} else if (tm_->isPureLeaf(node) && !tm_->empty(node)) {
+			std::tie(first_, last_) = tm_->iters(node);
+		}
+	}
 
 	TreeMapIterator& operator=(TreeMapIterator const& rhs) = default;
 	TreeMapIterator& operator=(TreeMapIterator&& rhs)      = default;
 
-	template <class Iterator2, bool WasConst,
-	          typename std::enable_if_t<IsConst && !WasConst, bool> = true>
-	TreeMapIterator& operator=(TreeMapIterator<Iterator2, T, WasConst> const& rhs)
+	template <class TreeMap2,
+	          typename std::enable_if_t<
+	              IsConst && !TreeMapIterator<TreeMap2>::IsConst &&
+	              std::is_same_v<std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
+	TreeMapIterator& operator=(TreeMapIterator<TreeMap2> const& rhs)
 	{
-		it_ = rhs.it_;
+		tm_           = rhs.tm_;
+		first_        = rhs.first_;
+		last_         = rhs.last_;
+		inner_nodes_  = rhs.inner_nodes_;
+		return_nodes_ = rhs.return_nodes_;
+		inner_index_  = rhs.inner_index_;
+		return_index_ = rhs.return_index_;
 		return *this;
 	}
 
-	[[nodiscard]] reference operator*() const { return *it_; }
+	[[nodiscard]] reference operator*() const { return *first_; }
 
-	[[nodiscard]] pointer operator->() const { return &*it_; }
+	[[nodiscard]] pointer operator->() const { return &*first_; }
 
 	TreeMapIterator& operator++()
 	{
-		++it_;
+		if (first_ == last_ || ++first_ == last_) {
+			next();
+		}
 		return *this;
 	}
 
@@ -107,174 +142,70 @@ class TreeMapIterator
 		return tmp;
 	}
 
-	TreeMapIterator& operator--()
+	bool operator==(TreeMapIterator const& rhs) const { return first_ == rhs.first_; }
+
+	template <class TreeMap2, typename std::enable_if_t<std::is_same_v<
+	                              std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
+	bool operator==(TreeMapIterator<TreeMap2> const& rhs) const
 	{
-		--it_;
-		return *this;
+		return first_ == rhs.first_;
 	}
 
-	TreeMapIterator operator--(int)
+	bool operator!=(TreeMapIterator const& rhs) const { return first_ != rhs.first_; }
+
+	template <class TreeMap2, typename std::enable_if_t<std::is_same_v<
+	                              std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
+	bool operator!=(TreeMapIterator<TreeMap2> const& rhs) const
 	{
-		auto tmp = *this;
-		--*this;
-		return tmp;
-	}
-
-	bool operator==(TreeMapIterator const& rhs) const { return it_ == rhs.it_; }
-
-	template <class Iterator2, bool IsConst2>
-	bool operator==(TreeMapIterator<Iterator2, T, IsConst2> const& rhs) const
-	{
-		return it_ == rhs.it_;
-	}
-
-	bool operator!=(TreeMapIterator const& rhs) const { return it_ != rhs.it_; }
-
-	template <class Iterator2, bool IsConst2>
-	bool operator!=(TreeMapIterator<Iterator2, T, IsConst2> const& rhs) const
-	{
-		return it_ != rhs.it_;
+		return first_ != rhs.first_;
 	}
 
  private:
-	Iterator it_;
-};
-
-template <class Tree, class Predicate, class Iterator, class T, bool IsConst>
-class TreeMapQueryIterator
-{
-	template <class Tree2, class Predicate2, class Iterator2, class T2, bool IsConst2>
-	friend class TreeMapQueryIterator;
-
- public:
-	//
-	// Tags
-	//
-
-	using iterator_category = std::forward_iterator_tag;
-	using difference_type   = std::ptrdiff_t;
-	using value_type        = std::conditional_t<IsConst, T const, T>;
-	using reference         = value_type&;
-	using pointer           = value_type*;
-
-	using Index     = typename std::decay_t<Tree>::Index;
-	using Bounds    = typename std::decay_t<Tree>::Bounds;
-	using node_type = std::pair<Index, Bounds>;
-
-	TreeMapQueryIterator()                                  = default;
-	TreeMapQueryIterator(TreeMapQueryIterator const& other) = default;
-	TreeMapQueryIterator(TreeMapQueryIterator&& other)      = default;
-
-	template <class Tree2, class Iterator2, bool WasConst,
-	          typename std::enable_if_t<IsConst && !WasConst, bool> = true>
-	TreeMapQueryIterator(
-	    TreeMapQueryIterator<Tree2, Predicate, Iterator2, T, WasConst> const& rhs)
-	    : it_(rhs.it_), tree_(rhs.tree_), predicate_(rhs.predicate_)
+	void next()
 	{
-	}
+		// Skip forward to next valid return node
+		while (0 == return_index_ && inner_index_) {
+			auto block = tm_->children(inner_nodes_[--inner_index_]);
 
-	TreeMapQueryIterator(Iterator it) : it_(it) {}
+			// Go down the tree
+			for (int i = TreeMap::branchingFactor() - 1; 0 <= i; --i) {
+				Index node(block, i);
 
-	TreeMapQueryIterator(Tree* tree, Index root, Predicate const& predicate)
-	    : tree_(tree), predicate_(predicate)
-	{
-		assert(tree->valid(root));
-		pred::Init<Predicate>::apply(predicate_, *tree_);
-
-		if (tree_->isLeaf(root)) {
-			if (pred::ValueCheck<Predicate>::apply(predicate, *tree_, node)) {
-				
+				if (tm_->isParent(node)) {
+					inner_nodes_[inner_index_++] = node;
+				} else if (tm_->isPureLeaf(node) && !tm_->empty(node)) {
+					return_nodes_[return_index_++] = node;
+				}
 			}
 		}
-		//  pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
-		// pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
-		// TODO: Init
-	}
 
-	TreeMapQueryIterator& operator=(TreeMapQueryIterator const& rhs) = default;
-	TreeMapQueryIterator& operator=(TreeMapQueryIterator&& rhs)      = default;
-
-	template <class Tree2, class Iterator2, bool WasConst,
-	          typename std::enable_if_t<IsConst && !WasConst, bool> = true>
-	TreeMapQueryIterator& operator=(
-	    TreeMapQueryIterator<Tree2, Predicate, Iterator2, T, WasConst> const& rhs)
-	{
-		it_        = rhs.it_;
-		tree_      = rhs.tree_;
-		predicate_ = rhs.predicate_;
-		return *this;
-	}
-
-	[[nodiscard]] reference operator*() const { return *it_; }
-
-	[[nodiscard]] pointer operator->() const { return &*it_; }
-
-	TreeMapQueryIterator& operator++()
-	{
-		// TODO: Implement
-		++it_;
-		return *this;
-	}
-
-	TreeMapQueryIterator operator++(int)
-	{
-		auto tmp = *this;
-		++*this;
-		return tmp;
-	}
-
-	bool operator==(TreeMapQueryIterator const& rhs) const { return it_ == rhs.it_; }
-
-	template <class Tree2, class Predicate2, class Iterator2, bool IsConst2>
-	bool operator==(
-	    TreeMapQueryIterator<Tree2, Predicate2, Iterator2, T, IsConst2> const& rhs) const
-	{
-		return it_ == rhs.it_;
-	}
-
-	bool operator!=(TreeMapQueryIterator const& rhs) const { return it_ != rhs.it_; }
-
-	template <class Tree2, class Predicate2, class Iterator2, bool IsConst2>
-	bool operator!=(
-	    TreeMapQueryIterator<Tree2, Predicate2, Iterator2, T, IsConst2> const& rhs) const
-	{
-		return it_ != rhs.it_;
+		if (0 < return_index_) {
+			auto node               = return_nodes_[--return_index_];
+			std::tie(first_, last_) = tm_->iters(node);
+		} else {
+			first_ = {};
+			last_  = {};
+		}
 	}
 
  private:
-	Iterator  it_;
-	Tree*     tree_;
-	Predicate predicate_;
+	using Iterator =
+	    std::conditional_t<IsConst, typename std::vector<value_type>::const_iterator,
+	                       typename std::vector<value_type>::iterator>;
+
+	TreeMap* tm_ = nullptr;
+
+	Iterator first_;
+	Iterator last_;
 
 	// To be processed inner nodes
-	std::array<node_type, Tree::branchingFactor() * Tree::maxNumDepthLevels()> inner_nodes_;
+	std::array<Index, TreeMap::branchingFactor() * (TreeMap::maxNumDepthLevels() - 1)>
+	    inner_nodes_;
 	// To be processed return nodes
-	std::array<node_type, Tree::branchingFactor()> return_nodes_;
-};
+	std::array<Index, TreeMap::branchingFactor()> return_nodes_;
 
-template <class Tree, class Node, class Geometry, class Predicate, class Iterator,
-          class T, bool IsConst>
-class TreeMapNearestIterator
-{
-	template <class Tree2, class Node2, class Geometry2, class Predicate2, class Iterator2,
-	          class T2, bool IsConst2>
-	friend class TreeMapNearestIterator;
-
- public:
-	//
-	// Tags
-	//
-
-	using iterator_category = std::forward_iterator_tag;
-	using difference_type   = std::ptrdiff_t;
-	using value_type        = std::conditional_t<IsConst, T const, T>;
-	using reference         = value_type&;
-	using pointer           = value_type*;
-
-	// TODO: Implement
-
- private:
-	Iterator it_;
+	int inner_index_  = 0;
+	int return_index_ = 0;
 };
 }  // namespace ufo
 

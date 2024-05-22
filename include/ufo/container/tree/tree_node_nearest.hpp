@@ -52,17 +52,18 @@ namespace ufo
 {
 template <class Code>
 struct TreeNodeNearest : public TreeNode<Code> {
-	double squared_distance;
+	float distance;
 
-	constexpr TreeNodeNearest(TreeNode<Code> const& node, double squared_distance = 0.0)
-	    : TreeNode<Code>(node), squared_distance(squared_distance)
+	constexpr TreeNodeNearest(TreeNode<Code> const& node, float distance = 0.0f)
+	    : TreeNode<Code>(node), distance(distance)
 	{
 	}
 
 	[[nodiscard]] friend constexpr bool operator==(TreeNodeNearest const& a,
 	                                               TreeNodeNearest const& b)
 	{
-		return static_cast<TreeNode<Code> const&>(a) == static_cast<TreeNode<Code> const&>(b);
+		return a.distance == b.distance &&
+		       static_cast<TreeNode<Code> const&>(a) == static_cast<TreeNode<Code> const&>(b);
 	}
 
 	[[nodiscard]] friend constexpr bool operator!=(TreeNodeNearest const& a,
@@ -74,25 +75,25 @@ struct TreeNodeNearest : public TreeNode<Code> {
 	[[nodiscard]] friend constexpr bool operator<(TreeNodeNearest const& a,
 	                                              TreeNodeNearest const& b)
 	{
-		return a.squared_distance < b.squared_distance;
+		return a.distance < b.distance;
 	}
 
 	[[nodiscard]] friend constexpr bool operator<=(TreeNodeNearest const& a,
 	                                               TreeNodeNearest const& b)
 	{
-		return a.squared_distance <= b.squared_distance;
+		return a.distance <= b.distance;
 	}
 
 	[[nodiscard]] friend constexpr bool operator>(TreeNodeNearest const& a,
 	                                              TreeNodeNearest const& b)
 	{
-		return a.squared_distance > b.squared_distance;
+		return a.distance > b.distance;
 	}
 
 	[[nodiscard]] friend constexpr bool operator>=(TreeNodeNearest const& a,
 	                                               TreeNodeNearest const& b)
 	{
-		return a.squared_distance >= b.squared_distance;
+		return a.distance >= b.distance;
 	}
 };
 }  // namespace ufo

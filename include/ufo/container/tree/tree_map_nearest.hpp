@@ -39,44 +39,72 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_MAP_VALUE_HPP
-#define UFO_CONTAINER_TREE_MAP_VALUE_HPP
-
-// UFO
-#include <ufo/container/tree/tree_type.hpp>
+#ifndef UFO_CONTAINER_TREE_MAP_NEAREST_HPP
+#define UFO_CONTAINER_TREE_MAP_NEAREST_HPP
 
 // STL
-#include <forward_list>
+#include <utility>
 
 namespace ufo
 {
-template <class Point, class T>
-struct TreeMapValue {
-	using key_type    = Point;
-	using mapped_type = T;
+template <class T>
+struct TreeMapNearest {
+	//
+	// Tags
+	//
 
-	key_type const key;
-	mapped_type    mapped;
+	using value_type = T;
+	using reference  = T&;
+	using pointer    = T*;
+
+	pointer value_ptr;
+	float   distance;
+
+	TreeMapNearest()                      = default;
+	TreeMapNearest(TreeMapNearest const&) = default;
+	TreeMapNearest(TreeMapNearest&&)      = default;
+
+	TreeMapNearest(T& value, float distance) : value_ptr(&value), distance(distance) {}
+
+	TreeMapNearest(T* value_ptr, float distance) : value_ptr(value_ptr), distance(distance)
+	{
+	}
+
+	TreeMapNearest& operator=(TreeMapNearest const&) = default;
+	TreeMapNearest& operator=(TreeMapNearest&&)      = default;
+
+	void swap(TreeMapNearest& other) noexcept
+	{
+		std::swap(value_ptr, other.value_ptr);
+		std::swap(distance, other.distance);
+	}
+
+	operator reference() const { return *value_ptr; }
+
+	operator pointer() const { return value_ptr; }
+
+	[[nodiscard]] reference operator*() const { return *value_ptr; }
+
+	[[nodiscard]] pointer operator->() const { return value_ptr; }
+
+	bool operator==(value_type rhs) const noexcept
+	{
+		return distance == rhs.distance && value_ptr == rhs.value_ptr;
+	}
+
+	bool operator!=(value_type rhs) const noexcept
+	{
+		return distance != rhs.distance || value_ptr != rhs.value_ptr;
+	}
+
+	bool operator<(value_type rhs) const noexcept { return distance < rhs.distance; }
+
+	bool operator<=(value_type rhs) const noexcept { return distance <= rhs.distance; }
+
+	bool operator>(value_type rhs) const noexcept { return distance > rhs.distance; }
+
+	bool operator>=(value_type rhs) const noexcept { return distance >= rhs.distance; }
 };
-
-// Forward declare
-template <template <class, template <TreeType> class> class TBase, class T>
-class TreeMap;
-
-template <class Code, class Point, class T>
-struct TreeMapValueCode : public TreeMapValue<Point, T> {
-	template <template <class, template <TreeType> class> class TBase, class T2>
-	friend class TreeMap;
-
-	using key_type    = Point;
-	using mapped_type = T;
-
- private:
-	Code code;
-};
-
-template <class Code, class Point, class T>
-using TreeMapValueContainer = std::forward_list<TreeMapValueCode<Code, Point, T>>;
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_MAP_VALUE_HPP
+#endif  // UFO_CONTAINER_TREE_MAP_NEAREST_HPP

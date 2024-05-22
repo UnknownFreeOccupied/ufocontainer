@@ -52,7 +52,6 @@
 // STL
 #include <array>
 #include <cstddef>
-#include <memory>
 #include <utility>
 #include <vector>
 
@@ -66,7 +65,11 @@ struct TreeMapBlock {
 
 	Code                             parent_code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
-	std::unique_ptr<std::array<std::vector<std::pair<Point, T>>, BF>> value = nullptr;
+
+	// TODO: Make into union
+	std::array<Point, BF>                                  min;
+	std::array<Point, BF>                                  max;
+	std::array<std::vector<std::pair<Point const, T>>, BF> value;
 
 	constexpr TreeMapBlock() = default;
 

@@ -47,7 +47,6 @@
 #include <ufo/container/tree/tree_container.hpp>
 #include <ufo/container/tree/tree_map_block.hpp>
 #include <ufo/container/tree/tree_map_iterator.hpp>
-#include <ufo/container/tree/tree_map_value.hpp>
 #include <ufo/container/tree/tree_types.hpp>
 #include <ufo/utility/iterator_wrapper.hpp>
 
@@ -80,6 +79,15 @@ class TreeMap
 
 	friend Base;
 
+	friend class TreeMapIterator<TreeMap>;
+	friend class TreeMapIterator<TreeMap const>;
+
+	template <class TM, class Predicate>
+	friend class TreeMapQueryIterator;
+
+	template <class TM, class Predicate>
+	friend class TreeMapNearestIterator;
+
  public:
 	//
 	// Tags
@@ -96,53 +104,35 @@ class TreeMap
 	using offset_t = typename Base::offset_t;
 	using length_t = typename Base::length_t;
 
-	using key_type       = typename Base::Point;
-	using mapped_type    = T;
-	using value_type     = TreeMapValue<key_type, mapped_type>;
-	using ValueContainer = TreeMapValueContainer<Code, key_type, mapped_type>;
+	using key_type    = Point;
+	using mapped_type = T;
+	using value_type  = std::pair<Point const, T>;
 
-	struct Comp {
-		bool operator()(TreeMapValueCode<Code, key_type, mapped_type> const& v, Code c) const
-		{
-			return v.code.toDepth(c.depth()) < c;
-		}
-		bool operator()(Code c, TreeMapValueCode<Code, key_type, mapped_type> const& v) const
-		{
-			return c < v.code.toDepth(c.depth());
-		}
-	};
-
-	using pointer         = value_type*;
-	using const_pointer   = value_type const*;
 	using reference       = value_type&;
 	using const_reference = value_type const&;
-	using size_type       = typename ValueContainer::size_type;
-	using difference_type = typename ValueContainer::difference_type;
-	using iterator = TreeMapIterator<typename ValueContainer::iterator, value_type, false>;
-	using const_iterator =
-	    TreeMapIterator<typename ValueContainer::const_iterator, value_type, true>;
+	using pointer         = value_type*;
+	using const_pointer   = value_type const*;
+	using size_type       = std::size_t;
+	using difference_type = std::ptrdiff_t;
+	using iterator        = TreeMapIterator<TreeMap>;
+	using const_iterator  = TreeMapIterator<TreeMap const>;
 
-	struct query_iterator {
-		// TODO: Implement
-	};
+	using query_iterator       = TreeMapIteratorWrapper<TreeMap>;
+	using const_query_iterator = TreeMapIteratorWrapper<TreeMap const>;
 
-	struct const_query_iterator {
-		// TODO: Implement
-	};
+	using nearest_iterator       = TreeMapNearestIterator<TreeMap, pred::True>;
+	using const_nearest_iterator = TreeMapNearestIterator<TreeMap const, pred::True>;
 
-	struct query_nearest_iterator {
-		// TODO: Implement
-	};
-
-	struct const_query_nearest_iterator {
-		// TODO: Implement
-	};
+	using query_nearest_iterator       = TreeMapIteratorWrapper<TreeMap>;
+	using const_query_nearest_iterator = TreeMapIteratorWrapper<TreeMap const>;
 
 	using iterator_wrapper       = IteratorWrapper<iterator>;
 	using const_iterator_wrapper = IteratorWrapper<const_iterator>;
 
 	using Query             = IteratorWrapper<query_iterator>;
 	using ConstQuery        = IteratorWrapper<const_query_iterator>;
+	using Nearest           = IteratorWrapper<nearest_iterator>;
+	using ConstNearest      = IteratorWrapper<const_nearest_iterator>;
 	using QueryNearest      = IteratorWrapper<query_nearest_iterator>;
 	using ConstQueryNearest = IteratorWrapper<const_query_nearest_iterator>;
 
@@ -161,7 +151,6 @@ class TreeMap
 	                                             Base::maxNumDepthLevels()))
 	    : Base(leaf_node_length, num_depth_levels)
 	{
-		iters(this->index()) = {val_.begin(), val_.end()};
 	}
 
 	template <class InputIt>
@@ -172,15 +161,15 @@ class TreeMap
 		insert(first, last);
 	}
 
-	TreeMap(TreeMap const& other) = default;
-
-	TreeMap(TreeMap&& other) = default;
-
 	TreeMap(length_t leaf_node_length, depth_t num_depth_levels,
 	        std::initializer_list<value_type> init)
 	    : TreeMap(leaf_node_length, num_depth_levels, std::begin(init), std::end(init))
 	{
 	}
+
+	TreeMap(TreeMap const& other) = default;
+
+	TreeMap(TreeMap&& other) = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -208,7 +197,6 @@ class TreeMap
 
 	friend void swap(TreeMap& lhs, TreeMap& rhs)
 	{
-		std::swap(lhs.val_, rhs.val_);
 		std::swap(static_cast<Base&>(lhs), static_cast<Base&>(rhs));
 	}
 
@@ -218,53 +206,36 @@ class TreeMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] iterator       begin() noexcept { return val_.begin(); }
-	[[nodiscard]] const_iterator begin() const noexcept { return val_.begin(); }
+	[[nodiscard]] iterator       begin() noexcept { return begin(Base::index()); }
+	[[nodiscard]] const_iterator begin() const noexcept { return begin(Base::index()); }
 	[[nodiscard]] const_iterator cbegin() const noexcept { return begin(); }
 
-	[[nodiscard]] iterator       begin(Index node) { return at(node).first; }
-	[[nodiscard]] const_iterator begin(Index node) const { return at(node).first; }
+	[[nodiscard]] iterator       begin(Index node) { return {this, node}; }
+	[[nodiscard]] const_iterator begin(Index node) const { return {this, node}; }
 	[[nodiscard]] const_iterator cbegin(Index node) const { return begin(node); }
 
-	[[nodiscard]] iterator       begin(Node node) { return at(node).first; }
-	[[nodiscard]] const_iterator begin(Node node) const { return at(node).first; }
+	[[nodiscard]] iterator       begin(Node node) { return begin(Base::index(node)); }
+	[[nodiscard]] const_iterator begin(Node node) const { return begin(Base::index(node)); }
 	[[nodiscard]] const_iterator cbegin(Node node) const { return begin(node); }
 
-	[[nodiscard]] iterator       begin(Code node) { return at(node).first; }
-	[[nodiscard]] const_iterator begin(Code node) const { return at(node).first; }
+	[[nodiscard]] iterator       begin(Code node) { return begin(Base::index(node)); }
+	[[nodiscard]] const_iterator begin(Code node) const { return begin(Base::index(node)); }
 	[[nodiscard]] const_iterator cbegin(Code node) const { return begin(node); }
 
-	[[nodiscard]] iterator       begin(Key node) { return at(node).first; }
-	[[nodiscard]] const_iterator begin(Key node) const { return at(node).first; }
+	[[nodiscard]] iterator       begin(Key node) { return begin(Base::index(node)); }
+	[[nodiscard]] const_iterator begin(Key node) const { return begin(Base::index(node)); }
 	[[nodiscard]] const_iterator cbegin(Key node) const { return begin(node); }
 
-	[[nodiscard]] iterator       begin(Coord node) { return at(node).first; }
-	[[nodiscard]] const_iterator begin(Coord node) const { return at(node).first; }
+	[[nodiscard]] iterator       begin(Coord node) { return begin(Base::index(node)); }
+	[[nodiscard]] const_iterator begin(Coord node) const
+	{
+		return begin(Base::index(node));
+	}
 	[[nodiscard]] const_iterator cbegin(Coord node) const { return begin(node); }
 
-	[[nodiscard]] iterator       end() noexcept { return val_.end(); }
-	[[nodiscard]] const_iterator end() const noexcept { return val_.end(); }
+	[[nodiscard]] iterator       end() noexcept { return {}; }
+	[[nodiscard]] const_iterator end() const noexcept { return {}; }
 	[[nodiscard]] const_iterator cend() const noexcept { return end(); }
-
-	[[nodiscard]] iterator       end(Index node) { return at(node).second; }
-	[[nodiscard]] const_iterator end(Index node) const { return at(node).second; }
-	[[nodiscard]] const_iterator cend(Index node) const { return end(node); }
-
-	[[nodiscard]] iterator       end(Node node) { return at(node).second; }
-	[[nodiscard]] const_iterator end(Node node) const { return at(node).second; }
-	[[nodiscard]] const_iterator cend(Node node) const { return end(node); }
-
-	[[nodiscard]] iterator       end(Code node) { return at(node).second; }
-	[[nodiscard]] const_iterator end(Code node) const { return at(node).second; }
-	[[nodiscard]] const_iterator cend(Code node) const { return end(node); }
-
-	[[nodiscard]] iterator       end(Key node) { return at(node).second; }
-	[[nodiscard]] const_iterator end(Key node) const { return at(node).second; }
-	[[nodiscard]] const_iterator cend(Key node) const { return end(node); }
-
-	[[nodiscard]] iterator       end(Coord node) { return at(node).second; }
-	[[nodiscard]] const_iterator end(Coord node) const { return at(node).second; }
-	[[nodiscard]] const_iterator cend(Coord node) const { return end(node); }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -273,133 +244,115 @@ class TreeMap
 	**************************************************************************************/
 
 	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Predicate const& predicate)
+	[[nodiscard]] query_iterator beginQuery(Predicate const& pred)
 	{
-		return beginQuery(Base::index(), predicate);
+		return beginQuery(Base::index(), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator beginQuery(Predicate const& pred) const
 	{
-		return beginQuery(Base::index(), predicate);
+		return beginQuery(Base::index(), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator cbeginQuery(Predicate const& pred) const
 	{
-		return beginQuery(predicate);
+		return beginQuery(pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Index node, Predicate const& predicate)
+	[[nodiscard]] query_iterator beginQuery(Index node, Predicate const& pred)
 	{
-		// TODO: Implement
+		return {this, node, pred};
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Index            node,
-	                                              Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator beginQuery(Index node, Predicate const& pred) const
 	{
-		// TODO: Implement
+		return {this, node, pred};
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Index            node,
-	                                               Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator cbeginQuery(Index node, Predicate const& pred) const
 	{
-		return beginQuery(node, predicate);
+		return beginQuery(node, pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Node node, Predicate const& predicate)
+	[[nodiscard]] query_iterator beginQuery(Node node, Predicate const& pred)
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Node             node,
-	                                              Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator beginQuery(Node node, Predicate const& pred) const
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Node             node,
-	                                               Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator cbeginQuery(Node node, Predicate const& pred) const
 	{
-		return beginQuery(node, predicate);
+		return beginQuery(node, pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Code node, Predicate const& predicate)
+	[[nodiscard]] query_iterator beginQuery(Code node, Predicate const& pred)
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Code             node,
-	                                              Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator beginQuery(Code node, Predicate const& pred) const
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Code             node,
-	                                               Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator cbeginQuery(Code node, Predicate const& pred) const
 	{
-		return beginQuery(node, predicate);
+		return beginQuery(node, pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Key node, Predicate const& predicate)
+	[[nodiscard]] query_iterator beginQuery(Key node, Predicate const& pred)
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Key              node,
-	                                              Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator beginQuery(Key node, Predicate const& pred) const
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Key              node,
-	                                               Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator cbeginQuery(Key node, Predicate const& pred) const
 	{
-		return beginQuery(node, predicate);
+		return beginQuery(node, pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Coord node, Predicate const& predicate)
+	[[nodiscard]] query_iterator beginQuery(Coord node, Predicate const& pred)
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Coord            node,
-	                                              Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator beginQuery(Coord node, Predicate const& pred) const
 	{
-		return beginQuery(Base::index(node), predicate);
+		return beginQuery(Base::index(node), pred);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Coord            node,
-	                                               Predicate const& predicate) const
+	[[nodiscard]] const_query_iterator cbeginQuery(Coord node, Predicate const& pred) const
 	{
-		return beginQuery(node, predicate);
+		return beginQuery(node, pred);
 	}
 
-	[[nodiscard]] query_iterator endQuery()
-	{
-		// TODO: Implement
-	}
-
-	[[nodiscard]] const_query_iterator endQuery() const
-	{
-		// TODO: Implement
-	}
-
+	[[nodiscard]] query_iterator       endQuery() { return {}; }
+	[[nodiscard]] const_query_iterator endQuery() const { return {}; }
 	[[nodiscard]] const_query_iterator cendQuery() const { return endQuery(); }
 
 	/**************************************************************************************
@@ -486,108 +439,108 @@ class TreeMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] nearest_iterator beginNearest(Point query, double epsilon = 0.0)
+	[[nodiscard]] nearest_iterator beginNearest(Point query, float epsilon = 0.0f)
 	{
 		return beginNearest(Base::index(), query, epsilon);
 	}
 
-	[[nodiscard]] const_nearest_iterator beginNearest(Point  query,
-	                                                  double epsilon = 0.0) const
+	[[nodiscard]] const_nearest_iterator beginNearest(Point query,
+	                                                  float epsilon = 0.0f) const
 	{
 		return beginNearest(Base::index(), query, epsilon);
 	}
 
-	[[nodiscard]] const_nearest_iterator cbeginNearest(Point  query,
-	                                                   double epsilon = 0.0) const
+	[[nodiscard]] const_nearest_iterator cbeginNearest(Point query,
+	                                                   float epsilon = 0.0f) const
 	{
 		return beginNearest(query, epsilon);
 	}
 
 	[[nodiscard]] nearest_iterator beginNearest(Index node, Point query,
-	                                            double epsilon = 0.0)
+	                                            float epsilon = 0.0f)
 	{
 		// TODO: Implement
 	}
 
 	[[nodiscard]] const_nearest_iterator beginNearest(Index node, Point query,
-	                                                  double epsilon = 0.0) const
+	                                                  float epsilon = 0.0f) const
 	{
 		// TODO: Implement
 	}
 
 	[[nodiscard]] const_nearest_iterator cbeginNearest(Index node, Point query,
-	                                                   double epsilon = 0.0) const
+	                                                   float epsilon = 0.0f) const
 	{
 		return beginNearest(node, query, epsilon);
 	}
 
 	[[nodiscard]] nearest_iterator beginNearest(Node node, Point query,
-	                                            double epsilon = 0.0)
+	                                            float epsilon = 0.0f)
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator beginNearest(Node node, Point query,
-	                                                  double epsilon = 0.0) const
+	                                                  float epsilon = 0.0f) const
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator cbeginNearest(Node node, Point query,
-	                                                   double epsilon = 0.0) const
+	                                                   float epsilon = 0.0f) const
 	{
 		return beginNearest(node, query, epsilon);
 	}
 
 	[[nodiscard]] nearest_iterator beginNearest(Code node, Point query,
-	                                            double epsilon = 0.0)
+	                                            float epsilon = 0.0f)
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator beginNearest(Code node, Point query,
-	                                                  double epsilon = 0.0) const
+	                                                  float epsilon = 0.0f) const
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator cbeginNearest(Code node, Point query,
-	                                                   double epsilon = 0.0) const
+	                                                   float epsilon = 0.0f) const
 	{
 		return beginNearest(node, query, epsilon);
 	}
 
-	[[nodiscard]] nearest_iterator beginNearest(Key node, Point query, double epsilon = 0.0)
+	[[nodiscard]] nearest_iterator beginNearest(Key node, Point query, float epsilon = 0.0f)
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator beginNearest(Key node, Point query,
-	                                                  double epsilon = 0.0) const
+	                                                  float epsilon = 0.0f) const
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator cbeginNearest(Key node, Point query,
-	                                                   double epsilon = 0.0) const
+	                                                   float epsilon = 0.0f) const
 	{
 		return beginNearest(node, query, epsilon);
 	}
 
 	[[nodiscard]] nearest_iterator beginNearest(Coord node, Point query,
-	                                            double epsilon = 0.0)
+	                                            float epsilon = 0.0f)
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator beginNearest(Coord node, Point query,
-	                                                  double epsilon = 0.0) const
+	                                                  float epsilon = 0.0f) const
 	{
 		return beginNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] const_nearest_iterator cbeginNearest(Coord node, Point query,
-	                                                   double epsilon = 0.0) const
+	                                                   float epsilon = 0.0f) const
 	{
 		return beginNearest(node, query, epsilon);
 	}
@@ -610,47 +563,47 @@ class TreeMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] Nearest nearest(Point query, double epsilon = 0.0)
+	[[nodiscard]] Nearest nearest(Point query, float epsilon = 0.0f)
 	{
 		return nearest(Base::index(), query, epsilon);
 	}
 
-	[[nodiscard]] ConstNearest nearest(Point query, double epsilon = 0.0) const
+	[[nodiscard]] ConstNearest nearest(Point query, float epsilon = 0.0f) const
 	{
 		return nearest(Base::index(), query, epsilon);
 	}
 
-	[[nodiscard]] Nearest nearest(Index node, Point query, double epsilon = 0.0)
+	[[nodiscard]] Nearest nearest(Index node, Point query, float epsilon = 0.0f)
 	{
 		return {beginNearest(node, query, epsilon), endNearest()};
 	}
 
-	[[nodiscard]] ConstNearest nearest(Index node, Point query, double epsilon = 0.0) const
+	[[nodiscard]] ConstNearest nearest(Index node, Point query, float epsilon = 0.0f) const
 	{
 		return {beginNearest(node, query, epsilon), endNearest()};
 	}
 
-	[[nodiscard]] Nearest nearest(Node node, Point query, double epsilon = 0.0)
+	[[nodiscard]] Nearest nearest(Node node, Point query, float epsilon = 0.0f)
 	{
 		return nearest(Base::index(node), query, epsilon);
 	}
 
-	[[nodiscard]] ConstNearest nearest(Node node, Point query, double epsilon = 0.0) const
+	[[nodiscard]] ConstNearest nearest(Node node, Point query, float epsilon = 0.0f) const
 	{
 		return nearest(Base::index(node), query, epsilon);
 	}
 
-	[[nodiscard]] Nearest nearest(Code node, Point query, double epsilon = 0.0)
+	[[nodiscard]] Nearest nearest(Code node, Point query, float epsilon = 0.0f)
 	{
 		return nearest(Base::index(node), query, epsilon);
 	}
 
-	[[nodiscard]] ConstNearest nearest(Code node, Point query, double epsilon = 0.0) const
+	[[nodiscard]] ConstNearest nearest(Code node, Point query, float epsilon = 0.0f) const
 	{
 		return nearest(Base::index(node), query, epsilon);
 	}
 
-	[[nodiscard]] Nearest nearest(Key node, Point query, double epsilon = 0.0)
+	[[nodiscard]] Nearest nearest(Key node, Point query, float epsilon = 0.0f)
 	{
 		return nearest(Base::index(node), query, epsilon);
 	}
@@ -664,7 +617,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] query_nearest_iterator beginQueryNearest(Point            query,
 	                                                       Predicate const& predicate,
-	                                                       double           epsilon = 0.0)
+	                                                       float            epsilon = 0.0f)
 	{
 		return beginQueryNearest(Base::index(), query, predicate, epsilon);
 	}
@@ -672,14 +625,14 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Point            query,
 	                                                             Predicate const& predicate,
-	                                                             double epsilon = 0.0) const
+	                                                             float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(Base::index(), query, predicate, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Point query, Predicate const& predicate, double epsilon = 0.0) const
+	    Point query, Predicate const& predicate, float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(query, predicate, epsilon);
 	}
@@ -687,7 +640,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] query_nearest_iterator beginQueryNearest(Index node, Point query,
 	                                                       Predicate const& predicate,
-	                                                       double           epsilon = 0.0)
+	                                                       float            epsilon = 0.0f)
 	{
 		// TODO: Implement
 	}
@@ -695,14 +648,14 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Index node, Point query,
 	                                                             Predicate const& predicate,
-	                                                             double epsilon = 0.0) const
+	                                                             float epsilon = 0.0f) const
 	{
 		// TODO: Implement
 	}
 
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Index node, Point query, Predicate const& predicate, double epsilon = 0.0) const
+	    Index node, Point query, Predicate const& predicate, float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(node, query, predicate, epsilon);
 	}
@@ -710,7 +663,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] query_nearest_iterator beginQueryNearest(Node node, Point query,
 	                                                       Predicate const& predicate,
-	                                                       double           epsilon = 0.0)
+	                                                       float            epsilon = 0.0f)
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -718,14 +671,14 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Node node, Point query,
 	                                                             Predicate const& predicate,
-	                                                             double epsilon = 0.0) const
+	                                                             float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Node node, Point query, Predicate const& predicate, double epsilon = 0.0) const
+	    Node node, Point query, Predicate const& predicate, float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(node, query, predicate, epsilon);
 	}
@@ -733,7 +686,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] query_nearest_iterator beginQueryNearest(Code node, Point query,
 	                                                       Predicate const& predicate,
-	                                                       double           epsilon = 0.0)
+	                                                       float            epsilon = 0.0f)
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -741,14 +694,14 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Code node, Point query,
 	                                                             Predicate const& predicate,
-	                                                             double epsilon = 0.0) const
+	                                                             float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Code node, Point query, Predicate const& predicate, double epsilon = 0.0) const
+	    Code node, Point query, Predicate const& predicate, float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(node, query, predicate, epsilon);
 	}
@@ -756,7 +709,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] query_nearest_iterator beginQueryNearest(Key node, Point query,
 	                                                       Predicate const& predicate,
-	                                                       double           epsilon = 0.0)
+	                                                       float            epsilon = 0.0f)
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -764,14 +717,14 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Key node, Point query,
 	                                                             Predicate const& predicate,
-	                                                             double epsilon = 0.0) const
+	                                                             float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Key node, Point query, Predicate const& predicate, double epsilon = 0.0) const
+	    Key node, Point query, Predicate const& predicate, float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(node, query, predicate, epsilon);
 	}
@@ -779,7 +732,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] query_nearest_iterator beginQueryNearest(Coord node, Point query,
 	                                                       Predicate const& predicate,
-	                                                       double           epsilon = 0.0)
+	                                                       float            epsilon = 0.0f)
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -787,14 +740,14 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Coord node, Point query,
 	                                                             Predicate const& predicate,
-	                                                             double epsilon = 0.0) const
+	                                                             float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(Base::index(node), query, predicate, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Coord node, Point query, Predicate const& predicate, double epsilon = 0.0) const
+	    Coord node, Point query, Predicate const& predicate, float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(node, query, predicate, epsilon);
 	}
@@ -822,32 +775,32 @@ class TreeMap
 
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Key node, Point query,
-	                                             double epsilon = 0.0) const
+	                                             float epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(node), query, epsilon);
 	}
 
-	[[nodiscard]] QueryNearest queryNearest(Coord node, Point query, double epsilon = 0.0)
+	[[nodiscard]] QueryNearest queryNearest(Coord node, Point query, float epsilon = 0.0f)
 	{
 		return queryNearest(Base::index(node), query, epsilon);
 	}
 
 	[[nodiscard]] ConstQueryNearest queryNearest(Coord node, Point query,
-	                                             double epsilon = 0.0) const
+	                                             float epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(node), query, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] QueryNearest queryNearest(Point query, Predicate const& predicate,
-	                                        double epsilon = 0.0)
+	                                        float epsilon = 0.0f)
 	{
 		return queryNearest(Base::index(), query, predicate, epsilon);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Point query, Predicate const& predicate,
-	                                             double epsilon = 0.0) const
+	                                             float epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(), query, predicate, epsilon);
 	}
@@ -855,7 +808,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] QueryNearest queryNearest(Index node, Point query,
 	                                        Predicate const& predicate,
-	                                        double           epsilon = 0.0)
+	                                        float            epsilon = 0.0f)
 	{
 		return {beginQueryNearest(node, query, predicate, epsilon), endQueryNearest()};
 	}
@@ -863,7 +816,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Index node, Point query,
 	                                             Predicate const& predicate,
-	                                             double           epsilon = 0.0) const
+	                                             float            epsilon = 0.0f) const
 	{
 		return {beginQueryNearest(node, query, predicate, epsilon), endQueryNearest()};
 	}
@@ -871,7 +824,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] QueryNearest queryNearest(Node node, Point query,
 	                                        Predicate const& predicate,
-	                                        double           epsilon = 0.0)
+	                                        float            epsilon = 0.0f)
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -879,7 +832,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Node node, Point query,
 	                                             Predicate const& predicate,
-	                                             double           epsilon = 0.0) const
+	                                             float            epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -887,7 +840,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] QueryNearest queryNearest(Code node, Point query,
 	                                        Predicate const& predicate,
-	                                        double           epsilon = 0.0)
+	                                        float            epsilon = 0.0f)
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -895,7 +848,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Code node, Point query,
 	                                             Predicate const& predicate,
-	                                             double           epsilon = 0.0) const
+	                                             float            epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -903,7 +856,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] QueryNearest queryNearest(Key node, Point query,
 	                                        Predicate const& predicate,
-	                                        double           epsilon = 0.0)
+	                                        float            epsilon = 0.0f)
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -911,7 +864,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Key node, Point query,
 	                                             Predicate const& predicate,
-	                                             double           epsilon = 0.0) const
+	                                             float            epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -919,7 +872,7 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] QueryNearest queryNearest(Coord node, Point query,
 	                                        Predicate const& predicate,
-	                                        double           epsilon = 0.0)
+	                                        float            epsilon = 0.0f)
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
@@ -927,93 +880,37 @@ class TreeMap
 	template <class Predicate>
 	[[nodiscard]] ConstQueryNearest queryNearest(Coord node, Point query,
 	                                             Predicate const& predicate,
-	                                             double           epsilon = 0.0) const
+	                                             float            epsilon = 0.0f) const
 	{
 		return queryNearest(Base::index(node), query, predicate, epsilon);
 	}
 
 	/**************************************************************************************
 	|                                                                                     |
-	|                                   Element access                                    |
+	|                                       Nearest                                       |
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] iterator_wrapper at(Index node)
-	{
-		assert(Base::valid(node));
-		auto [first, last] = iters(node);
-		return {first, last};
-	}
+	// [[nodiscard]] reference nearest(Point p, float epsilon = 0.0f)
+	// {
+	// 	return nearest(Base::index(), p, epsilon);
+	// }
 
-	[[nodiscard]] const_iterator_wrapper at(Index node) const
-	{
-		assert(Base::valid(node));
-		auto [first, last] = iters(node);
-		return {first, last};
-	}
+	// [[nodiscard]] const_reference nearest(Point p, float epsilon = 0.0f) const
+	// {
+	// 	return nearest(Base::index(), p, epsilon);
+	// }
 
-	[[nodiscard]] iterator_wrapper at(Node node)
-	{
-		auto idx   = Base::index(node);
-		auto range = at(idx);
-		if (Base::depth(idx) == Base::depth(node)) {
-			return range;
-		}
+	// [[nodiscard]] reference nearest(Index node, Point p, float epsilon = 0.0f)
+	// {
+	// 	// TODO: Implement
+	// }
 
-		auto [first, last] =
-		    std::equal_range(std::begin(range), std::end(range), Base::code(node), Comp{});
-		return {first, last};
-	}
-
-	[[nodiscard]] const_iterator_wrapper at(Node node) const
-	{
-		auto idx   = Base::index(node);
-		auto range = at(idx);
-		if (Base::depth(idx) == Base::depth(node)) {
-			return range;
-		}
-
-		auto [first, last] =
-		    std::equal_range(std::begin(range), std::end(range), Base::code(node), Comp{});
-		return {first, last};
-	}
-
-	[[nodiscard]] iterator_wrapper at(Code node)
-	{
-		auto idx   = Base::index(node);
-		auto range = at(idx);
-		if (Base::depth(idx) == Base::depth(node)) {
-			return range;
-		}
-
-		auto [first, last] =
-		    std::equal_range(std::begin(range), std::end(range), node, Comp{});
-		return {first, last};
-	}
-
-	[[nodiscard]] const_iterator_wrapper at(Code node) const
-	{
-		auto idx   = Base::index(node);
-		auto range = at(idx);
-		if (Base::depth(idx) == Base::depth(node)) {
-			return range;
-		}
-
-		auto [first, last] =
-		    std::equal_range(std::begin(range), std::end(range), node, Comp{});
-		return {first, last};
-	}
-
-	[[nodiscard]] iterator_wrapper at(Key node) { return at(Base::code(node)); }
-
-	[[nodiscard]] const_iterator_wrapper at(Key node) const { return at(Base::code(node)); }
-
-	[[nodiscard]] iterator_wrapper at(Coord node) { return at(Base::code(node)); }
-
-	[[nodiscard]] const_iterator_wrapper at(Coord node) const
-	{
-		return at(Base::code(node));
-	}
+	// [[nodiscard]] const_reference nearest(Index node, Point p, float epsilon = 0.0f)
+	// const
+	// {
+	// 	// TODO: Implement
+	// }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -1021,9 +918,8 @@ class TreeMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] bool      empty() const noexcept { return val_.empty(); }
-	[[nodiscard]] size_type size() const noexcept { return val_.size(); }
-	[[nodiscard]] size_type max_size() const noexcept { return val_.max_size(); }
+	[[nodiscard]] bool      empty() const noexcept { return 0 == size(); }
+	[[nodiscard]] size_type size() const noexcept { return size_; }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -1032,30 +928,38 @@ class TreeMap
 	**************************************************************************************/
 
 	template <class... Args>
-	iterator emplace(key_type const& key, Args&&... args)
+	iterator emplace(Point p, Args&&... args)
 	{
+		assert(Base::isInside(p));
+
+		auto node  = Base::create(p);
+		auto block = Base::treeBlock(node);
+		block.value[node.offset].push_back({p, std::forward<Args>(args)...});
+
 		// TODO: Implement
 	}
 
-	iterator insert(key_type const& key, mapped_type const& value)
+	iterator insert(Point p, T const& value)
 	{
-		assert(Base::isInside(key));
+		assert(Base::isInside(p));
 
-		auto node  = Base::index();
-		auto depth = Base::depth();
-		auto code  = Base::code(key);
+		auto node  = Base::create(p);
+		auto block = Base::treeBlock(node);
+		block.value[node.offset].emplace_back(p, value);
 
-		
 		// TODO: Implement
 	}
 
-	iterator insert(value_type const& value)
-	{
-		return insert(value.key, value.mapped, depth);
-	}
+	iterator insert(value_type const& value) { return insert(value.first, value.second); }
 
 	iterator insert(value_type&& value)
 	{
+		assert(Base::isInside(value.first));
+
+		auto node  = Base::create(value.first);
+		auto block = Base::treeBlock(node);
+		block.value[node.offset].push_back(std::move(value));
+
 		// TODO: Implement
 	}
 
@@ -1067,7 +971,7 @@ class TreeMap
 
 	void insert(std::initializer_list<value_type> ilist)
 	{
-		insert(std::begin(ilist), std::end(ilist), depth);
+		insert(std::begin(ilist), std::end(ilist));
 	}
 
 	/*!
@@ -1306,8 +1210,7 @@ class TreeMap
 	}
 
  private:
-	// Values
-	ValueContainer val_;
+	size_type size_ = 0;
 };
 }  // namespace ufo
 
