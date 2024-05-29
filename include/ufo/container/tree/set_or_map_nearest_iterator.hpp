@@ -46,8 +46,10 @@
 #include <ufo/container/tree/map_nearest.hpp>
 #include <ufo/container/tree/set_nearest.hpp>
 #include <ufo/container/tree/set_or_map_nearest.hpp>
+#include <ufo/utility/macros.hpp>
 
 // STL
+#include <cmath>
 #include <iterator>
 #include <queue>
 #include <type_traits>
@@ -59,7 +61,7 @@ template <class TreeSetOrMap>
 class TreeSetOrMapNearestIterator
 {
 	template <class TreeSetOrMap2>
-	friend class TreeSetOrMapIterator;
+	friend class TreeSetOrMapNearestIterator;
 
 	friend TreeSetOrMap;
 
@@ -71,7 +73,9 @@ class TreeSetOrMapNearestIterator
 
 	static constexpr auto const BF = TreeSetOrMap::branchingFactor();
 
-	using RawIterator = typename TreeSetOrMap::raw_iterator;
+	using RawIterator =
+	    std::conditional_t<IsConst, typename TreeSetOrMap::const_raw_iterator,
+	                       typename TreeSetOrMap::raw_iterator>;
 
  public:
 	//
@@ -99,9 +103,17 @@ class TreeSetOrMapNearestIterator
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
 	    , cur_(other.cur_)
-	    , inner_queue_(other.inner_queue_)
-	    , value_queue_(other.value_queue_)
 	{
+		auto inner_q = other.inner_queue_;
+		while (!inner_q.empty()) {
+			inner_queue_.emplace(inner_q.top().node, inner_q.top().distance);
+			inner_q.pop();
+		}
+		auto value_q = other.value_queue_;
+		while (!value_q.empty()) {
+			value_queue_.emplace(value_q.top().node, value_q.top().it, value_q.top().distance);
+			value_q.pop();
+		}
 	}
 
 	TreeSetOrMapNearestIterator(TreeSetOrMap* t, Index node, Point query,
@@ -113,23 +125,24 @@ class TreeSetOrMapNearestIterator
 			inner_queue_.emplace(node, 0.0f);
 			next();
 		} else if (t_->isPureLeaf(node) && !t_->empty(node)) {
-			for (auto& v : t_->values(node)) {
+			auto& v = t_->values(node);
+			for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
 				Point p;
 				if constexpr (IsPair) {
-					p = v.first;
+					p = it->first;
 				} else {
-					p = v;
+					p = *it;
 				}
 
 				for (int i{}; Point::size() > i; ++i) {
 					p[i] -= query_[i];
 					p[i] *= p[i];
 				}
-				float dist_sq;
-				for (int i{}; Point::size() > i; ++i) {
+				float dist_sq = p[0];
+				for (int i = 1; Point::size() > i; ++i) {
 					dist_sq += p[i];
 				}
-				value_queue_.emplace(v, dist_sq);
+				value_queue_.emplace(node, it, dist_sq);
 			}
 			cur_ = value_queue_.top();
 		}
@@ -153,12 +166,25 @@ class TreeSetOrMapNearestIterator
 	TreeSetOrMapNearestIterator& operator=(
 	    TreeSetOrMapNearestIterator<TreeSetOrMap2> const& rhs)
 	{
-		t_           = rhs.t_;
-		query_       = rhs.query_;
-		epsilon_sq_  = rhs.epsilon_sq_;
-		cur_         = rhs.cur_;
-		inner_queue_ = rhs.inner_queue_;
-		value_queue_ = rhs.value_queue_;
+		t_          = rhs.t_;
+		query_      = rhs.query_;
+		epsilon_sq_ = rhs.epsilon_sq_;
+		cur_        = rhs.cur_;
+
+		inner_queue_ = {};
+		value_queue_ = {};
+
+		auto inner_q = rhs.inner_queue_;
+		while (!inner_q.empty()) {
+			inner_queue_.emplace(inner_q.top().node, inner_q.top().distance);
+			inner_q.pop();
+		}
+		auto value_q = rhs.value_queue_;
+		while (!value_q.empty()) {
+			value_queue_.emplace(value_q.top().node, value_q.top().it, value_q.top().distance);
+			value_q.pop();
+		}
+
 		return *this;
 	}
 
@@ -181,8 +207,11 @@ class TreeSetOrMapNearestIterator
 
 	bool operator==(TreeSetOrMapNearestIterator const& rhs) const
 	{
-		return (value_queue_.empty() == rhs.value_queue_.empty()) ||
-		       (!value_queue_.empty() && value_queue_.top().it == rhs.value_queue_.top().it);
+		if (value_queue_.empty() && rhs.value_queue_.empty()) {
+			return true;
+		}
+		return value_queue_.empty() == rhs.value_queue_.empty() &&
+		       value_queue_.top().it == rhs.value_queue_.top().it;
 	}
 
 	template <class TreeSetOrMap2,
@@ -191,8 +220,11 @@ class TreeSetOrMapNearestIterator
 	              bool> = true>
 	bool operator==(TreeSetOrMapNearestIterator<TreeSetOrMap2> const& rhs) const
 	{
-		return (value_queue_.empty() == rhs.value_queue_.empty()) ||
-		       (!value_queue_.empty() && value_queue_.top().it == rhs.value_queue_.top().it);
+		if (value_queue_.empty() && rhs.value_queue_.empty()) {
+			return true;
+		}
+		return !value_queue_.empty() && !rhs.value_queue_.empty() &&
+		       value_queue_.top().it == rhs.value_queue_.top().it;
 	}
 
 	bool operator!=(TreeSetOrMapNearestIterator const& rhs) const
@@ -218,13 +250,21 @@ class TreeSetOrMapNearestIterator
 	        bool> = true>
 	TreeSetOrMapNearestIterator(TreeSetOrMap*                                     t,
 	                            TreeSetOrMapNearestIterator<TreeSetOrMap2> const& other)
-	    : t_(t)
-	    , query_(other.query_)
-	    , epsilon_sq_(other.epsilon_sq_)
-	    , cur_(other.cur_)
-	    , inner_queue_(other.inner_queue_)
-	    , value_queue_(other.value_queue_)
+	    : t_(t), query_(other.query_), epsilon_sq_(other.epsilon_sq_), cur_(other.cur_)
 	{
+		auto inner_q = other.inner_queue_;
+		while (!inner_q.empty()) {
+			inner_queue_.emplace(inner_q.top().node, inner_q.top().distance);
+			inner_q.pop();
+		}
+		auto value_q = other.value_queue_;
+		while (!value_q.empty()) {
+			// To remove const from other's iterators
+			auto        const_it = value_q.top().it;
+			RawIterator it       = t_->values(value_q.top().node).erase(const_it, const_it);
+			value_queue_.emplace(value_q.top().node, it, value_q.top().distance);
+			value_q.pop();
+		}
 	}
 
 	template <
@@ -247,47 +287,66 @@ class TreeSetOrMapNearestIterator
 
 		// Skip forward to next valid return node
 		while (!inner_queue_.empty() &&
-		       (!value_queue_.empty() ||
-		        value_queue_.top().distance > inner_queue_.top().distance)) {
-			auto children = TreeSetOrMap::children(inner_queue_.top().block);
+		       (value_queue_.empty() || value_queue_.top() > inner_queue_.top())) {
+			auto children = t_->children(inner_queue_.top().node);
+
+			inner_queue_.pop();
 
 			for (int i = 0; TreeSetOrMap::branchingFactor() > i; ++i) {
-				// Index node(children, i);
+				Index node(children, i);
 
-				// if (TreeSetOrMap::validReturn(node, predicate_)) {
-				// 	auto [first, last] = TreeSetOrMap::iters(node);
-				// 	for (; last != first; ++first) {
-				// 		Point p;
-				// 		if constexpr (IsPair) {
-				// 			p = first->first;
-				// 		} else {
-				// 			p = *first;
-				// 		}
-				// 		if (TreeSetOrMap::validReturn(node, p, predicate_)) {
-				// 			float dist_sq = squaredDistance(query_, p);
-				// 			value_queue_.emplace(*first, dist_sq);
-				// 		}
-				// 	}
-				// } else if (TreeSetOrMap::validInner(node, predicate_)) {
-				// 	// TODO: Implement
-				// 	float dist_sq = squaredDistance(query_, ...) + epsilon_sq_;
-				// 	inner_queue_.emplace(node, dist_sq);
-				// }
+				if (t_->isParent(node)) {
+					auto  min = t_->boundsMin(node);
+					auto  max = t_->boundsMax(node);
+					Point p;
+					for (int i{}; Point::size() > i; ++i) {
+						p[i] = UFO_CLAMP(query_[i], min[i], max[i]);
+					}
+					for (int i{}; Point::size() > i; ++i) {
+						p[i] -= query_[i];
+						p[i] *= p[i];
+					}
+					float dist_sq = p[0];
+					for (int i = 1; Point::size() > i; ++i) {
+						dist_sq += p[i];
+					}
+					inner_queue_.emplace(node, dist_sq + epsilon_sq_);
+				} else if (t_->isPureLeaf(node) && !t_->empty(node)) {
+					auto& v = t_->values(node);
+					for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
+						Point p;
+						if constexpr (IsPair) {
+							p = it->first;
+						} else {
+							p = *it;
+						}
+
+						for (int i{}; Point::size() > i; ++i) {
+							p[i] -= query_[i];
+							p[i] *= p[i];
+						}
+						float dist_sq = p[0];
+						for (int i = 1; Point::size() > i; ++i) {
+							dist_sq += p[i];
+						}
+						value_queue_.emplace(node, it, dist_sq);
+					}
+				}
 			}
 		}
 
 		if (!value_queue_.empty()) {
-			// auto value     = value_queue_.top();
-			// value.distance = std::sqrt(value.distance);
-			// return value;
+			cur_ = value_queue_.top();
 		} else {
-			// return {{}, std::numeric_limits<float>::quiet_NaN()};
+			cur_ = {};
 		}
 	}
 
 	[[nodiscard]] RawIterator iterator() const { return value_queue_.top().it; }
 
  private:
+	struct Value;
+
 	struct Inner {
 		Index node;
 		float distance;
@@ -295,15 +354,29 @@ class TreeSetOrMapNearestIterator
 		Inner(Index node, float distance) : node(node), distance(distance) {}
 
 		bool operator>(Inner rhs) const noexcept { return distance > rhs.distance; }
+
+		bool operator<(Value rhs) const noexcept { return distance < rhs.distance; }
+
+		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
 	};
 
 	struct Value {
+		Index       node;
 		RawIterator it;
 		float       distance;
 
-		Value(RawIterator it, float distance) : it(it), distance(distance) {}
+		Value(Index node, RawIterator it, float distance)
+		    : node(node), it(it), distance(distance)
+		{
+		}
+
+		operator value_type() const { return {*it, std::sqrt(distance)}; }
 
 		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
+
+		bool operator<(Inner rhs) const noexcept { return distance < rhs.distance; }
+
+		bool operator>(Inner rhs) const noexcept { return distance > rhs.distance; }
 	};
 
 	TreeSetOrMap* t_;
@@ -311,7 +384,7 @@ class TreeSetOrMapNearestIterator
 	Point query_;
 	float epsilon_sq_;
 
-	value_type cur_;
+	mutable value_type cur_;
 
 	std::priority_queue<Inner, std::vector<Inner>, std::greater<Inner>> inner_queue_;
 	std::priority_queue<Value, std::vector<Value>, std::greater<Value>> value_queue_;

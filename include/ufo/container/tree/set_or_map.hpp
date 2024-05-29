@@ -519,12 +519,28 @@ class TreeSetOrMap
 		insert(std::begin(range), std::end(range));
 	}
 
+	iterator erase(iterator pos)
+	{
+		auto it = pos.iterator();
+		++pos;
+		erase(it);
+		return pos;
+	}
+
 	iterator erase(const_iterator pos)
 	{
 		auto it = pos.iterator();
 		++pos;
 		erase(it);
 		return {this, pos};
+	}
+
+	query_iterator erase(query_iterator pos)
+	{
+		auto it = pos.iterator();
+		++pos;
+		erase(it);
+		return pos;
 	}
 
 	query_iterator erase(const_query_iterator pos)
@@ -535,6 +551,14 @@ class TreeSetOrMap
 		return {this, pos};
 	}
 
+	nearest_iterator erase(nearest_iterator pos)
+	{
+		auto it = pos.iterator();
+		++pos;
+		erase(it);
+		return pos;
+	}
+
 	nearest_iterator erase(const_nearest_iterator pos)
 	{
 		auto it = pos.iterator();
@@ -543,10 +567,31 @@ class TreeSetOrMap
 		return {this, pos};
 	}
 
+	// query_nearest_iterator erase(query_nearest_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return pos;
+	// }
+
 	// query_nearest_iterator erase(const_query_nearest_iterator pos)
 	// {
-	// 	// TODO: Implement
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return {this, pos};
 	// }
+
+	iterator erase(iterator first, iterator last)
+	{
+		while (last != first) {
+			auto it = first.iterator();
+			++first;
+			erase(it);
+		}
+		return first;
+	}
 
 	iterator erase(const_iterator first, const_iterator last)
 	{
@@ -556,6 +601,16 @@ class TreeSetOrMap
 			erase(it);
 		}
 		return {this, first};
+	}
+
+	query_iterator erase(query_iterator first, query_iterator last)
+	{
+		while (last != first) {
+			auto it = first.iterator();
+			++first;
+			erase(it);
+		}
+		return first;
 	}
 
 	query_iterator erase(const_query_iterator first, const_query_iterator last)
@@ -568,6 +623,16 @@ class TreeSetOrMap
 		return {this, first};
 	}
 
+	nearest_iterator erase(nearest_iterator first, nearest_iterator last)
+	{
+		while (last != first) {
+			auto it = first.iterator();
+			++first;
+			erase(it);
+		}
+		return first;
+	}
+
 	nearest_iterator erase(const_nearest_iterator first, const_nearest_iterator last)
 	{
 		while (last != first) {
@@ -578,10 +643,26 @@ class TreeSetOrMap
 		return {this, first};
 	}
 
+	// query_nearest_iterator erase(query_nearest_iterator first, query_nearest_iterator
+	// last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return first;
+	// }
+
 	// query_nearest_iterator erase(const_query_nearest_iterator first,
 	//                              const_query_nearest_iterator last)
 	// {
-	// 	// TODO: Implement
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return {this, first};
 	// }
 
 	size_type erase(Point point)

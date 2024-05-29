@@ -68,4 +68,27 @@ TEST_CASE("Octree Set")
 	for (auto x : set) {
 		std::cout << x << std::endl;
 	}
+
+	set.insert({0, 0, 35});
+	set.insert({{100, -234, 40}, {-102.3, 200, 33}});
+	set.insert(ufo::Vec3f(1, 0, 5));
+
+	std::cout << "After 4" << std::endl;
+	for (auto x : set) {
+		std::cout << x << std::endl;
+	}
+
+	std::cout << "After 5" << std::endl;
+	for (auto [p, d] : set.nearest({0, 0, 0})) {
+		std::cout << p << " with distance: " << d << std::endl;
+	}
+
+	auto nearest_it = set.beginNearest({0, 0, 0});
+
+	set.erase(nearest_it, std::next(nearest_it, 2));
+
+	std::cout << "After 6" << std::endl;
+	for (auto x : set) {
+		std::cout << x << std::endl;
+	}
 }
