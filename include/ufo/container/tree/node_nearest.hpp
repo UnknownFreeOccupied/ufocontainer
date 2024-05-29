@@ -39,25 +39,71 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_OCTREE_TREE_TYPES_HPP
-#define UFO_CONTAINER_OCTREE_TREE_TYPES_HPP
+#ifndef UFO_CONTAINER_TREE_NODE_NEAREST_HPP
+#define UFO_CONTAINER_TREE_NODE_NEAREST_HPP
 
 // UFO
-#include <ufo/container/octree/octree_code.hpp>
-#include <ufo/container/octree/octree_key.hpp>
-#include <ufo/container/tree/tree_types.hpp>
-#include <ufo/geometry/aabc.hpp>
-#include <ufo/math/vec3.hpp>
+#include <ufo/container/tree/node.hpp>
+
+// STL
+#include <functional>
 
 namespace ufo
 {
-template <>
-struct TreeTypes<TreeType::OCT> {
-	using Code   = OctCode;
-	using Key    = OctKey;
-	using Point  = Vec3f;
-	using Bounds = AABC;
+template <class Code>
+struct TreeNodeNearest : public TreeNode<Code> {
+	float distance;
+
+	constexpr TreeNodeNearest(TreeNode<Code> const& node, float distance = 0.0f)
+	    : TreeNode<Code>(node), distance(distance)
+	{
+	}
+
+	[[nodiscard]] friend constexpr bool operator==(TreeNodeNearest const& a,
+	                                               TreeNodeNearest const& b)
+	{
+		return a.distance == b.distance &&
+		       static_cast<TreeNode<Code> const&>(a) == static_cast<TreeNode<Code> const&>(b);
+	}
+
+	[[nodiscard]] friend constexpr bool operator!=(TreeNodeNearest const& a,
+	                                               TreeNodeNearest const& b)
+	{
+		return !(a == b);
+	}
+
+	[[nodiscard]] friend constexpr bool operator<(TreeNodeNearest const& a,
+	                                              TreeNodeNearest const& b)
+	{
+		return a.distance < b.distance;
+	}
+
+	[[nodiscard]] friend constexpr bool operator<=(TreeNodeNearest const& a,
+	                                               TreeNodeNearest const& b)
+	{
+		return a.distance <= b.distance;
+	}
+
+	[[nodiscard]] friend constexpr bool operator>(TreeNodeNearest const& a,
+	                                              TreeNodeNearest const& b)
+	{
+		return a.distance > b.distance;
+	}
+
+	[[nodiscard]] friend constexpr bool operator>=(TreeNodeNearest const& a,
+	                                               TreeNodeNearest const& b)
+	{
+		return a.distance >= b.distance;
+	}
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_OCTREE_TREE_TYPES_HPP
+template <class Code>
+struct std::hash<ufo::TreeNodeNearest<Code>> {
+	std::size_t operator()(ufo::TreeNodeNearest<Code> const& node) const
+	{
+		return hash<Code>()(node.code());
+	}
+};
+
+#endif  // UFO_CONTAINER_TREE_NODE_NEAREST_HPP

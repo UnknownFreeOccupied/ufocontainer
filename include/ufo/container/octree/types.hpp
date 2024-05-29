@@ -39,60 +39,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_MAP_BLOCK_HPP
-#define UFO_CONTAINER_TREE_MAP_BLOCK_HPP
+#ifndef UFO_CONTAINER_OCTREE_TREE_TYPES_HPP
+#define UFO_CONTAINER_OCTREE_TREE_TYPES_HPP
 
 // UFO
-#include <ufo/container/tree/tree_index.hpp>
-#include <ufo/container/tree/tree_map_value.hpp>
-#include <ufo/container/tree/tree_type.hpp>
-#include <ufo/container/tree/tree_types.hpp>
-#include <ufo/utility/create_array.hpp>
-
-// STL
-#include <array>
-#include <cstddef>
-#include <utility>
-#include <vector>
+#include <ufo/container/octree/code.hpp>
+#include <ufo/container/octree/key.hpp>
+#include <ufo/container/tree/types.hpp>
+#include <ufo/geometry/aabb.hpp>
+#include <ufo/geometry/aabc.hpp>
+#include <ufo/math/vec3.hpp>
 
 namespace ufo
 {
-template <class T, TreeType TT>
-struct TreeMapBlock {
-	using Code                     = typename TreeTypes<TT>::Code;
-	using Point                    = typename TreeTypes<TT>::Point;
-	static constexpr auto const BF = branchingFactor(TT);
-
-	Code                             parent_code;
-	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
-
-	// TODO: Make into union
-	std::array<Point, BF>                                  min;
-	std::array<Point, BF>                                  max;
-	std::array<std::vector<std::pair<Point const, T>>, BF> value;
-
-	constexpr TreeMapBlock() = default;
-
-	constexpr TreeMapBlock(TreeMapBlock const& parent, std::size_t offset)
-	    : parent_code(parent.parent_code.child(offset))
-	{
-		fillValue(parent, offset);
-	}
-
-	constexpr void fill(TreeMapBlock const& parent, std::size_t offset)
-	{
-		this->parent_code = parent.parent_code.child(offset);
-	}
-
-	/*!
-	 * @return The depth of the block.
-	 */
-	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(parent_code.depth()))
-	{
-		// One less than the parent
-		return parent_code.depth() - 1;
-	}
+template <>
+struct TreeTypes<TreeType::OCT> {
+	using Code   = OctCode;
+	using Key    = OctKey;
+	using Point  = Vec3f;
+	using Bounds = AABC;
+	// TODO: What to call this?
+	using Bounds2 = AABB;
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_MAP_BLOCK_HPP
+#endif  // UFO_CONTAINER_OCTREE_TREE_TYPES_HPP

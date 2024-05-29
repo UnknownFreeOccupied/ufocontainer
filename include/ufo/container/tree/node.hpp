@@ -43,7 +43,7 @@
 #define UFO_CONTAINER_TREE_NODE_HPP
 
 // UFO
-#include <ufo/container/tree/tree_index.hpp>
+#include <ufo/container/tree/index.hpp>
 
 // STL
 #include <functional>

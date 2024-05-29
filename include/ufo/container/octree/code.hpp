@@ -43,7 +43,8 @@
 #define UFO_CONTAINER_OCTREE_CODE_HPP
 
 // UFO
-#include <ufo/container/octree/octree_key.hpp>
+#include <ufo/container/octree/key.hpp>
+#include <ufo/container/tree/type.hpp>
 #include <ufo/utility/morton.hpp>
 
 // STL
@@ -150,6 +151,11 @@ class OctCode
 
 	[[nodiscard]] static constexpr std::size_t size() noexcept { return 3; }
 
+	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept
+	{
+		return ufo::branchingFactor(TreeType::OCT);
+	}
+
 	[[nodiscard]] constexpr bool valid() const noexcept { return maxDepth() >= depth_; }
 
 	[[nodiscard]] static constexpr bool equalAtDepth(OctCode lhs, OctCode rhs,
@@ -190,7 +196,7 @@ class OctCode
 
 	[[nodiscard]] constexpr key_t key(std::size_t idx) const
 	{
-		assert(size() > idx);
+		assert(branchingFactor() > idx);
 		return mortonCompact3(code_ >> idx);
 	}
 
@@ -217,7 +223,7 @@ class OctCode
 	[[nodiscard]] constexpr OctCode child(std::size_t idx) const
 	{
 		assert(0 < depth_);
-		assert(size() > idx);
+		assert(branchingFactor() > idx);
 		depth_t depth = depth_ - 1;
 		return OctCode(code_ | (static_cast<code_t>(idx) << (3 * depth)), depth);
 	}
@@ -231,7 +237,7 @@ class OctCode
 	[[nodiscard]] inline OctCode sibling(std::size_t idx) const
 	{
 		assert(maxDepth() > depth_);
-		assert(size() > idx);
+		assert(branchingFactor() > idx);
 		return OctCode(((code_ >> (3 * depth_)) << (3 * depth_)) |
 		                   (static_cast<code_t>(idx) << (3 * depth_)),
 		               depth_);

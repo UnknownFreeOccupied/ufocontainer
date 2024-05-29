@@ -44,11 +44,11 @@
 
 // UFO
 #include <ufo/container/octree/octree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree/set.hpp>
 
 namespace ufo
 {
-using OctreeSet = TreeMap<Octree>;
+using OctreeSet = TreeSet<Octree>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_OCTREE_SET_HPP

@@ -43,17 +43,17 @@
 #define UFO_CONTAINER_TREE_TREE_HPP
 
 // UFO
-#include <ufo/container/tree/tree_bounds.hpp>
-#include <ufo/container/tree/tree_container.hpp>
-#include <ufo/container/tree/tree_coord.hpp>
-// #include <ufo/container/tree/tree_file_header.hpp>
-#include <ufo/container/tree/tree_index.hpp>
-#include <ufo/container/tree/tree_iterator.hpp>
-#include <ufo/container/tree/tree_node.hpp>
-#include <ufo/container/tree/tree_node_nearest.hpp>
-#include <ufo/container/tree/tree_predicate.hpp>
-#include <ufo/container/tree/tree_type.hpp>
-#include <ufo/container/tree/tree_types.hpp>
+#include <ufo/container/tree/bounds.hpp>
+#include <ufo/container/tree/container.hpp>
+#include <ufo/container/tree/coord.hpp>
+// #include <ufo/container/tree/file_header.hpp>
+#include <ufo/container/tree/index.hpp>
+#include <ufo/container/tree/iterator.hpp>
+#include <ufo/container/tree/node.hpp>
+#include <ufo/container/tree/node_nearest.hpp>
+#include <ufo/container/tree/predicate.hpp>
+#include <ufo/container/tree/type.hpp>
+#include <ufo/container/tree/types.hpp>
 #include <ufo/math/util.hpp>
 #include <ufo/utility/bit_set.hpp>
 #include <ufo/utility/compression.hpp>
@@ -111,6 +111,8 @@ class Tree
 	using Key    = typename TreeTypes<TT>::Key;
 	using Point  = typename TreeTypes<TT>::Point;
 	using Bounds = typename TreeTypes<TT>::Bounds;
+	// TODO: What to call this?
+	using Bounds2 = typename TreeTypes<TT>::Bounds2;
 
 	using Index       = TreeIndex;
 	using Node        = TreeNode<Code>;
@@ -168,7 +170,7 @@ class Tree
 		free_blocks_.clear();
 		// Create root
 		blocks_.emplace_back(code().parent());
-		derived().clear();
+		derived().derivedClear();
 	}
 
 	//
@@ -1098,7 +1100,8 @@ class Tree
 			           static_cast<std::make_signed_t<key_t>>(std::floor(node[i] * lr))) +
 			       half_max_value_;
 		}
-		k.depth = depth(node);
+		// TODO: Change when fixed
+		k.depth_ = depth(node);
 		return k;
 	}
 
@@ -1242,6 +1245,16 @@ class Tree
 	//
 	// Pure leaf
 	//
+
+	/*!
+	 * @brief Checks if the block is pure leaf (i.e., can never have children).
+	 *
+	 * @note Only have to check if the depth of the block is 0.
+	 *
+	 * @param block the block to check
+	 * @return `true` if the block is pure leaf, `false` otherwise.
+	 */
+	[[nodiscard]] bool isPureLeaf(pos_t block) const { return 0 == depth(block); }
 
 	/*!
 	 * @brief Checks if the node is a pure leaf (i.e., can never have children).
@@ -1448,21 +1461,51 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
+	/*!
+	 * @brief Checks if a block is valid.
+	 *
+	 * @param block the block to check
+	 * @return `true` if the block is valid, `false` otherwise.
+	 */
 	[[nodiscard]] bool valid(pos_t block) const { return blocks_.size() > block; }
 
+	/*!
+	 * @brief Checks if an index is valid.
+	 *
+	 * @param index the index to check
+	 * @return `true` if the index is valid, `false` otherwise.
+	 */
 	[[nodiscard]] bool valid(Index index) const
 	{
 		return valid(index.pos) && branchingFactor() > index.offset &&
 		       blocks_[index.pos].parent_code.valid();
 	}
 
+	/*!
+	 * @brief Checks if a node is valid.
+	 *
+	 * @param node the node to check
+	 * @return `true` if the node is valid, `false` otherwise.
+	 */
 	[[nodiscard]] bool valid(Node node) const { return valid(code(node)); }
 
+	/*!
+	 * @brief Checks if a code is valid.
+	 *
+	 * @param code the code to check
+	 * @return `true` if the code is valid, `false` otherwise.
+	 */
 	[[nodiscard]] bool valid(Code code) const
 	{
 		return code.valid() && numDepthLevels() > depth(code);
 	}
 
+	/*!
+	 * @brief Checks if a key is valid.
+	 *
+	 * @param key the key to check
+	 * @return `true` if the key is valid, `false` otherwise.
+	 */
 	[[nodiscard]] bool valid(Key key) const
 	{
 		// FIXME: This should be checked inside `key.valid()`
@@ -1476,6 +1519,12 @@ class Tree
 		return key.valid() && numDepthLevels() > depth(key);
 	}
 
+	/*!
+	 * @brief Checks if a coordinate is valid.
+	 *
+	 * @param coord the coordinate to check
+	 * @return `true` if the coordinate is valid, `false` otherwise.
+	 */
 	[[nodiscard]] bool valid(Coord coord) const
 	{
 		return isInside(coord) && numDepthLevels() > depth(coord);
@@ -1534,7 +1583,7 @@ class Tree
 	[[nodiscard]] pos_t children(Index node) const
 	{
 		assert(valid(node));
-		assert(isParent(node));
+		// assert(isParent(node));
 		return children(node.pos)[node.offset];
 	}
 
@@ -1542,7 +1591,7 @@ class Tree
 	{
 		assert(valid(node));
 		assert(branchingFactor() > child_index);
-		assert(isParent(node));
+		// assert(isParent(node));
 		return {children(node), child_index};
 	}
 
@@ -1557,18 +1606,21 @@ class Tree
 	{
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
+		auto tmp = index(node);
 		return Node(node.code().child(child_index),
-		            isParent(node) ? child(node.index(), child_index) : node.index());
+		            isParent(tmp) ? child(tmp, child_index) : tmp);
 	}
 
 	[[nodiscard]] Code child(Code node, offset_t child_index) const
 	{
-		// TODO: Implement
+		assert(branchingFactor() > child_index);
+		return node.child(child_index);
 	}
 
 	[[nodiscard]] Key child(Key node, offset_t child_index) const
 	{
-		// TODO: Implement
+		assert(branchingFactor() > child_index);
+		return node.child(child_index);
 	}
 
 	[[nodiscard]] Coord child(Coord node, offset_t child_index) const
@@ -1629,19 +1681,23 @@ class Tree
 	 */
 	[[nodiscard]] Node sibling(Node node, offset_t sibling_index) const
 	{
+		// TODO: Look at
 		assert(branchingFactor() > sibling_index);
+		auto tmp = index(node);
 		return Node(node.code().sibling(sibling_index),
 		            exists(node) ? node.index().sibling(sibling_index) : node.index());
 	}
 
 	[[nodiscard]] Code sibling(Code node, offset_t sibling_index) const
 	{
-		// TODO: Implement
+		assert(branchingFactor() > sibling_index);
+		return node.sibling(sibling_index);
 	}
 
 	[[nodiscard]] Key sibling(Key node, offset_t sibling_index) const
 	{
-		// TODO: Implement
+		assert(branchingFactor() > sibling_index);
+		return node.sibling(sibling_index);
 	}
 
 	[[nodiscard]] Coord sibling(Coord node, offset_t sibling_index) const
@@ -1659,7 +1715,8 @@ class Tree
 	[[nodiscard]] Node siblingUnsafe(Node node, offset_t sibling_index) const
 	{
 		assert(branchingFactor() > sibling_index);
-		return Node(node.code().sibling(sibling_index), node.index().sibling(sibling_index));
+		return Node(sibling(node.code(), sibling_index),
+		            sibling(node.index(), sibling_index));
 	}
 
 	/*!
@@ -1978,14 +2035,15 @@ class Tree
 	}
 
 	/*!
-	 * @brief Depth first traversal of the tree, starting at the node corresponding to the
-	 * coordinate at a specified depth. The function 'f' will be called for each node
+	 * @brief Depth first traversal of the tree.
+	 *
+	 * Depth first traversal of the tree, starting at the node corresponding to the
+	 * coordinate. The function 'f' will be called for each node
 	 * traverse. If 'f' returns true then the children of the node will also be traverse,
 	 * otherwise they will not.
 	 *
-	 * @param coord The coord to the node where to start the traversal.
+	 * @param node The node where to start the traversal.
 	 * @param f The callback function to be called for each node traversed.
-	 * @param depth The depth of the node.
 	 */
 	template <
 	    class Geometry, class UnaryFun,
@@ -2456,9 +2514,10 @@ class Tree
 			    "'leaf_node_length' has to be finite and greater than zero, '" +
 			    std::to_string(leaf_node_length) + "' was supplied.");
 		}
-		if (!std::isfinite(std::ldexp(leaf_node_length, num_depth_levels - 1))) {
+		if (!std::isnormal(std::ldexp(leaf_node_length, num_depth_levels - 1))) {
 			throw std::invalid_argument(
-			    "'leaf_node_length * 2^(num_depth_levels - 1)' has to be finite, '" +
+			    "'leaf_node_length * 2^(num_depth_levels - 1)' has to be finite and greater "
+			    "than zero, '" +
 			    std::to_string(std::ldexp(leaf_node_length, num_depth_levels - 1)) +
 			    "' was supplied.");
 		}
@@ -2998,7 +3057,7 @@ class Tree
 		pos_t block                                 = static_cast<pos_t>(blocks_.size());
 		blocks_[parent.pos].children[parent.offset] = block;
 		blocks_.emplace_back(blocks_[parent.pos], parent.offset);
-		derived().createBlock(parent);
+		derived().derivedCreateBlock(parent);
 		return block;
 	}
 
@@ -3006,12 +3065,12 @@ class Tree
 	{
 		blocks_[parent.pos].children[parent.offset] = block;
 		blocks_[block].fill(blocks_[parent.pos], parent.offset);
-		derived().fillBlock(parent, block);
+		derived().derivedFillBlock(parent, block);
 	}
 
 	void pruneBlock(Index parent, pos_t block)
 	{
-		derived().pruneBlock(parent, block);
+		derived().derivedPruneBlock(parent, block);
 		// NOTE: Important that derived is pruned first in case they use parent code
 		blocks_[block] = Block();
 	}

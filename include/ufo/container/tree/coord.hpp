@@ -39,69 +39,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_INDEX_HPP
-#define UFO_CONTAINER_TREE_INDEX_HPP
-
-// UFO
-#include <ufo/utility/bit_set.hpp>
-
-// STL
-#include <algorithm>
-#include <functional>
-#include <limits>
-#include <ostream>
+#ifndef UFO_CONTAINER_TREE_COORD_HPP
+#define UFO_CONTAINER_TREE_COORD_HPP
 
 namespace ufo
 {
-struct TreeIndex {
-	using pos_t    = std::uint32_t;
-	using offset_t = std::uint32_t;
+template <class Point, class depth_t>
+struct TreeCoord : public Point {
+	depth_t depth{};
 
-	static constexpr pos_t const NULL_POS = std::numeric_limits<pos_t>::max();
+	constexpr TreeCoord() = default;
 
-	pos_t    pos{NULL_POS};
-	offset_t offset{0};
+	constexpr TreeCoord(Point coord) : Point(coord) {}
 
-	constexpr TreeIndex() noexcept = default;
-
-	constexpr TreeIndex(pos_t pos, offset_t offset) noexcept : pos(pos), offset(offset) {}
-
-	friend void swap(TreeIndex& lhs, TreeIndex& rhs) noexcept
-	{
-		std::swap(lhs.pos, rhs.pos);
-		std::swap(lhs.offset, rhs.offset);
-	}
-
-	constexpr bool operator==(TreeIndex rhs) const
-	{
-		return pos == rhs.pos && offset == rhs.offset;
-	}
-
-	constexpr bool operator!=(TreeIndex rhs) const { return !(operator==(rhs)); }
-
-	[[nodiscard]] constexpr TreeIndex sibling(offset_t offset) const
-	{
-		return {pos, offset};
-	}
-
-	[[nodiscard]] constexpr bool valid() const { return NULL_POS != pos; }
+	constexpr TreeCoord(Point coord, depth_t depth) : Point(coord), depth(depth) {}
 };
-
-inline std::ostream& operator<<(std::ostream& out, TreeIndex index)
-{
-	return out << "pos: " << +index.pos << " offset: " << +index.offset;
-}
 }  // namespace ufo
 
-namespace std
-{
-template <>
-struct hash<ufo::TreeIndex> {
-	std::size_t operator()(ufo::TreeIndex index) const
-	{
-		return (static_cast<std::uint64_t>(index.pos) << 3) | index.offset;
-	}
-};
-}  // namespace std
-
-#endif  // UFO_CONTAINER_TREE_INDEX_HPP
+#endif  // UFO_CONTAINER_TREE_COORD_HPP

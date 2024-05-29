@@ -39,11 +39,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_MAP_NEAREST_ITERATOR_HPP
-#define UFO_CONTAINER_TREE_MAP_NEAREST_ITERATOR_HPP
+#ifndef UFO_CONTAINER_TREE_SET_OR_MAP_QUERY_NEAREST_ITERATOR_HPP
+#define UFO_CONTAINER_TREE_SET_OR_MAP_QUERY_NEAREST_ITERATOR_HPP
 
 // UFO
-#include <ufo/container/tree/tree_map_nearest.hpp>
+#include <ufo/container/tree/set_or_map_nearest.hpp>
 #include <ufo/utility/type_traits.hpp>
 
 // STL
@@ -405,4 +405,4 @@ class TreeMapNearestIterator final : private TreeMapNearestIteratorHelper<TreeMa
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_MAP_NEAREST_ITERATOR_HPP
+#endif  // UFO_CONTAINER_TREE_SET_OR_MAP_QUERY_NEAREST_ITERATOR_HPP

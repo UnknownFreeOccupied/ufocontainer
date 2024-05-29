@@ -39,11 +39,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_TREE_TYPES_HPP
-#define UFO_CONTAINER_TREE_TREE_TYPES_HPP
+#ifndef UFO_CONTAINER_TREE_TYPES_HPP
+#define UFO_CONTAINER_TREE_TYPES_HPP
 
 // UFO
-#include <ufo/container/tree/tree_type.hpp>
+#include <ufo/container/tree/type.hpp>
 
 namespace ufo
 {
@@ -51,4 +51,4 @@ template <TreeType TT>
 struct TreeTypes;
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_TREE_TYPES_HPP
+#endif  // UFO_CONTAINER_TREE_TYPES_HPP

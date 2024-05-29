@@ -39,13 +39,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_TREE_ITERATOR_HPP
-#define UFO_CONTAINER_TREE_TREE_ITERATOR_HPP
+#ifndef UFO_CONTAINER_TREE_ITERATOR_HPP
+#define UFO_CONTAINER_TREE_ITERATOR_HPP
 
 // UFO
-#include <ufo/container/tree/tree_index.hpp>
-#include <ufo/container/tree/tree_node_nearest.hpp>
-#include <ufo/container/tree/tree_predicate.hpp>
+#include <ufo/container/tree/index.hpp>
+#include <ufo/container/tree/node_nearest.hpp>
+#include <ufo/container/tree/predicate.hpp>
 #include <ufo/geometry/bounding_volume.hpp>
 #include <ufo/geometry/minimum_distance.hpp>
 
@@ -938,4 +938,4 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_TREE_ITERATOR_HPP
+#endif  // UFO_CONTAINER_TREE_ITERATOR_HPP

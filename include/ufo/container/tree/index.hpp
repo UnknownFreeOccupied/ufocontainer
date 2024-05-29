@@ -39,72 +39,66 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_MAP_NEAREST_HPP
-#define UFO_CONTAINER_TREE_MAP_NEAREST_HPP
+#ifndef UFO_CONTAINER_TREE_INDEX_HPP
+#define UFO_CONTAINER_TREE_INDEX_HPP
 
 // STL
-#include <utility>
+#include <algorithm>
+#include <functional>
+#include <limits>
+#include <ostream>
 
 namespace ufo
 {
-template <class T>
-struct TreeMapNearest {
-	//
-	// Tags
-	//
+struct TreeIndex {
+	using pos_t    = std::uint32_t;
+	using offset_t = std::uint32_t;
 
-	using value_type = T;
-	using reference  = T&;
-	using pointer    = T*;
+	static constexpr pos_t const NULL_POS = std::numeric_limits<pos_t>::max();
 
-	pointer value_ptr;
-	float   distance;
+	pos_t    pos{NULL_POS};
+	offset_t offset{0};
 
-	TreeMapNearest()                      = default;
-	TreeMapNearest(TreeMapNearest const&) = default;
-	TreeMapNearest(TreeMapNearest&&)      = default;
+	constexpr TreeIndex() noexcept = default;
 
-	TreeMapNearest(T& value, float distance) : value_ptr(&value), distance(distance) {}
+	constexpr TreeIndex(pos_t pos, offset_t offset) noexcept : pos(pos), offset(offset) {}
 
-	TreeMapNearest(T* value_ptr, float distance) : value_ptr(value_ptr), distance(distance)
+	friend void swap(TreeIndex& lhs, TreeIndex& rhs) noexcept
 	{
+		std::swap(lhs.pos, rhs.pos);
+		std::swap(lhs.offset, rhs.offset);
 	}
 
-	TreeMapNearest& operator=(TreeMapNearest const&) = default;
-	TreeMapNearest& operator=(TreeMapNearest&&)      = default;
-
-	void swap(TreeMapNearest& other) noexcept
+	constexpr bool operator==(TreeIndex rhs) const
 	{
-		std::swap(value_ptr, other.value_ptr);
-		std::swap(distance, other.distance);
+		return pos == rhs.pos && offset == rhs.offset;
 	}
 
-	operator reference() const { return *value_ptr; }
+	constexpr bool operator!=(TreeIndex rhs) const { return !(operator==(rhs)); }
 
-	operator pointer() const { return value_ptr; }
-
-	[[nodiscard]] reference operator*() const { return *value_ptr; }
-
-	[[nodiscard]] pointer operator->() const { return value_ptr; }
-
-	bool operator==(value_type rhs) const noexcept
+	[[nodiscard]] constexpr TreeIndex sibling(offset_t offset) const
 	{
-		return distance == rhs.distance && value_ptr == rhs.value_ptr;
+		return {pos, offset};
 	}
 
-	bool operator!=(value_type rhs) const noexcept
-	{
-		return distance != rhs.distance || value_ptr != rhs.value_ptr;
-	}
-
-	bool operator<(value_type rhs) const noexcept { return distance < rhs.distance; }
-
-	bool operator<=(value_type rhs) const noexcept { return distance <= rhs.distance; }
-
-	bool operator>(value_type rhs) const noexcept { return distance > rhs.distance; }
-
-	bool operator>=(value_type rhs) const noexcept { return distance >= rhs.distance; }
+	[[nodiscard]] constexpr bool valid() const { return NULL_POS != pos; }
 };
+
+inline std::ostream& operator<<(std::ostream& out, TreeIndex index)
+{
+	return out << "pos: " << +index.pos << " offset: " << +index.offset;
+}
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_MAP_NEAREST_HPP
+namespace std
+{
+template <>
+struct hash<ufo::TreeIndex> {
+	std::size_t operator()(ufo::TreeIndex index) const
+	{
+		return (static_cast<std::uint64_t>(index.pos) << 3) | index.offset;
+	}
+};
+}  // namespace std
+
+#endif  // UFO_CONTAINER_TREE_INDEX_HPP

@@ -39,71 +39,58 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_TREE_NODE_NEAREST_HPP
-#define UFO_CONTAINER_TREE_TREE_NODE_NEAREST_HPP
+#ifndef UFO_CONTAINER_TREE_SET_NEAREST_HPP
+#define UFO_CONTAINER_TREE_SET_NEAREST_HPP
 
 // UFO
-#include <ufo/container/tree/tree_node.hpp>
+#include <ufo/container/tree/set_or_map_nearest.hpp>
 
 // STL
-#include <functional>
+#include <type_traits>
+#include <utility>
 
 namespace ufo
 {
-template <class Code>
-struct TreeNodeNearest : public TreeNode<Code> {
+
+template <class Point>
+struct TreeSetOrMapNearest {
+	Point point;
 	float distance;
 
-	constexpr TreeNodeNearest(TreeNode<Code> const& node, float distance = 0.0f)
-	    : TreeNode<Code>(node), distance(distance)
+	TreeSetOrMapNearest() = default;
+
+	TreeSetOrMapNearest(Point point, float distance) : distance(distance), point(point) {}
+
+	bool operator==(TreeSetOrMapNearest rhs) const noexcept
 	{
+		return distance == rhs.distance && point == rhs.point;
 	}
 
-	[[nodiscard]] friend constexpr bool operator==(TreeNodeNearest const& a,
-	                                               TreeNodeNearest const& b)
+	bool operator!=(TreeSetOrMapNearest rhs) const noexcept
 	{
-		return a.distance == b.distance &&
-		       static_cast<TreeNode<Code> const&>(a) == static_cast<TreeNode<Code> const&>(b);
+		return distance != rhs.distance || point != rhs.point;
 	}
 
-	[[nodiscard]] friend constexpr bool operator!=(TreeNodeNearest const& a,
-	                                               TreeNodeNearest const& b)
+	bool operator<(TreeSetOrMapNearest rhs) const noexcept
 	{
-		return !(a == b);
+		return distance < rhs.distance;
 	}
 
-	[[nodiscard]] friend constexpr bool operator<(TreeNodeNearest const& a,
-	                                              TreeNodeNearest const& b)
+	bool operator<=(TreeSetOrMapNearest rhs) const noexcept
 	{
-		return a.distance < b.distance;
+		return distance <= rhs.distance;
 	}
 
-	[[nodiscard]] friend constexpr bool operator<=(TreeNodeNearest const& a,
-	                                               TreeNodeNearest const& b)
+	bool operator>(TreeSetOrMapNearest rhs) const noexcept
 	{
-		return a.distance <= b.distance;
+		return distance > rhs.distance;
 	}
 
-	[[nodiscard]] friend constexpr bool operator>(TreeNodeNearest const& a,
-	                                              TreeNodeNearest const& b)
+	bool operator>=(TreeSetOrMapNearest rhs) const noexcept
 	{
-		return a.distance > b.distance;
-	}
-
-	[[nodiscard]] friend constexpr bool operator>=(TreeNodeNearest const& a,
-	                                               TreeNodeNearest const& b)
-	{
-		return a.distance >= b.distance;
+		return distance >= rhs.distance;
 	}
 };
 }  // namespace ufo
 
-template <class Code>
-struct std::hash<ufo::TreeNodeNearest<Code>> {
-	std::size_t operator()(ufo::TreeNodeNearest<Code> const& node) const
-	{
-		return hash<Code>()(node.code());
-	}
-};
-
-#endif  // UFO_CONTAINER_TREE_TREE_NODE_NEAREST_HPP
+#endif  // UFO_CONTAINER_TREE_SET_NEAREST_HPP

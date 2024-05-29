@@ -43,34 +43,35 @@
 #define UFO_CONTAINER_TREE_BLOCK_HPP
 
 // UFO
-#include <ufo/container/tree/tree_index.hpp>
-#include <ufo/container/tree/tree_type.hpp>
-#include <ufo/container/tree/tree_types.hpp>
+#include <ufo/container/tree/index.hpp>
+#include <ufo/container/tree/type.hpp>
+#include <ufo/container/tree/types.hpp>
 #include <ufo/utility/create_array.hpp>
 
 // STL
 #include <array>
 #include <cstddef>
-#include <utility>
 
 namespace ufo
 {
 template <TreeType TT>
-struct TreeBlockDefault {
+struct TreeBlock {
 	using Code                     = typename TreeTypes<TT>::Code;
 	static constexpr auto const BF = branchingFactor(TT);
 
 	Code                             parent_code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
 
-	constexpr TreeBlockDefault() = default;
+	constexpr TreeBlock() = default;
 
-	constexpr TreeBlockDefault(TreeBlockDefault const& parent, std::size_t offset)
+	constexpr TreeBlock(Code parent_code) : parent_code(parent_code) {}
+
+	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset)
 	    : parent_code(parent.parent_code.child(offset))
 	{
 	}
 
-	constexpr void fill(TreeBlockDefault const& parent, std::size_t offset)
+	constexpr void fill(TreeBlock const& parent, std::size_t offset)
 	{
 		this->parent_code = parent.parent_code.child(offset);
 	}
@@ -85,27 +86,29 @@ struct TreeBlockDefault {
 	}
 };
 
+// TODO: Implement
 template <TreeType TT>
-struct TreeSetBlock {
+struct TreeBlockCenter {
 	using Code                     = typename TreeTypes<TT>::Code;
+	using Point                    = typename TreeTypes<TT>::Point;
 	static constexpr auto const BF = branchingFactor(TT);
 
 	Code                             parent_code;
+	Point                            center;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
-	std::array<std::pair<Iterator, Iterator>, BranchingFactor> value;
 
-	constexpr TreeSetBlock() = default;
+	constexpr TreeBlockCenter() = default;
 
-	constexpr TreeSetBlock(TreeSetBlock const& parent, std::size_t offset)
+	constexpr TreeBlockCenter(Code parent_code) : parent_code(parent_code) {}
+
+	constexpr TreeBlockCenter(TreeBlockCenter const& parent, std::size_t offset)
 	    : parent_code(parent.parent_code.child(offset))
 	{
-		fillValue(parent, offset);
 	}
 
-	constexpr void fill(TreeSetBlock const& parent, std::size_t offset)
+	constexpr void fill(TreeBlockCenter const& parent, std::size_t offset)
 	{
 		this->parent_code = parent.parent_code.child(offset);
-		fillValue(parent, offset);
 	}
 
 	/*!
@@ -115,26 +118,6 @@ struct TreeSetBlock {
 	{
 		// One less than the parent
 		return parent_code.depth() - 1;
-	}
-
- protected:
-	void fillValue(TreeSetBlock const& parent, std::size_t offset)
-	{
-		auto d             = parent.depth() - 1;
-		auto [first, last] = parent.value[offset];
-		for (std::size_t i{}; BranchingFactor > i; ++i) {
-			if (first->code.offset(d) != offset) {
-				value[i] = {first, first};
-				continue;
-			}
-			value[i].first = first;
-			for (; first != last; ++first) {
-				if (first->code.offset(d) != offset) {
-					break;
-				}
-			}
-			value[i].second = first;
-		}
 	}
 };
 }  // namespace ufo

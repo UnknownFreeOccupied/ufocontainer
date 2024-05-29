@@ -39,21 +39,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_TREE_COORD_HPP
-#define UFO_CONTAINER_TREE_TREE_COORD_HPP
+#ifndef UFO_CONTAINER_TREE_SET_OR_MAP_BLOCK_HPP
+#define UFO_CONTAINER_TREE_SET_OR_MAP_BLOCK_HPP
+
+// UFO
+#include <ufo/container/tree/block.hpp>
+#include <ufo/container/tree/type.hpp>
+#include <ufo/container/tree/types.hpp>
+#include <ufo/utility/create_array.hpp>
+
+// STL
+#include <array>
+#include <cstddef>
+#include <limits>
+#include <list>
+#include <type_traits>
+#include <utility>
 
 namespace ufo
 {
-template <class Point, class depth_t>
-struct TreeCoord : public Point {
-	depth_t depth{};
+template <TreeType TT, class T = void>
+struct TreeSetOrMapBlock : public TreeBlock<TT> {
+	using Code  = typename TreeTypes<TT>::Code;
+	using Point = typename TreeTypes<TT>::Point;
+	using value_type =
+	    std::conditional_t<std::is_void_v<T>, Point, std::pair<Point const, T>>;
+	static constexpr auto const BF = branchingFactor(TT);
+	static constexpr auto const MIN =
+	    std::numeric_limits<typename Point::scalar_t>::lowest();
+	static constexpr auto const MAX = std::numeric_limits<typename Point::scalar_t>::max();
 
-	constexpr TreeCoord() = default;
+	std::array<Point, BF>                 min = createArray<BF>(Point(MAX));
+	std::array<Point, BF>                 max = createArray<BF>(Point(MIN));
+	std::array<std::list<value_type>, BF> values;
 
-	constexpr TreeCoord(Point coord) : Point(coord) {}
+	constexpr TreeSetOrMapBlock() = default;
 
-	constexpr TreeCoord(Point coord, depth_t depth) : Point(coord), depth(depth) {}
+	constexpr TreeSetOrMapBlock(Code parent_code) : TreeBlock<TT>(parent_code) {}
+
+	constexpr TreeSetOrMapBlock(TreeSetOrMapBlock const& parent, std::size_t offset)
+	    : TreeBlock<TT>(parent, offset)
+	{
+	}
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_TREE_COORD_HPP
+#endif  // UFO_CONTAINER_TREE_SET_OR_MAP_BLOCK_HPP

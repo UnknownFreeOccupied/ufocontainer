@@ -43,11 +43,11 @@
 #define UFO_CONTAINER_OCTREE_HPP
 
 // UFO
-#include <ufo/container/octree/octree_code.hpp>
-#include <ufo/container/octree/octree_key.hpp>
-#include <ufo/container/octree/octree_types.hpp>
+#include <ufo/container/octree/code.hpp>
+#include <ufo/container/octree/key.hpp>
+#include <ufo/container/octree/types.hpp>
 #include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/tree_type.hpp>
+#include <ufo/container/tree/type.hpp>
 
 namespace ufo
 {

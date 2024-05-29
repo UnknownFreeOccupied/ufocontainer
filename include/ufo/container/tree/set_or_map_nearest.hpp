@@ -39,16 +39,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_SET_HPP
-#define UFO_CONTAINER_TREE_SET_HPP
+#ifndef UFO_CONTAINER_TREE_SET_OR_MAP_NEAREST_HPP
+#define UFO_CONTAINER_TREE_SET_OR_MAP_NEAREST_HPP
 
 namespace ufo
 {
-template <class Base>
-class TreeSet : public Base
-{
-	friend Base;
-};
+template <class T>
+struct TreeSetOrMapNearest;
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_SET_HPP
+#endif  // UFO_CONTAINER_TREE_SET_OR_MAP_NEAREST_HPP

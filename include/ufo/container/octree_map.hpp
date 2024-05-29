@@ -44,7 +44,7 @@
 
 // UFO
 #include <ufo/container/octree/octree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree/map.hpp>
 
 namespace ufo
 {

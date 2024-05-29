@@ -1,5 +1,5 @@
 // UFO
-#include <ufo/container/tree/tree_node.hpp>
+#include <ufo/container/tree/node.hpp>
 
 // Catch2
 #include <catch2/catch_test_macros.hpp>

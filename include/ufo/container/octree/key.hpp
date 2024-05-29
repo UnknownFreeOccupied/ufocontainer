@@ -70,7 +70,8 @@ class OctKey
 	// Z component of key
 	key_t z = 0;
 
- private:
+	// TODO: How to handle depth?
+	//  private:
 	// The depth of the key
 	depth_t depth_ = 0;
 
