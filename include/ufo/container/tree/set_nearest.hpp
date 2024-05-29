@@ -46,6 +46,7 @@
 #include <ufo/container/tree/set_or_map_nearest.hpp>
 
 // STL
+#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -55,7 +56,7 @@ namespace ufo
 template <class Point>
 struct TreeSetOrMapNearest {
 	Point point;
-	float distance;
+	float distance = std::numeric_limits<float>::quiet_NaN();
 
 	TreeSetOrMapNearest() = default;
 
