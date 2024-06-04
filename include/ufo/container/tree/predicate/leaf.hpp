@@ -43,6 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_LEAF_HPP
 
 // UFO
+#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
@@ -51,27 +52,17 @@ namespace ufo::pred
 struct Leaf {
 };
 
-template <>
-struct InnerCheck<Leaf> {
-	using Pred = Leaf;
+template <class Tree>
+[[nodiscard]] constexpr bool valueCheck(Leaf, Tree const& t, TreeIndex n)
+{
+	return t.isLeaf(n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const&) noexcept
-	{
-		return true;
-	}
-};
-
-template <>
-struct ValueCheck<Leaf> {
-	using Pred = Leaf;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n)
-	{
-		return m.isLeaf(n.index());
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Leaf, Tree const& t, Node n)
+{
+	return true;
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_LEAF_HPP

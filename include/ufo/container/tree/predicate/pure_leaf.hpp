@@ -51,27 +51,17 @@ namespace ufo::pred
 struct PureLeaf {
 };
 
-template <>
-struct InnerCheck<PureLeaf> {
-	using Pred = PureLeaf;
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(PureLeaf, Tree const& t, Node n)
+{
+	return 0 == t.depth(n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const&) noexcept
-	{
-		return true;
-	}
-};
-
-template <>
-struct ValueCheck<PureLeaf> {
-	using Pred = PureLeaf;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const& n)
-	{
-		return 0 == n.depth();
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(PureLeaf, Tree const&, Node)
+{
+	return true;
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_PURE_LEAF_HPP

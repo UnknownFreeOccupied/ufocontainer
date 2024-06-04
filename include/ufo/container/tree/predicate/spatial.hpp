@@ -46,8 +46,10 @@
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/geometry/contains.hpp>
 #include <ufo/geometry/intersects.hpp>
+#include <ufo/utility/type_traits.hpp>
 
 // STL
+#include <string_view>
 #include <type_traits>
 
 namespace ufo::pred
@@ -57,25 +59,36 @@ namespace ufo::pred
 //
 
 enum class SpatialTag {
-	CONTAINS,    // Geometry has to be inside node
-	DISJOINT,    // Node and geometry are disjoint
-	INTERSECTS,  // Node and geometry intersects
-	INSIDE       // Node has to be inside geometry
+	CONTAINS,    // Geometry has to be inside node/T
+	DISJOINT,    // Geometry and node/T are disjoint
+	INTERSECTS,  // Geometry and node/T intersects
+	INSIDE       // Node/T has to be inside geometry
 };
 
 template <SpatialTag Tag>
-constexpr char const* spatialTagToString()
+constexpr std::string_view enumToString()
 {
+	using namespace std::literals;
 	if constexpr (SpatialTag::CONTAINS == Tag) {
-		return "contains";
+		return "contains"sv;
 	} else if constexpr (SpatialTag::DISJOINT == Tag) {
-		return "disjoint";
+		return "disjoint"sv;
 	} else if constexpr (SpatialTag::INTERSECTS == Tag) {
-		return "intersects";
+		return "intersects"sv;
 	} else if constexpr (SpatialTag::INSIDE == Tag) {
-		return "inside";
+		return "inside"sv;
 	} else {
-		return "";
+		// Error
+	}
+}
+
+constexpr std::string_view enumToString(SpatialTag tag)
+{
+	switch (tag) {
+		case SpatialTag::CONTAINS: return enumToString<SpatialTag::CONTAINS>();
+		case SpatialTag::DISJOINT: return enumToString<SpatialTag::DISJOINT>();
+		case SpatialTag::INTERSECTS: return enumToString<SpatialTag::INTERSECTS>();
+		case SpatialTag::INSIDE: return enumToString<SpatialTag::INSIDE>();
 	}
 }
 
@@ -83,154 +96,26 @@ constexpr char const* spatialTagToString()
 // Spatial
 //
 
-template <class Geometry, SpatialTag Tag, bool Negated>
+template <class Geometry, SpatialTag Tag, bool Negated = false>
 struct Spatial {
 	constexpr Spatial() {}
 
-	constexpr Spatial(Geometry geometry) : geometries{geometry} {}
+	constexpr Spatial(Geometry geometry) : geometry{geometry} {}
 
-	template <class InputIt>
-	constexpr Spatial(InputIt first, InputIt last) : geometries(first, last)
-	{
-	}
-
-	constexpr Spatial(std::initializer_list<Geometry> geometries) : geometries(geometries)
-	{
-	}
-
-	std::vector<Geometry> geometries;
+	Geometry geometry;
 };
 
 template <class Geometry>
-constexpr auto Contains()
-{
-	return Spatial<Geometry, SpatialTag::CONTAINS, false>();
-}
+using Contains = Spatial<Geometry, SpatialTag::CONTAINS, false>;
 
 template <class Geometry>
-constexpr auto Contains(Geometry geometry)
-{
-	return Spatial<Geometry, SpatialTag::CONTAINS, false>(geometry);
-}
-
-template <class InputIt>
-constexpr auto Contains(InputIt first, InputIt last)
-{
-	return Spatial<typename std::iterator_traits<InputIt>::value_type, SpatialTag::CONTAINS,
-	               false>(first, last);
-}
+using Disjoint = Spatial<Geometry, SpatialTag::DISJOINT, false>;
 
 template <class Geometry>
-constexpr auto Contains(std::initializer_list<Geometry> geometries)
-{
-	return Spatial<Geometry, SpatialTag::CONTAINS, false>(geometries);
-}
+using Intersects = Spatial<Geometry, SpatialTag::INTERSECTS, false>;
 
 template <class Geometry>
-constexpr auto Disjoint()
-{
-	return Spatial<Geometry, SpatialTag::DISJOINT, false>();
-}
-
-template <class Geometry>
-constexpr auto Disjoint(Geometry geometry)
-{
-	return Spatial<Geometry, SpatialTag::DISJOINT, false>(geometry);
-}
-
-template <class InputIt>
-constexpr auto Disjoint(InputIt first, InputIt last)
-{
-	return Spatial<typename std::iterator_traits<InputIt>::value_type, SpatialTag::DISJOINT,
-	               false>(first, last);
-}
-
-template <class Geometry>
-constexpr auto Disjoint(std::initializer_list<Geometry> geometries)
-{
-	return Spatial<Geometry, SpatialTag::DISJOINT, false>(geometries);
-}
-
-template <class Geometry>
-constexpr auto Intersects()
-{
-	return Spatial<Geometry, SpatialTag::INTERSECTS, false>();
-}
-
-template <class Geometry>
-constexpr auto Intersects(Geometry geometry)
-{
-	return Spatial<Geometry, SpatialTag::INTERSECTS, false>(geometry);
-}
-
-template <class InputIt>
-constexpr auto Intersects(InputIt first, InputIt last)
-{
-	return Spatial<typename std::iterator_traits<InputIt>::value_type,
-	               SpatialTag::INTERSECTS, false>(first, last);
-}
-
-template <class Geometry>
-constexpr auto Intersects(std::initializer_list<Geometry> geometries)
-{
-	return Spatial<Geometry, SpatialTag::INTERSECTS, false>(geometries);
-}
-
-template <class Geometry>
-constexpr auto Inside()
-{
-	return Spatial<Geometry, SpatialTag::INSIDE, false>();
-}
-
-template <class Geometry>
-constexpr auto Inside(Geometry geometry)
-{
-	return Spatial<Geometry, SpatialTag::INSIDE, false>(geometry);
-}
-
-template <class InputIt>
-constexpr auto Inside(InputIt first, InputIt last)
-{
-	return Spatial<typename std::iterator_traits<InputIt>::value_type, SpatialTag::INSIDE,
-	               false>(first, last);
-}
-
-template <class Geometry>
-constexpr auto Inside(std::initializer_list<Geometry> geometries)
-{
-	return Spatial<Geometry, SpatialTag::INSIDE, false>(geometries);
-}
-
-//
-// Is spatial predicate
-//
-
-// FIXME: These are probably wrong
-
-template <class>
-struct is_spatial_pred_impl : std::false_type {
-};
-
-template <class Geometry, SpatialTag Tag, bool Negated>
-struct is_spatial_pred_impl<Spatial<Geometry, Tag, Negated>> : std::true_type {
-};
-
-template <class Geometry, SpatialTag Tag, bool Negated>
-struct is_spatial_pred
-    : is_spatial_pred_impl<std::remove_cv_t<Spatial<Geometry, Tag, Negated>>> {
-};
-
-// Helper variable template
-// template <class T>
-// inline constexpr bool is_spatial_pred_v = is_spatial_pred<T>::value;
-
-// template<typename T> struct is_variant : std::false_type {};
-
-// template<typename ...Args>
-// struct is_variant<std::variant<Args...>> : std::true_type {};
-
-// template<typename T>
-// inline constexpr bool is_variant_v=is_variant<T>::value;
+using Inside = Spatial<Geometry, SpatialTag::INSIDE, false>;
 
 //
 // Spatial negate
@@ -240,279 +125,192 @@ template <class Geometry, SpatialTag Tag, bool Negated>
 constexpr Spatial<Geometry, Tag, !Negated> operator!(
     Spatial<Geometry, Tag, Negated> const& p)
 {
-	return Spatial<Geometry, Tag, !Negated>(p.geometries);
+	return {p.geometry};
 }
 
 //
-// Spatial call
+// Spatial check
 //
 
-template <bool Check, SpatialTag Tag>
-struct static_assert_check_spatial : std::bool_constant<Check> {
-};
-
-template <SpatialTag Tag>
-struct SpatialCall {
-	static_assert(static_assert_check_spatial<false, Tag>::value,
-	              "Not implemented for the Tag.");
-};
-
-template <>
-struct SpatialCall<SpatialTag::CONTAINS> {
-	template <class G1, class G2>
-	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
-	{
-		// TODO: Implement correct
-		return std::all_of(std::begin(g2), std::end(g2),
-		                   [&g1](auto const& g) { return contains(g1, g); });
-		// return contains(g1, g2);
+template <SpatialTag Tag, class G1, class G2>
+[[nodiscard]] constexpr bool spatialCheck(G1 const& g1, G2 const& g2)
+{
+	if constexpr (SpatialTag::CONTAINS == Tag) {
+		return contains(g1, g2);
+	} else if constexpr (SpatialTag::DISJOINT == Tag) {
+		return !intersects(g1, g2);
+	} else if constexpr (SpatialTag::INTERSECTS == Tag) {
+		return intersects(g1, g2);
+	} else if constexpr (SpatialTag::INSIDE == Tag) {
+		return contains(g2, g1);
 	}
-
-	template <class G1>
-	static inline bool apply(G1 const& g1, BoundingVolumes const& g2)
-	{
-		return std::any_of(std::begin(g2), std::end(g2), [&g1](auto const& g) {
-			return std::visit([&g, &g1](const auto& v) { return contains(g1, v); }, g);
-		});
-	}
-};
-
-template <>
-struct SpatialCall<SpatialTag::DISJOINT> {
-	template <class G1, class G2>
-	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
-	{
-		// TODO: Implement correct
-		return std::all_of(std::begin(g2), std::end(g2),
-		                   [&g1](auto const& g) { return !intersects(g1, g); });
-		// return !intersects(g1, g2);
-	}
-
-	template <class G1>
-	static inline bool apply(G1 const& g1, BoundingVolumes const& g2)
-	{
-		return std::any_of(std::begin(g2), std::end(g2), [&g1](auto const& g) {
-			return std::visit([&g, &g1](const auto& v) { return !intersects(g1, v); }, g);
-		});
-	}
-};
-
-template <>
-struct SpatialCall<SpatialTag::INTERSECTS> {
-	template <class G1, class G2>
-	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
-	{
-		// if constexpr (is_variant_v<G2>) {
-		// 	return std::any_of(std::begin(g2), std::end(g2),
-		// 		[&g1](auto const& g) {
-		// 		return std::visit([&g, &g1] (const auto& v) {
-		// 			return intersects(g1, v);
-		// 		}, g);
-		// 		});
-		// } else {
-		// FIXME: Make sure that it is correct
-		// std::cout << g1.center << ' ' << g1.half_size << '\n';
-		return std::any_of(std::begin(g2), std::end(g2),
-		                   [&g1](auto const& g) { return intersects(g1, g); });
-		// }
-		// return intersects(g1, g2);
-	}
-
-	template <class G1>
-	static inline bool apply(G1 const& g1, BoundingVolumes const& g2)
-	{
-		return std::any_of(std::begin(g2), std::end(g2), [&g1](auto const& g) {
-			return std::visit([&g, &g1](const auto& v) { return intersects(g1, v); }, g);
-		});
-	}
-};
-
-template <>
-struct SpatialCall<SpatialTag::INSIDE> {
-	template <class G1, class G2>
-	static inline bool apply(G1 const& g1, std::vector<G2> const& g2)
-	{
-		// TODO: Implement correct
-		return std::any_of(std::begin(g2), std::end(g2),
-		                   [&g1](auto const& g) { return contains(g, g1); });
-		// return contains(g2, g1);
-	}
-
-	template <class G1>
-	static inline bool apply(G1 const& g1, BoundingVolumes const& g2)
-	{
-		return std::any_of(std::begin(g2), std::end(g2), [&g1](auto const& g) {
-			return std::visit([&g, &g1](const auto& v) { return contains(v, g1); }, g);
-		});
-	}
-};
+}
 
 //
 // Predicate value check
 //
 
-template <class Geometry, SpatialTag Tag, bool Negated>
-struct ValueCheck<Spatial<Geometry, Tag, Negated>> {
-	using Pred = Spatial<Geometry, Tag, Negated>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const& m, Node const& n)
-	{
+template <class Geometry, SpatialTag Tag, bool Negated, class Value>
+[[nodiscard]] constexpr bool valueCheck(Spatial<Geometry, Tag, Negated> const& p,
+                                        Value const&                           v)
+{
+	if constexpr (is_pair_v<Value>) {
 		if constexpr (Negated) {
-			return !SpatialCall<Tag>::apply(m.boundingVolume(n), p.geometries);
+			return !spatialCheck<Tag>(v.first, p.geometry);
 		} else {
-			return SpatialCall<Tag>::apply(m.boundingVolume(n), p.geometries);
+			return spatialCheck<Tag>(v.first, p.geometry);
+		}
+	} else {
+		if constexpr (Negated) {
+			return !spatialCheck<Tag>(v, p.geometry);
+		} else {
+			return spatialCheck<Tag>(v, p.geometry);
 		}
 	}
-};
+}
+
+template <class Geometry, SpatialTag Tag, bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(Spatial<Geometry, Tag, Negated> const& p,
+                                        Tree const& t, Node n)
+{
+	if constexpr (Negated) {
+		return !spatialCheck<Tag>(t.bounds(n), p.geometry);
+	} else {
+		return spatialCheck<Tag>(t.bounds(n), p.geometry);
+	}
+}
 
 //
 // Predicate inner check
 //
 
-// Default
-template <class Geometry, SpatialTag Tag>
-struct InnerCheck<Spatial<Geometry, Tag, false>> {
-	using Pred = Spatial<Geometry, Tag, false>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const& m, Node const& n)
-	{
-		return SpatialCall<SpatialTag::INTERSECTS>::apply(m.boundingVolume(n), p.geometries);
+template <class Geometry, SpatialTag Tag, bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Spatial<Geometry, Tag, Negated> const& p,
+                                        Tree const& t, Node n)
+{
+	if constexpr (Negated) {
+		if constexpr (SpatialTag::CONTAINS == Tag) {
+			return true;
+		} else if constexpr (SpatialTag::DISJOINT == Tag) {
+			return spatialCheck<SpatialTag::INTERSECTS>(t.bounds(n), p.geometry);
+		} else {
+			return !spatialCheck<SpatialTag::INSIDE>(t.bounds(n), p.geometry);
+		}
+	} else {
+		if constexpr (SpatialTag::CONTAINS == Tag) {
+			return spatialCheck<SpatialTag::CONTAINS>(t.bounds(n), p.geometry);
+		} else if constexpr (SpatialTag::DISJOINT == Tag) {
+			return spatialCheck<SpatialTag::INSIDE>(t.bounds(n), p.geometry);
+		} else {
+			return spatialCheck<SpatialTag::INTERSECTS>(t.bounds(n), p.geometry);
+		}
 	}
-};
-
-// Contains
-template <class Geometry>
-struct InnerCheck<Spatial<Geometry, SpatialTag::CONTAINS, false>> {
-	using Pred = Spatial<Geometry, SpatialTag::CONTAINS, false>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const& m, Node const& n)
-	{
-		return SpatialCall<SpatialTag::CONTAINS>::apply(m.boundingVolume(n), p.geometries);
-	}
-};
-
-// Disjoint
-template <class Geometry>
-struct InnerCheck<Spatial<Geometry, SpatialTag::DISJOINT, false>> {
-	using Pred = Spatial<Geometry, SpatialTag::DISJOINT, false>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const& m, Node const& n)
-	{
-		return !SpatialCall<SpatialTag::INSIDE>::apply(m.boundingVolume(n), p.geometries);
-	}
-};
+}
 
 //
-// Negated
+// Is spatial predicate
 //
 
-// Default
-template <class Geometry, SpatialTag Tag>
-struct InnerCheck<Spatial<Geometry, Tag, true>> {
-	using Pred = Spatial<Geometry, Tag, true>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const& m, Node const& n)
-	{
-		return !SpatialCall<SpatialTag::INSIDE>::apply(m.boundingVolume(n), p.geometries);
-	}
+namespace detail
+{
+template <class>
+struct is_spatial_pred : std::false_type {
 };
 
-// Contains
-template <class Geometry>
-struct InnerCheck<Spatial<Geometry, SpatialTag::CONTAINS, true>> {
-	using Pred = Spatial<Geometry, SpatialTag::CONTAINS, true>;
+template <class Geometry, SpatialTag Tag, bool Negated>
+struct is_spatial_pred<Spatial<Geometry, Tag, Negated>> : std::true_type {
+};
+}  // namespace detail
 
-	template <class Tree, class Node>
-	static inline constexpr bool apply(Pred const&, Tree const&, Node const&)
-	{
-		return true;
-	}
+template <class T>
+struct is_spatial_pred : detail::is_spatial_pred<std::decay_t<T>> {
 };
 
-// Disjoint
-template <class Geometry>
-struct InnerCheck<Spatial<Geometry, SpatialTag::DISJOINT, true>> {
-	using Pred = Spatial<Geometry, SpatialTag::DISJOINT, true>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const& m, Node const& n)
-	{
-		return SpatialCall<SpatialTag::INTERSECTS>::apply(m.boundingVolume(n), p.geometries);
-	}
-};
+// Helper variable template
+template <class T>
+inline constexpr bool is_spatial_pred_v = is_spatial_pred<T>::value;
 
 //
 // Contains spatial predicate
 //
 
-template <typename>
-struct has_spatial_type : std::false_type {
+namespace detail
+{
+template <class>
+struct contains_spatial_pred : std::false_type {
 };
 
 template <class Geometry, SpatialTag Tag, bool Negated>
-struct has_spatial_type<Spatial<Geometry, Tag, Negated>> : std::true_type {
+struct contains_spatial_pred<Spatial<Geometry, Tag, Negated>> : std::true_type {
 };
 
-template <typename L, typename R>
-struct has_spatial_type<OR<L, R>>
-    : std::conditional_t<bool(has_spatial_type<L>::value), std::true_type,
-                         has_spatial_type<R>> {
+template <class... Ts>
+struct contains_spatial_pred<std::tuple<Ts...>>
+    : std::disjunction<contains_spatial_pred<Ts>...> {
 };
 
-template <typename L, typename R>
-struct has_spatial_type<THEN<L, R>>
-    : std::conditional_t<bool(has_spatial_type<L>::value), std::true_type,
-                         has_spatial_type<R>> {
+template <class L, class R>
+struct contains_spatial_pred<OR<L, R>>
+    : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
 };
 
-template <typename... Ts>
-struct has_spatial_type<std::tuple<Ts...>> : std::disjunction<has_spatial_type<Ts>...> {
+template <class L, class R>
+struct contains_spatial_pred<THEN<L, R>>
+    : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
 };
 
-template <typename Predicates>
-using contains_spatial_predicate = has_spatial_type<Predicates>;
+template <class L, class R>
+struct contains_spatial_pred<IFF<L, R>>
+    : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
+};
 
-template <typename Predicates>
-inline constexpr bool contains_spatial_predicate_v =
-    contains_spatial_predicate<Predicates>::value;
+}  // namespace detail
+
+template <class T>
+using contains_spatial_pred = detail::contains_spatial_pred<std::decay_t<T>>;
+
+template <class T>
+inline constexpr bool contains_spatial_pred_v = contains_spatial_pred<T>::value;
 
 //
 // Contains always spatial predicate
 //
 
-template <typename>
-struct has_always_spatial_type : std::false_type {
+namespace detail
+{
+template <class>
+struct contains_always_spatial_pred : std::false_type {
 };
 
 template <class Geometry, SpatialTag Tag, bool Negated>
-struct has_always_spatial_type<Spatial<Geometry, Tag, Negated>> : std::true_type {
+struct contains_always_spatial_pred<Spatial<Geometry, Tag, Negated>> : std::true_type {
 };
 
-template <typename L, typename R>
-struct has_always_spatial_type<OR<L, R>> : std::false_type {
+template <class... Ts>
+struct contains_always_spatial_pred<std::tuple<Ts...>>
+    : std::disjunction<contains_always_spatial_pred<Ts>...> {
 };
 
-// FIXME: Should this be false if L is Spatial predicate?
-template <typename L, typename R>
-struct has_always_spatial_type<THEN<L, R>> : std::false_type {
+template <class L, class R>
+struct contains_always_spatial_pred<OR<L, R>>
+    : std::conjunction<contains_always_spatial_pred<L>, contains_always_spatial_pred<R>> {
 };
 
-template <typename... Ts>
-struct has_always_spatial_type<std::tuple<Ts...>>
-    : std::disjunction<has_always_spatial_type<Ts>...> {
+template <class L, class R>
+struct contains_always_spatial_pred<THEN<L, R>> : std::false_type {
 };
 
-template <typename Predicates>
-using contains_always_spatial_predicate = has_always_spatial_type<Predicates>;
+template <class L, class R>
+struct contains_always_spatial_pred<IFF<L, R>> : std::false_type {
+};
+}  // namespace detail
 
-template <typename Predicates>
-inline constexpr bool contains_always_spatial_predicate_v =
-    contains_always_spatial_predicate<Predicates>::value;
+template <class T>
+using contains_always_spatial_pred = detail::contains_always_spatial_pred<T>;
+
+template <class T>
+inline constexpr bool contains_always_spatial_pred_v =
+    contains_always_spatial_pred<T>::value;
 
 }  // namespace ufo::pred
 

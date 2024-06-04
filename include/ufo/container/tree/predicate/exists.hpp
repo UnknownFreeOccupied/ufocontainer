@@ -43,35 +43,42 @@
 #define UFO_CONTAINER_TREE_PREDICATE_EXISTS_HPP
 
 // UFO
+#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
 namespace ufo::pred
 {
+
+template <bool Negated = false>
 struct Exists {
 };
 
-template <>
-struct InnerCheck<Exists> {
-	using Pred = Exists;
+template <bool Negated>
+constexpr Exists<!Negated> operator!(Exists<Negated>)
+{
+	return {};
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n) noexcept
-	{
-		return m.isParent(n.index());
+template <bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(Exists<Negated>, Tree const& t, Node n)
+{
+	if constexpr (Negated) {
+		return !t.exists(n);
+	} else {
+		return t.exists(n);
 	}
-};
+}
 
-template <>
-struct ValueCheck<Exists> {
-	using Pred = Exists;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n)
-	{
-		return m.exists(n.index());  // TODO: Look at
+template <bool Negated, class Tree>
+[[nodiscard]] constexpr bool innerCheck(Exists<Negated>, Tree const& t, TreeIndex n)
+{
+	if constexpr (Negated) {
+		return true;
+	} else {
+		return t.isParent(n);
 	}
-};
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_EXISTS_HPP

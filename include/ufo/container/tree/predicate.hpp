@@ -60,4 +60,13 @@
 #include <ufo/container/tree/predicate/size_interval.hpp>
 #include <ufo/container/tree/predicate/spatial.hpp>
 
+namespace ufo::pred
+{
+constexpr PureLeaf operator!(Inner) { return {}; }
+constexpr Inner    operator!(PureLeaf) { return {}; }
+constexpr Parent   operator!(Leaf) { return {}; }
+constexpr Leaf     operator!(Parent) { return {}; }
+
+}  // namespace ufo::pred
+
 #endif  // UFO_CONTAINER_TREE_PREDICATE_HPP

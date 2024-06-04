@@ -45,8 +45,6 @@
 // STL
 #include <array>
 #include <iterator>
-#include <list>
-#include <tuple>
 #include <type_traits>
 
 namespace ufo
@@ -60,11 +58,9 @@ class TreeSetOrMapIterator
 	friend TreeSetOrMap;
 
 	static constexpr bool const IsConst = std::is_const_v<TreeSetOrMap>;
+	static constexpr auto const BF      = TreeSetOrMap::branchingFactor();
 
 	using Index = typename TreeSetOrMap::Index;
-
-	static constexpr auto const BF = TreeSetOrMap::branchingFactor();
-
 	using RawIterator =
 	    std::conditional_t<IsConst, typename TreeSetOrMap::const_raw_iterator,
 	                       typename TreeSetOrMap::raw_iterator>;
@@ -76,9 +72,9 @@ class TreeSetOrMapIterator
 
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = typename TreeSetOrMap::value_type;
-	using reference         = std::conditional_t<IsConst, value_type const&, value_type&>;
-	using pointer           = std::conditional_t<IsConst, value_type const*, value_type*>;
+	using value_type        = typename std::iterator_traits<RawIterator>::value_type;
+	using reference         = typename std::iterator_traits<RawIterator>::reference;
+	using pointer           = typename std::iterator_traits<RawIterator>::pointer;
 
 	TreeSetOrMapIterator()                            = default;
 	TreeSetOrMapIterator(TreeSetOrMapIterator const&) = default;

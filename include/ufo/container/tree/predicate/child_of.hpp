@@ -55,30 +55,20 @@ struct ChildOf {
 	constexpr ChildOf(Code code) noexcept : code(code) {}
 };
 
-template <class Code>
-struct InnerCheck<ChildOf<Code>> {
-	using Pred = ChildOf<Code>;
+template <class Code, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(ChildOf<Code> p, Tree const& t, Node n)
+{
+	return t.depth(n) < p.code.depth() &&
+	       Code::equalAtDepth(t.code(n), p.code, p.code.depth());
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const&, Node const& n) noexcept
-	{
-		return n.depth() > p.code.depth()
-		           ? Code::equalAtDepth(n.code(), p.code, n.depth())
-		           : Code::equalAtDepth(n.code(), p.code, p.code.depth());
-	}
-};
-
-template <class Code>
-struct ValueCheck<ChildOf<Code>> {
-	using Pred = ChildOf<Code>;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const&, Node const& n)
-	{
-		return n.depth() < p.code.depth() &&
-		       Code::equalAtDepth(n.code(), p.code, p.code.depth());
-	}
-};
+template <class Code, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(ChildOf<Code> p, Tree const& t, Node n)
+{
+	return t.depth(n) > p.code.depth()
+	           ? Code::equalAtDepth(t.code(n), p.code, t.depth(n))
+	           : Code::equalAtDepth(t.code(n), p.code, p.code.depth());
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_CHILD_OF_HPP

@@ -42,10 +42,8 @@
 #ifndef UFO_CONTAINER_TREE_SET_NEAREST_HPP
 #define UFO_CONTAINER_TREE_SET_NEAREST_HPP
 
-// UFO
-#include <ufo/container/tree/set_or_map_nearest.hpp>
-
 // STL
+#include <iterator>
 #include <limits>
 #include <type_traits>
 #include <utility>
@@ -53,45 +51,90 @@
 namespace ufo
 {
 
-template <class Point>
-struct TreeSetOrMapNearest {
-	Point point;
+template <class Iterator>
+struct TreeSetNearest {
+	template <class>
+	friend class TreeSetOrMapNearestIterator;
+
+	template <class>
+	friend class TreeSetOrMapQueryNearestIterator;
+
+	using value_type = typename std::iterator_traits<Iterator>::value_type;
+	using Point      = value_type;
+
 	float distance = std::numeric_limits<float>::quiet_NaN();
 
-	TreeSetOrMapNearest() = default;
+	TreeSetNearest() = default;
 
-	TreeSetOrMapNearest(Point point, float distance) : distance(distance), point(point) {}
+	TreeSetNearest(Iterator it, float distance) : distance(distance), it_(it) {}
 
-	bool operator==(TreeSetOrMapNearest rhs) const noexcept
+	[[nodiscard]] Point const& point() const { return *it_; }
+
+	bool operator==(TreeSetNearest rhs) const noexcept
 	{
-		return distance == rhs.distance && point == rhs.point;
+		return distance == rhs.distance && it_ == rhs.it_;
 	}
 
-	bool operator!=(TreeSetOrMapNearest rhs) const noexcept
+	bool operator!=(TreeSetNearest rhs) const noexcept
 	{
-		return distance != rhs.distance || point != rhs.point;
+		return distance != rhs.distance || it_ != rhs.it_;
 	}
 
-	bool operator<(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance < rhs.distance;
-	}
+	bool operator<(TreeSetNearest rhs) const noexcept { return distance < rhs.distance; }
 
-	bool operator<=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance <= rhs.distance;
-	}
+	bool operator<=(TreeSetNearest rhs) const noexcept { return distance <= rhs.distance; }
 
-	bool operator>(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance > rhs.distance;
-	}
+	bool operator>(TreeSetNearest rhs) const noexcept { return distance > rhs.distance; }
 
-	bool operator>=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance >= rhs.distance;
-	}
+	bool operator>=(TreeSetNearest rhs) const noexcept { return distance >= rhs.distance; }
+
+ private:
+	Iterator it_;
 };
+
+template <std::size_t i, class Iterator>
+auto get(TreeSetNearest<Iterator> const& n)
+{
+	if constexpr (i == 0) {
+		return n.point();
+	} else if constexpr (i == 1) {
+		return n.distance;
+	} else {
+		// Error
+	}
+}
+
+template <std::size_t i, class Iterator>
+auto& get(TreeSetNearest<Iterator>& n)
+{
+	if constexpr (i == 0) {
+		return n.point();
+	} else if constexpr (i == 1) {
+		return n.distance;
+	} else {
+		// Error
+	}
+}
 }  // namespace ufo
+
+// Tuple-like binding protocol definition
+namespace std
+{
+template <class Iterator>
+struct tuple_size<ufo::TreeSetNearest<Iterator>>
+    : std::integral_constant<std::size_t, 2> {
+};
+
+// Define the types of decomposable elements by specializing
+// the 'tuple_element' template class (indices are 0-based)
+template <class Iterator>
+struct tuple_element<0, ufo::TreeSetNearest<Iterator>> {
+	using type = typename ufo::TreeSetNearest<Iterator>::Point;
+};
+template <class Iterator>
+struct tuple_element<1, ufo::TreeSetNearest<Iterator>> {
+	using type = float;
+};
+}  // namespace std
 
 #endif  // UFO_CONTAINER_TREE_SET_NEAREST_HPP

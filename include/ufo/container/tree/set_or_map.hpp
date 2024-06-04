@@ -43,11 +43,12 @@
 #define UFO_CONTAINER_TREE_SET_OR_MAP_HPP
 
 // UFO
+#include <ufo/container/tree/predicate/spatial.hpp>
 #include <ufo/container/tree/set_or_map_block.hpp>
 #include <ufo/container/tree/set_or_map_iterator.hpp>
 #include <ufo/container/tree/set_or_map_nearest_iterator.hpp>
-// #include <ufo/container/tree/set_or_map_query_nearest_iterator.hpp>
 #include <ufo/container/tree/set_or_map_query_iterator.hpp>
+#include <ufo/container/tree/set_or_map_query_nearest_iterator.hpp>
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
 #include <ufo/utility/macros.hpp>
@@ -77,9 +78,7 @@ class TreeSetOrMap
 {
 	using Base = TTree<Derived, detail::TreeSetOrMapBlockHelper<T>::template Block>;
 
-	static constexpr bool const IsPair = !std::is_void_v<T>;
-
-	using mapped_type = T;
+	static constexpr bool const IsMap = !std::is_void_v<T>;
 
 	//
 	// Friends
@@ -87,6 +86,9 @@ class TreeSetOrMap
 
 	template <class Derived2, template <TreeType> class TreeBlock, TreeType TT>
 	friend class Tree;
+
+	template <class Geometry, pred::SpatialTag Tag, bool Negated>
+	friend class pred::Spatial;
 
  public:
 	/**************************************************************************************
@@ -110,7 +112,8 @@ class TreeSetOrMap
 	using pos_t    = typename Base::pos_t;
 
 	// STL stuff
-	using value_type      = std::conditional_t<IsPair, std::pair<Point const, T>, Point>;
+	using value_type      = std::conditional_t<IsMap, std::pair<Point const, T>, Point>;
+	using mapped_type     = T;
 	using reference       = value_type&;
 	using const_reference = value_type const&;
 	using pointer         = value_type*;
@@ -123,15 +126,15 @@ class TreeSetOrMap
 	using iterator       = TreeSetOrMapIterator<TreeSetOrMap>;
 	using const_iterator = TreeSetOrMapIterator<TreeSetOrMap const>;
 
-	using query_iterator       = TreeSetOrMapQueryIteratorWrapper<TreeSetOrMap>;
-	using const_query_iterator = TreeSetOrMapQueryIteratorWrapper<TreeSetOrMap const>;
+	using query_iterator       = TreeSetOrMapQueryIterator<TreeSetOrMap>;
+	using const_query_iterator = TreeSetOrMapQueryIterator<TreeSetOrMap const>;
 
 	using nearest_iterator       = TreeSetOrMapNearestIterator<TreeSetOrMap>;
 	using const_nearest_iterator = TreeSetOrMapNearestIterator<TreeSetOrMap const>;
 
-	// using query_nearest_iterator = TreeSetOrMapQueryNearestIteratorWrapper<TreeSetOrMap>;
-	// using const_query_nearest_iterator =
-	//     TreeSetOrMapQueryNearestIteratorWrapper<TreeSetOrMap const>;
+	using query_nearest_iterator = TreeSetOrMapQueryNearestIterator<TreeSetOrMap>;
+	using const_query_nearest_iterator =
+	    TreeSetOrMapQueryNearestIterator<TreeSetOrMap const>;
 
 	using Query      = IteratorWrapper<query_iterator>;
 	using ConstQuery = IteratorWrapper<const_query_iterator>;
@@ -139,8 +142,8 @@ class TreeSetOrMap
 	using Nearest      = IteratorWrapper<nearest_iterator>;
 	using ConstNearest = IteratorWrapper<const_nearest_iterator>;
 
-	// using QueryNearest      = IteratorWrapper<query_nearest_iterator>;
-	// using ConstQueryNearest = IteratorWrapper<const_query_nearest_iterator>;
+	using QueryNearest      = IteratorWrapper<query_nearest_iterator>;
+	using ConstQueryNearest = IteratorWrapper<const_query_nearest_iterator>;
 
 	//
 	// Friend iterators
@@ -151,12 +154,20 @@ class TreeSetOrMap
 
 	friend query_iterator;
 	friend const_query_iterator;
+	template <class>
+	friend class detail::TreeSetOrMapQueryIteratorHelper;
+	template <class, class>
+	friend class detail::TreeSetOrMapQueryIterator;
 
 	friend nearest_iterator;
 	friend const_nearest_iterator;
 
-	// friend query_nearest_iterator;
-	// friend const_query_nearest_iterator;
+	friend query_nearest_iterator;
+	friend const_query_nearest_iterator;
+	template <class>
+	friend class detail::TreeSetOrMapQueryNearestIteratorHelper;
+	template <class, class>
+	friend class detail::TreeSetOrMapQueryNearestIterator;
 
  private:
 	using raw_iterator       = typename std::list<value_type>::iterator;
@@ -287,45 +298,37 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	// template <class Predicate>
-	// [[nodiscard]] query_nearest_iterator beginQueryNearest(Point            query,
-	//                                                        Predicate const& predicate,
-	//                                                        float            epsilon =
-	//                                                        0.0f)
-	// {
-	// 	// TODO: Implement
-	// }
+	template <class Predicate>
+	[[nodiscard]] query_nearest_iterator beginQueryNearest(Point            query,
+	                                                       Predicate const& pred,
+	                                                       float            epsilon = 0.0f)
+	{
+		return {this, Base::index(), query, pred, epsilon};
+	}
 
-	// template <class Predicate>
-	// [[nodiscard]] const_query_nearest_iterator beginQueryNearest(Point            query,
-	//                                                              Predicate const&
-	//                                                              predicate, float epsilon
-	//                                                              = 0.0f) const
-	// {
-	// 	// TODO: Implement
-	// }
+	template <class Predicate>
+	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Point            query,
+	                                                             Predicate const& pred,
+	                                                             float epsilon = 0.0f) const
+	{
+		return {this, Base::index(), query, pred, epsilon};
+	}
 
-	// template <class Predicate>
-	// [[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	//     Point query, Predicate const& predicate, float epsilon = 0.0f) const
-	// {
-	// 	return beginQueryNearest(query, predicate, epsilon);
-	// }
+	template <class Predicate>
+	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
+	    Point query, Predicate const& pred, float epsilon = 0.0f) const
+	{
+		return beginQueryNearest(query, pred, epsilon);
+	}
 
-	// [[nodiscard]] query_nearest_iterator endQueryNearest()
-	// {
-	// 	// TODO: Implement
-	// }
+	[[nodiscard]] query_nearest_iterator endQueryNearest() { return {}; }
 
-	// [[nodiscard]] const_query_nearest_iterator endQueryNearest() const
-	// {
-	// 	// TODO: Implement
-	// }
+	[[nodiscard]] const_query_nearest_iterator endQueryNearest() const { return {}; }
 
-	// [[nodiscard]] const_query_nearest_iterator cendQueryNearest() const
-	// {
-	// 	return endQueryNearest();
-	// }
+	[[nodiscard]] const_query_nearest_iterator cendQueryNearest() const
+	{
+		return endQueryNearest();
+	}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -373,7 +376,7 @@ class TreeSetOrMap
 	void insert(value_type const& value)
 	{
 		Point point;
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			point = value.first;
 		} else {
 			point = value;
@@ -404,7 +407,7 @@ class TreeSetOrMap
 	void insert(value_type&& value)
 	{
 		Point point;
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			point = value.first;
 		} else {
 			point = value;
@@ -435,13 +438,13 @@ class TreeSetOrMap
 	template <class InputIt>
 	void insert(InputIt first, InputIt last)
 	{
-		using non_const_value_type = std::conditional_t<IsPair, std::pair<Point, T>, Point>;
+		using non_const_value_type = std::conditional_t<IsMap, std::pair<Point, T>, Point>;
 
 		std::vector<std::pair<Code, non_const_value_type>> code_and_value;
 		code_and_value.reserve(std::distance(first, last));
 
 		for (; last != first; ++first) {
-			if constexpr (IsPair) {
+			if constexpr (IsMap) {
 				code_and_value.emplace_back(Base::code(first->first), *first);
 			} else {
 				code_and_value.emplace_back(Base::code(*first), *first);
@@ -479,7 +482,7 @@ class TreeSetOrMap
 			values(trail[0]).push_back(value);
 
 			Point point;
-			if constexpr (IsPair) {
+			if constexpr (IsMap) {
 				point = value.first;
 			} else {
 				point = value;
@@ -567,21 +570,21 @@ class TreeSetOrMap
 		return {this, pos};
 	}
 
-	// query_nearest_iterator erase(query_nearest_iterator pos)
-	// {
-	// 	auto it = pos.iterator();
-	// 	++pos;
-	// 	erase(it);
-	// 	return pos;
-	// }
+	query_nearest_iterator erase(query_nearest_iterator pos)
+	{
+		auto it = pos.iterator();
+		++pos;
+		erase(it);
+		return pos;
+	}
 
-	// query_nearest_iterator erase(const_query_nearest_iterator pos)
-	// {
-	// 	auto it = pos.iterator();
-	// 	++pos;
-	// 	erase(it);
-	// 	return {this, pos};
-	// }
+	query_nearest_iterator erase(const_query_nearest_iterator pos)
+	{
+		auto it = pos.iterator();
+		++pos;
+		erase(it);
+		return {this, pos};
+	}
 
 	iterator erase(iterator first, iterator last)
 	{
@@ -623,6 +626,13 @@ class TreeSetOrMap
 		return {this, first};
 	}
 
+	query_iterator erase(Query query) { return erase(std::begin(query), std::end(query)); }
+
+	query_iterator erase(ConstQuery query)
+	{
+		return erase(std::begin(query), std::end(query));
+	}
+
 	nearest_iterator erase(nearest_iterator first, nearest_iterator last)
 	{
 		while (last != first) {
@@ -643,27 +653,46 @@ class TreeSetOrMap
 		return {this, first};
 	}
 
-	// query_nearest_iterator erase(query_nearest_iterator first, query_nearest_iterator
-	// last)
-	// {
-	// 	while (last != first) {
-	// 		auto it = first.iterator();
-	// 		++first;
-	// 		erase(it);
-	// 	}
-	// 	return first;
-	// }
+	nearest_iterator erase(Nearest nearest)
+	{
+		return erase(std::begin(nearest), std::end(nearest));
+	}
 
-	// query_nearest_iterator erase(const_query_nearest_iterator first,
-	//                              const_query_nearest_iterator last)
-	// {
-	// 	while (last != first) {
-	// 		auto it = first.iterator();
-	// 		++first;
-	// 		erase(it);
-	// 	}
-	// 	return {this, first};
-	// }
+	nearest_iterator erase(ConstNearest nearest)
+	{
+		return erase(std::begin(nearest), std::end(nearest));
+	}
+
+	query_nearest_iterator erase(query_nearest_iterator first, query_nearest_iterator last)
+	{
+		while (last != first) {
+			auto it = first.iterator();
+			++first;
+			erase(it);
+		}
+		return first;
+	}
+
+	query_nearest_iterator erase(const_query_nearest_iterator first,
+	                             const_query_nearest_iterator last)
+	{
+		while (last != first) {
+			auto it = first.iterator();
+			++first;
+			erase(it);
+		}
+		return {this, first};
+	}
+
+	query_nearest_iterator erase(QueryNearest query)
+	{
+		return erase(std::begin(query), std::end(query));
+	}
+
+	query_nearest_iterator erase(ConstQueryNearest query)
+	{
+		return erase(std::begin(query), std::end(query));
+	}
 
 	size_type erase(Point point)
 	{
@@ -681,7 +710,7 @@ class TreeSetOrMap
 
 		auto&     v           = values(trail[0]);
 		size_type num_removed = v.size();
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			v.remove_if([point](auto const& x) { return x.first == point; });
 		} else {
 			v.remove(point);
@@ -692,7 +721,7 @@ class TreeSetOrMap
 
 		Point min(std::numeric_limits<typename Point::scalar_t>::max());
 		Point max(std::numeric_limits<typename Point::scalar_t>::lowest());
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			for (auto const& [p, _] : v) {
 				for (int i{}; Point::size() > i; ++i) {
 					min[i] = UFO_MIN(min[i], p[i]);
@@ -747,10 +776,17 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
+	/*!
+	 * @brief Returns the number of elements with Point that compares equivalent to the
+	 * specified argument.
+	 *
+	 * @param point point of the elements to count
+	 * @return Number of elements with Point that compares equivalent to `point`.
+	 */
 	[[nodiscard]] size_type count(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			return std::count_if(std::begin(v), std::end(v),
 			                     [point](auto const& x) { return x.first == point; });
 		} else {
@@ -758,10 +794,17 @@ class TreeSetOrMap
 		}
 	}
 
+	/*!
+	 * @brief Checks if there is an element with Point equivalent to `point` in the
+	 * container.
+	 *
+	 * @param point point of the element to search for
+	 * @return `true` if there is such an element, otherwise `false`.
+	 */
 	[[nodiscard]] bool contains(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			return std::end(v) !=
 			       std::find_if(std::begin(v), std::end(v),
 			                    [point](auto const& x) { return x.first == point; });
@@ -771,15 +814,15 @@ class TreeSetOrMap
 	}
 
 	template <class Predicate>
-	[[nodiscard]] Query query(Predicate const& predicate)
+	[[nodiscard]] Query query(Predicate const& pred)
 	{
-		return {beginQuery(predicate), endQuery()};
+		return {beginQuery(pred), endQuery()};
 	}
 
 	template <class Predicate>
-	[[nodiscard]] ConstQuery query(Predicate const& predicate) const
+	[[nodiscard]] ConstQuery query(Predicate const& pred) const
 	{
-		return {beginQuery(predicate), endQuery()};
+		return {beginQuery(pred), endQuery()};
 	}
 
 	[[nodiscard]] Nearest nearest(Point query, float epsilon = 0.0f)
@@ -792,20 +835,19 @@ class TreeSetOrMap
 		return {beginNearest(query, epsilon), endNearest()};
 	}
 
-	// TODO: Implement
-	// template <class Predicate>
-	// [[nodiscard]] QueryNearest queryNearest(Point query, Predicate const& predicate,
-	//                                         float epsilon = 0.0f)
-	// {
-	// 	return {beginQueryNearest(query, predicate, epsilon), endQueryNearest()};
-	// }
+	template <class Predicate>
+	[[nodiscard]] QueryNearest queryNearest(Point query, Predicate const& pred,
+	                                        float epsilon = 0.0f)
+	{
+		return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
+	}
 
-	// template <class Predicate>
-	// [[nodiscard]] ConstQueryNearest queryNearest(Point query, Predicate const& predicate,
-	//                                              float epsilon = 0.0f) const
-	// {
-	// 	return {beginQueryNearest(query, predicate, epsilon), endQueryNearest()};
-	// }
+	template <class Predicate>
+	[[nodiscard]] ConstQueryNearest queryNearest(Point query, Predicate const& pred,
+	                                             float epsilon = 0.0f) const
+	{
+		return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
+	}
 
  protected:
 	/**************************************************************************************
@@ -851,9 +893,27 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
+	/*!
+	 * @brief Checks if the node and none of its children have any elements.
+	 *
+	 * @param node the node to check
+	 * @return `true` if the node is empty, `false` otherwise.
+	 */
 	[[nodiscard]] bool empty(Index node) const noexcept
 	{
 		return boundsMin(node)[0] > boundsMax(node)[0];
+	}
+
+	/*!
+	 * @brief Returns the minimum `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to check
+	 * @return The minimum `Bounds` able to contain all values stored in the node.
+	 */
+	[[nodiscard]] Bounds bounds(Index node) const
+	{
+		return {boundsMin(node), boundsMax(node)};
 	}
 
 	/**************************************************************************************
@@ -865,7 +925,7 @@ class TreeSetOrMap
 	void erase(const_raw_iterator it)
 	{
 		Code code;
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			code = Base::code(it->first);
 		} else {
 			code = Base::code(*it);
@@ -884,7 +944,7 @@ class TreeSetOrMap
 
 		Point min(std::numeric_limits<typename Point::scalar_t>::max());
 		Point max(std::numeric_limits<typename Point::scalar_t>::lowest());
-		if constexpr (IsPair) {
+		if constexpr (IsMap) {
 			for (auto const& [p, _] : v) {
 				for (int i{}; Point::size() > i; ++i) {
 					min[i] = UFO_MIN(min[i], p[i]);
@@ -922,31 +982,24 @@ class TreeSetOrMap
 
 	/**************************************************************************************
 	|                                                                                     |
-	|                                        Other                                        |
+	|                                    Internal data                                    |
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] auto& values(pos_t block)
-	{
-		// assert(Base::isPureLeaf(block));
-		return Base::treeBlock(block).values;
-	}
+	[[nodiscard]] auto& values(pos_t block) { return Base::treeBlock(block).values; }
 
 	[[nodiscard]] auto const& values(pos_t block) const
 	{
-		// assert(Base::isPureLeaf(block));
 		return Base::treeBlock(block).values;
 	}
 
 	[[nodiscard]] auto& values(Index node)
 	{
-		// assert(Base::isPureLeaf(node));
 		return Base::treeBlock(node).values[node.offset];
 	}
 
 	[[nodiscard]] auto const& values(Index node) const
 	{
-		// assert(Base::isPureLeaf(node));
 		return Base::treeBlock(node).values[node.offset];
 	}
 
@@ -990,3 +1043,130 @@ class TreeSetOrMap
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_SET_OR_MAP_HPP
+
+// [[nodiscard]] reference nearestSingle(Index node, Point p, float epsilon = 0.0f)
+// 	{
+// 		auto root = Base::index();
+// 		if (Base::isLeaf(root)) {
+// 			return max_distance;
+// 		}
+
+// 		auto children       = Base::children(root);
+// 		auto children_depth = Base::depth() - 1;
+
+// 		return std::sqrt(0.0f < epsilon
+// 		                     ? nearestSingle(p, children, children_depth, epsilon * epsilon)
+// 		                     : nearestSingle(p, children, children_depth));
+// 	}
+
+// 	[[nodiscard]] const_reference nearestSingle(Index node, Point p,
+// 	                                            float epsilon = 0.0f) const
+// 	{
+// 		// TODO: Implement
+// 	}
+
+// 	[[nodiscard]] reference nearestSingle(Point query_point, pos_t block,
+// 	                                      depth_t block_depth, float epsilon)
+// 	{
+// 		static constexpr auto const BF = Base::branchingFactor();
+
+// 		float closest_distance_sq = std::numeric_limits<float>::max();
+
+// 		std::array<std::pair<int, std::array<std::pair<float, pos_t>, BF>>,
+// 		           Base::maxNumDepthLevels() - 1>
+// 		    stack;
+// 		stack[block_depth].first                 = BF - 1;
+// 		stack[block_depth].second[BF - 1].first  = 0.0f;
+// 		stack[block_depth].second[BF - 1].second = block;
+
+// 		for (depth_t max_depth = block_depth + static_cast<depth_t>(1);
+// 		     max_depth > block_depth;) {
+// 			auto& [idx, c] = stack[block_depth];
+
+// 			if (BF - 1 < idx || c[idx].first + epsilon >= closest_distance_sq) {
+// 				++block_depth;
+// 				continue;
+// 			}
+
+// 			block = c[idx].second;
+// 			++idx;
+
+// 			stack[block_depth - static_cast<depth_t>(1)].first = 0;
+// 			auto& candidates = stack[block_depth - static_cast<depth_t>(1)].second;
+
+// 			auto child_block = Base::children(block);
+
+// 			parents_checked2 += BF;
+// 			for (int i{}; BF > i; ++i) {
+// 				Point coord;
+// 				for (int j{}; Point::size() > j; ++j) {
+// 					coord[j] =
+// 					    UFO_CLAMP(query_point[j], extra_[block].min[i][j],
+// extra_[block].max[i][j]);
+// 				}
+
+// 				for (int j{}; Point::size() > j; ++j) {
+// 					coord[j] -= query_point[j];
+// 					coord[j] *= coord[j];
+// 				}
+
+// 				candidates[i].first = coord[0];
+// 				for (int j = 1; Point::size() > j; ++j) {
+// 					candidates[i].first += coord[j];
+// 				}
+// 				candidates[i].second = child_block[i];
+// 			}
+
+// 			if (static_cast<depth_t>(1) == block_depth) {
+// 				std::array<float, BF> d;
+// 				for (auto [dist_sq, child_block] : candidates) {
+// 					if (dist_sq + epsilon >= closest_distance_sq) {
+// 						continue;
+// 					}
+
+// 					leaves_checked2 += BF;
+// 					for (int i{}; BF > i; ++i) {
+// 						auto p = extra_[child_block].point[i];
+// 						for (int j{}; Point::size() > j; ++j) {
+// 							p[j] -= query_point[j];
+// 							p[j] *= p[j];
+// 						}
+// 						d[i] = p[0];
+// 						for (int j = 1; Point::size() > j; ++j) {
+// 							d[i] += p[j];
+// 						}
+// 					}
+// 					if constexpr (2 == BF) {
+// 						UFO_MIN_2(d);
+// 					} else if constexpr (4 == BF) {
+// 						UFO_MIN_4(d);
+// 					} else if constexpr (8 == BF) {
+// 						UFO_MIN_8(d);
+// 					} else if constexpr (16 == BF) {
+// 						UFO_MIN_16(d);
+// 					} else {
+// 						for (int i = 1; BF > i; ++i) {
+// 							d[0] = UFO_MIN(d[0], d[i]);
+// 						}
+// 					}
+// 					closest_distance_sq = UFO_MIN(closest_distance_sq, d[0]);
+// 				}
+// 			} else {
+// 				if constexpr (2 == BF) {
+// 					UFO_SORT_PAIR_FIRST_2(candidates);
+// 				} else if constexpr (4 == BF) {
+// 					UFO_SORT_PAIR_FIRST_4(candidates);
+// 				} else if constexpr (8 == BF) {
+// 					UFO_SORT_PAIR_FIRST_8(candidates);
+// 				} else if constexpr (16 == BF) {
+// 					UFO_SORT_PAIR_FIRST_16(candidates);
+// 				} else {
+// 					std::sort(std::begin(candidates), std::end(candidates),
+// 					          [](auto a, auto b) { return a.first < b.first; });
+// 				}
+// 				--block_depth;
+// 			}
+// 		}
+
+// 		return closest_distance_sq;
+// 	}

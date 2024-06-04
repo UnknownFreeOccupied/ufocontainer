@@ -51,27 +51,17 @@ namespace ufo::pred
 struct Inner {
 };
 
-template <>
-struct InnerCheck<Inner> {
-	using Pred = Inner;
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(Inner, Tree const& t, Node n)
+{
+	return 0 < t.depth(n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n) noexcept
-	{
-		return 1 < n.depth();
-	}
-};
-
-template <>
-struct ValueCheck<Inner> {
-	using Pred = Inner;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n)
-	{
-		return 0 != n.depth();
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Inner, Tree const& t, Node n)
+{
+	return 1 < t.depth(n);
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_INNER_HPP

@@ -91,4 +91,9 @@ TEST_CASE("Octree Set")
 	for (auto x : set) {
 		std::cout << x << std::endl;
 	}
+
+	std::cout << "Query iterator" << std::endl;
+	for (auto x : set.query(ufo::pred::Satisfies([](auto e) { return 100 != e.x; }))) {
+		std::cout << x << std::endl;
+	}
 }

@@ -42,129 +42,60 @@
 #ifndef UFO_CONTAINER_TREE_MAP_NEAREST_HPP
 #define UFO_CONTAINER_TREE_MAP_NEAREST_HPP
 
-// UFO
-#include <ufo/container/tree/set_or_map_nearest.hpp>
-
 // STL
+#include <iterator>
+#include <limits>
 #include <type_traits>
 #include <utility>
 
 namespace ufo
 {
 
-template <class Point, class T>
-struct TreeSetOrMapNearest<std::pair<Point const, T>> {
-	using value_type  = std::pair<Point const, T>;
-	using mapped_type = T;
+template <class Iterator>
+struct TreeMapNearest {
+	using value_type  = typename std::iterator_traits<Iterator>::value_type;
+	using Point       = typename value_type::first_type;
+	using mapped_type = typename value_type::second_type;
 
-	float distance;
+	float distance = std::numeric_limits<float>::quiet_NaN();
 
-	TreeSetOrMapNearest() = default;
+	TreeMapNearest() = default;
 
-	TreeSetOrMapNearest(value_type& value, float distance)
-	    : distance(distance), value_(&value)
+	TreeMapNearest(Iterator it, float distance) : distance(distance), it_(it) {}
+
+	[[nodiscard]] value_type& value() const { return *it_; }
+
+	[[nodiscard]] Point const& point() const { return it_->first; }
+
+	[[nodiscard]] mapped_type& mapped() const { return it_->second; }
+
+	bool operator==(TreeMapNearest rhs) const noexcept
 	{
+		return distance == rhs.distance && it_ == rhs.it_;
 	}
 
-	[[nodiscard]] value_type& value() const { return *value_; }
-
-	[[nodiscard]] Point const& point() const { return value_->first; }
-
-	[[nodiscard]] mapped_type& mapped() const { return value_->second; }
-
-	bool operator==(TreeSetOrMapNearest rhs) const noexcept
+	bool operator!=(TreeMapNearest rhs) const noexcept
 	{
-		return distance == rhs.distance && value_ == rhs.value_;
+		return distance != rhs.distance || it_ != rhs.it_;
 	}
 
-	bool operator!=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance != rhs.distance || value_ != rhs.value_;
-	}
+	bool operator<(TreeMapNearest rhs) const noexcept { return distance < rhs.distance; }
 
-	bool operator<(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance < rhs.distance;
-	}
+	bool operator<=(TreeMapNearest rhs) const noexcept { return distance <= rhs.distance; }
 
-	bool operator<=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance <= rhs.distance;
-	}
+	bool operator>(TreeMapNearest rhs) const noexcept { return distance > rhs.distance; }
 
-	bool operator>(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance > rhs.distance;
-	}
-
-	bool operator>=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance >= rhs.distance;
-	}
+	bool operator>=(TreeMapNearest rhs) const noexcept { return distance >= rhs.distance; }
 
  private:
-	value_type* value_;
+	Iterator it_;
 };
 
-template <class Point, class T>
-struct TreeSetOrMapNearest<std::pair<Point const, T> const> {
-	using value_type  = std::pair<Point const, T> const;
-	using mapped_type = T const;
-
-	float distance;
-
-	TreeSetOrMapNearest() = default;
-
-	TreeSetOrMapNearest(value_type& value, float distance)
-	    : distance(distance), value_(&value)
-	{
-	}
-
-	[[nodiscard]] value_type& value() const { return *value_; }
-
-	[[nodiscard]] Point const& point() const { return value_->first; }
-
-	[[nodiscard]] mapped_type& mapped() const { return value_->second; }
-
-	bool operator==(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance == rhs.distance && value_ == rhs.value_;
-	}
-
-	bool operator!=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance != rhs.distance || value_ != rhs.value_;
-	}
-
-	bool operator<(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance < rhs.distance;
-	}
-
-	bool operator<=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance <= rhs.distance;
-	}
-
-	bool operator>(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance > rhs.distance;
-	}
-
-	bool operator>=(TreeSetOrMapNearest rhs) const noexcept
-	{
-		return distance >= rhs.distance;
-	}
-
- private:
-	value_type* value_;
-};
-
-template <std::size_t i, class Point, class T>
-auto const& get(TreeSetOrMapNearest<std::pair<Point const, T>> const& n)
+template <std::size_t i, class Iterator>
+auto const& get(TreeMapNearest<Iterator> const& n)
 {
 	if constexpr (i == 0) {
-		return n.key();
+		return n.point();
 	} else if constexpr (i == 1) {
 		return n.mapped();
 	} else if constexpr (i == 2) {
@@ -174,39 +105,11 @@ auto const& get(TreeSetOrMapNearest<std::pair<Point const, T>> const& n)
 	}
 }
 
-template <std::size_t i, class Point, class T>
-auto& get(TreeSetOrMapNearest<std::pair<Point const, T>>& n)
+template <std::size_t i, class Iterator>
+auto& get(TreeMapNearest<Iterator>& n)
 {
 	if constexpr (i == 0) {
-		return n.key();
-	} else if constexpr (i == 1) {
-		return n.mapped();
-	} else if constexpr (i == 2) {
-		return n.distance;
-	} else {
-		// Error
-	}
-}
-
-template <std::size_t i, class Point, class T>
-auto const& get(TreeSetOrMapNearest<std::pair<Point const, T> const> const& n)
-{
-	if constexpr (i == 0) {
-		return n.key();
-	} else if constexpr (i == 1) {
-		return n.mapped();
-	} else if constexpr (i == 2) {
-		return n.distance;
-	} else {
-		// Error
-	}
-}
-
-template <std::size_t i, class Point, class T>
-auto& get(TreeSetOrMapNearest<std::pair<Point const, T> const>& n)
-{
-	if constexpr (i == 0) {
-		return n.key();
+		return n.point();
 	} else if constexpr (i == 1) {
 		return n.mapped();
 	} else if constexpr (i == 2) {
@@ -220,43 +123,23 @@ auto& get(TreeSetOrMapNearest<std::pair<Point const, T> const>& n)
 // Tuple-like binding protocol definition
 namespace std
 {
-template <class Point, class T>
-struct tuple_size<ufo::TreeSetOrMapNearest<std::pair<Point const, T>>>
-    : std::integral_constant<std::size_t, 3> {
-};
-
-// Define the number of decomposable (accessible) elements
-// by specializing the 'tuple_size' template class
-template <class Point, class T>
-struct tuple_size<ufo::TreeSetOrMapNearest<std::pair<Point const, T> const>>
+template <class Iterator>
+struct tuple_size<ufo::TreeMapNearest<Iterator>>
     : std::integral_constant<std::size_t, 3> {
 };
 
 // Define the types of decomposable elements by specializing
 // the 'tuple_element' template class (indices are 0-based)
-template <class Point, class T>
-struct tuple_element<0, ufo::TreeSetOrMapNearest<std::pair<Point const, T>>> {
-	using type = Point const;
+template <class Iterator>
+struct tuple_element<0, ufo::TreeMapNearest<Iterator>> {
+	using type = typename ufo::TreeMapNearest<Iterator>::Point;
 };
-template <class Point, class T>
-struct tuple_element<1, ufo::TreeSetOrMapNearest<std::pair<Point const, T>>> {
-	using type = T;
+template <class Iterator>
+struct tuple_element<1, ufo::TreeMapNearest<Iterator>> {
+	using type = typename ufo::TreeMapNearest<Iterator>::mapped_type;
 };
-template <class Point, class T>
-struct tuple_element<2, ufo::TreeSetOrMapNearest<std::pair<Point const, T>>> {
-	using type = float;
-};
-
-template <class Point, class T>
-struct tuple_element<0, ufo::TreeSetOrMapNearest<std::pair<Point const, T> const>> {
-	using type = Point const;
-};
-template <class Point, class T>
-struct tuple_element<1, ufo::TreeSetOrMapNearest<std::pair<Point const, T> const>> {
-	using type = T;
-};
-template <class Point, class T>
-struct tuple_element<2, ufo::TreeSetOrMapNearest<std::pair<Point const, T> const>> {
+template <class Iterator>
+struct tuple_element<2, ufo::TreeMapNearest<Iterator>> {
 	using type = float;
 };
 }  // namespace std

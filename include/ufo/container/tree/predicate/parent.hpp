@@ -51,27 +51,17 @@ namespace ufo::pred
 struct Parent {
 };
 
-template <>
-struct InnerCheck<Parent> {
-	using Pred = Parent;
+template <class Tree>
+[[nodiscard]] constexpr bool valueCheck(Parent, Tree const& t, TreeIndex n)
+{
+	return t.isParent(n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n) noexcept
-	{
-		return 1 < n.depth() && m.isParent(n.index());
-	}
-};
-
-template <>
-struct ValueCheck<Parent> {
-	using Pred = Parent;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n)
-	{
-		return m.isParent(n.index());
-	}
-};
+template <class Tree>
+[[nodiscard]] constexpr bool innerCheck(Parent, Tree const& t, TreeIndex n)
+{
+	return t.isParent(n);
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_PARENT_HPP

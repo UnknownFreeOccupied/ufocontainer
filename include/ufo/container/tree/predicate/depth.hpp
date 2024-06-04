@@ -49,13 +49,13 @@
 namespace ufo::pred
 {
 template <PredicateCompare PC = PredicateCompare::EQUAL,
-          PredicateType    PT = PredicateType::RETURN_AND_INNER>
+          PredicateType    PT = PredicateType::VALUE_AND_INNER>
 struct Depth {
 	using depth_t = std::uint32_t;
 
-	depth_t depth;
+	depth_t depth{};
 
-	Depth() = default;
+	constexpr Depth() = default;
 
 	constexpr Depth(depth_t depth) noexcept : depth(depth) {}
 };
@@ -69,51 +69,41 @@ using DepthG  = Depth<PredicateCompare::GREATER>;
 using DepthMin = DepthGE;
 using DepthMax = DepthLE;
 
-template <PredicateCompare PC, PredicateType PT>
-struct InnerCheck<Depth<PC, PT>> {
-	using Pred = Depth<PC, PT>;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const& m, Node const& n) noexcept
-	{
-		if constexpr (PredicateType::RETURN == PT) {
-			return ValueCheck<Pred>::apply(p, m, n);
-		} else if constexpr (PredicateCompare::EQUAL == PC) {
-			return n.depth() > p.depth;
-		} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
-			return true;
-		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
-			return n.depth() > p.depth;
-		} else if constexpr (PredicateCompare::LESS == PC) {
-			return true;
-		} else if constexpr (PredicateCompare::GREATER == PC) {
-			return n.depth() > (p.depth + 1U);
-		}
+template <PredicateCompare PC, PredicateType PT, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(Depth<PC, PT> p, Tree const& t, Node n)
+{
+	if constexpr (PredicateType::INNER == PT) {
+		return true;
+	} else if constexpr (PredicateCompare::EQUAL == PC) {
+		return t.depth(n) == p.depth;
+	} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
+		return t.depth(n) <= p.depth;
+	} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
+		return t.depth(n) >= p.depth;
+	} else if constexpr (PredicateCompare::LESS == PC) {
+		return t.depth(n) < p.depth;
+	} else if constexpr (PredicateCompare::GREATER == PC) {
+		return t.depth(n) > p.depth;
 	}
-};
+}
 
-template <PredicateCompare PC, PredicateType PT>
-struct ValueCheck<Depth<PC, PT>> {
-	using Pred = Depth<PC, PT>;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const& m, Node const& n)
-	{
-		if constexpr (PredicateType::INNER == PT) {
-			return false;
-		} else if constexpr (PredicateCompare::EQUAL == PC) {
-			return n.depth() == p.depth;
-		} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
-			return n.depth() <= p.depth;
-		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
-			return n.depth() >= p.depth;
-		} else if constexpr (PredicateCompare::LESS == PC) {
-			return n.depth() < p.depth;
-		} else if constexpr (PredicateCompare::GREATER == PC) {
-			return n.depth() > p.depth;
-		}
+template <PredicateCompare PC, PredicateType PT, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Depth<PC, PT> p, Tree const& t, Node n)
+{
+	if constexpr (PredicateType::VALUE == PT) {
+		return true;
+	} else if constexpr (PredicateCompare::EQUAL == PC) {
+		return t.depth(n) > p.depth;
+	} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
+		return true;
+	} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
+		return t.depth(n) > p.depth;
+	} else if constexpr (PredicateCompare::LESS == PC) {
+		return true;
+	} else if constexpr (PredicateCompare::GREATER == PC) {
+		return t.depth(n) > (p.depth + 1U);
 	}
-};
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_DEPTH_HPP

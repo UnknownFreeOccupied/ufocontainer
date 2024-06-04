@@ -45,45 +45,24 @@
 // UFO
 #include <ufo/container/tree/predicate/predicate.hpp>
 
-// STL
-#include <functional>
-
 namespace ufo::pred
 {
 //
 // Satisfies
 //
 
-template <class Fun, bool IsFunction>
-struct SatisfiesImpl {
-	SatisfiesImpl(Fun fun) : fun(fun) {}
-
-	Fun* fun;
-};
-
-template <class Fun>
-struct SatisfiesImpl<Fun, false> {
-	SatisfiesImpl(Fun const& fun) : fun(fun) {}
+template <class Fun, bool Negated = false>
+struct Satisfies {
+	Satisfies(Fun fun) : fun(fun) {}
 
 	Fun fun;
 };
 
 template <class Fun, bool Negated = false>
-struct Satisfies : SatisfiesImpl<Fun, std::is_function_v<Fun>> {
-	using Base = SatisfiesImpl<Fun, std::is_function_v<Fun>>;
+struct SatisfiesInner {
+	SatisfiesInner(Fun fun) : fun(fun) {}
 
-	Satisfies(Fun const& fun) : Base(fun) {}
-
-	Satisfies(Base const& b) : Base(b) {}
-};
-
-template <class Fun, bool Negated = false>
-struct SatisfiesInner : SatisfiesImpl<Fun, std::is_function_v<Fun>> {
-	using Base = SatisfiesImpl<Fun, std::is_function_v<Fun>>;
-
-	SatisfiesInner(Fun const& fun) : Base(fun) {}
-
-	SatisfiesInner(Base const& b) : Base(b) {}
+	Fun fun;
 };
 
 //
@@ -93,74 +72,73 @@ struct SatisfiesInner : SatisfiesImpl<Fun, std::is_function_v<Fun>> {
 template <class Fun, bool Negated>
 constexpr Satisfies<Fun, !Negated> operator!(Satisfies<Fun, Negated> const& p)
 {
-	return Satisfies<Fun, !Negated>(p);
+	return Satisfies<Fun, !Negated>(p.fun);
 }
 
 template <class Fun, bool Negated>
 constexpr SatisfiesInner<Fun, !Negated> operator!(SatisfiesInner<Fun, Negated> const& p)
 {
-	return SatisfiesInner<Fun, !Negated>(p);
+	return SatisfiesInner<Fun, !Negated>(p.fun);
 }
 
 //
 // Predicate value check
 //
 
-template <class Fun, bool Negated>
-struct ValueCheck<Satisfies<Fun, Negated>> {
-	using Pred = Satisfies<Fun, Negated>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const&, Node const& n)
-	{
-		if constexpr (Negated) {
-			return !p.fun(n);
-		} else {
-			return p.fun(n);
-		}
+template <class Fun, bool Negated, class Value>
+[[nodiscard]] constexpr bool valueCheck(Satisfies<Fun, Negated> const& p, Value const& v)
+{
+	if constexpr (Negated) {
+		return !p.fun(v);
+	} else {
+		return p.fun(v);
 	}
-};
+}
 
-template <class Fun, bool Negated>
-struct ValueCheck<SatisfiesInner<Fun, Negated>> {
-	using Pred = SatisfiesInner<Fun, Negated>;
-
-	template <class Tree, class Node>
-	static constexpr bool apply(Pred const&, Tree const&, Node const&)
-	{
-		return true;
+template <class Fun, bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(Satisfies<Fun, Negated> const& p, Tree const&,
+                                        Node                           n)
+{
+	if constexpr (Negated) {
+		return !p.fun(n);
+	} else {
+		return p.fun(n);
 	}
-};
+}
+
+template <class Fun, bool Negated, class Value>
+[[nodiscard]] constexpr bool valueCheck(SatisfiesInner<Fun, Negated> const&, Value const&)
+{
+	return true;
+}
+
+template <class Fun, bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(SatisfiesInner<Fun, Negated> const&, Tree const&,
+                                        Node)
+{
+	return true;
+}
 
 //
 // Predicate inner check
 //
 
-template <class Fun, bool Negated>
-struct InnerCheck<Satisfies<Fun, Negated>> {
-	using Pred = Satisfies<Fun, Negated>;
+template <class Fun, bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Satisfies<Fun, Negated> const&, Tree const&, Node)
+{
+	return true;
+}
 
-	template <class Tree, class Node>
-	static constexpr bool apply(Pred const&, Tree const&, Node const&)
-	{
-		return true;
+template <class Fun, bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(SatisfiesInner<Fun, Negated> const& p,
+                                        Tree const&, Node n)
+{
+	if constexpr (Negated) {
+		return !p.fun(n);
+	} else {
+		return p.fun(n);
 	}
-};
-
-template <class Fun, bool Negated>
-struct InnerCheck<SatisfiesInner<Fun, Negated>> {
-	using Pred = SatisfiesInner<Fun, Negated>;
-
-	template <class Tree, class Node>
-	static inline bool apply(Pred const& p, Tree const&, Node const& n)
-	{
-		if constexpr (Negated) {
-			return !p.fun(n);
-		} else {
-			return p.fun(n);
-		}
-	}
-};
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_SATISFIES_HPP

@@ -158,37 +158,35 @@ class TreeIterator
 	template <class Predicate>
 	constexpr void initPredicate(Predicate const& predicate) const
 	{
-		pred::Init<Predicate>::apply(predicate, *tree_);
+		pred::init(predicate, *tree_);
 	}
 
 	template <bool OnlyExists, class TNode, class Predicate>
 	[[nodiscard]] bool validInner(TNode const& node, Predicate const& predicate) const
 	{
 		if constexpr (OnlyExists) {
-			return isParent(node) &&
-			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
+			return isParent(node) && pred::innerCheck(predicate, *tree_, node);
 		} else {
-			return !isPureLeaf(node) &&
-			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
+			return !isPureLeaf(node) && pred::innerCheck(predicate, *tree_, node);
 		}
 	}
 
 	template <class Predicate>
 	[[nodiscard]] bool validInner(TreeIndex node, Predicate const& predicate) const
 	{
-		return isParent(node) && pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
+		return isParent(node) && pred::innerCheck(predicate, *tree_, node);
 	}
 
 	template <class TNode, class Predicate>
 	[[nodiscard]] bool validReturn(TNode const& node, Predicate const& predicate) const
 	{
-		return pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
+		return pred::valueCheck(predicate, *tree_, node);
 	}
 
 	template <class Predicate>
 	[[nodiscard]] bool validReturn(TreeIndex node, Predicate const& predicate) const
 	{
-		return pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
+		return pred::valueCheck(predicate, *tree_, node);
 	}
 
  protected:
@@ -254,8 +252,8 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 	using TI = TreeIterator<Tree, TreeNodeNearest<Node>>;
 
 	static constexpr bool const OnlyLeavesOrFixedDepth =
-	    pred::contains_always_predicate_v<pred::PureLeaf, Predicate> ||
-	    pred::contains_always_predicate_v<pred::DepthE, Predicate> || EarlyStopping;
+	    pred::contains_always_pred_v<pred::PureLeaf, Predicate> ||
+	    pred::contains_always_pred_v<pred::DepthE, Predicate> || EarlyStopping;
 
  public:
 	using offset_t = typename Tree::offset_t;
@@ -370,8 +368,8 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 	using TI = TreeIterator<Tree, Node>;
 
 	static constexpr bool const OnlyLeavesOrFixedDepth =
-	    pred::contains_always_predicate_v<pred::PureLeaf, Predicate> ||
-	    pred::contains_always_predicate_v<pred::DepthE, Predicate> || EarlyStopping;
+	    pred::contains_always_pred_v<pred::PureLeaf, Predicate> ||
+	    pred::contains_always_pred_v<pred::DepthE, Predicate> || EarlyStopping;
 
  public:
 	using offset_t = typename Tree::offset_t;

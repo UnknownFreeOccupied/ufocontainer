@@ -58,29 +58,17 @@ struct DepthInterval {
 	constexpr DepthInterval(depth_t min, depth_t max) noexcept : min(min), max(max) {}
 };
 
-template <>
-struct InnerCheck<DepthInterval> {
-	using Pred = DepthInterval;
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(DepthInterval p, Tree const& t, Node n)
+{
+	return valueCheck(p.min, t, n) && valueCheck(p.max, t, n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const& m, Node const& n) noexcept
-	{
-		return InnerCheck<std::decay_t<decltype(p.min)>>::apply(p.min, m, n) &&
-		       InnerCheck<std::decay_t<decltype(p.max)>>::apply(p.max, m, n);
-	}
-};
-
-template <>
-struct ValueCheck<DepthInterval> {
-	using Pred = DepthInterval;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const& m, Node const& n)
-	{
-		return ValueCheck<std::decay_t<decltype(p.min)>>::apply(p.min, m, n) &&
-		       ValueCheck<std::decay_t<decltype(p.max)>>::apply(p.max, m, n);
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(DepthInterval p, Tree const& t, Node n)
+{
+	return innerCheck(p.min, t, n) && innerCheck(p.max, t, n);
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP

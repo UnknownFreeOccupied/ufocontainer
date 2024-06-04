@@ -43,33 +43,38 @@
 #define UFO_CONTAINER_TREE_SET_OR_MAP_QUERY_NEAREST_ITERATOR_HPP
 
 // UFO
-#include <ufo/container/tree/set_or_map_nearest.hpp>
-#include <ufo/utility/type_traits.hpp>
+#include <ufo/container/tree/map_nearest.hpp>
+#include <ufo/container/tree/predicate.hpp>
+#include <ufo/container/tree/set_nearest.hpp>
+#include <ufo/utility/macros.hpp>
 
 // STL
+#include <cmath>
 #include <iterator>
-#include <limits>
 #include <memory>
 #include <queue>
 #include <type_traits>
-#include <utility>
 #include <vector>
 
 namespace ufo
 {
-template <class TreeMap>
-class TreeMapNearestIteratorHelper
+
+namespace detail
 {
-	template <class TreeMap2>
-	friend class TreeMapNearestIteratorHelper;
+template <class TreeSetOrMap>
+class TreeSetOrMapQueryNearestIteratorHelper
+{
+	template <class TreeSetOrMap2>
+	friend class TreeSetOrMapQueryNearestIteratorHelper;
 
-	static constexpr bool const IsConst = std::is_const_v<TreeMap>;
+ public:
+	static constexpr bool const IsConst = std::is_const_v<TreeSetOrMap>;
+	static constexpr bool const IsMap   = TreeSetOrMap::IsMap;
 
-	using Index = typename TreeMap::Index;
-	using Point = typename TreeMap::Point;
-
-	using value_pointer = std::conditional_t<IsConst, typename TreeMap::const_pointer,
-	                                         typename TreeMap::pointer>;
+	using RawIterator =
+	    std::conditional_t<IsConst, typename TreeSetOrMap::const_raw_iterator,
+	                       typename TreeSetOrMap::raw_iterator>;
+	using Index = typename TreeSetOrMap::Index;
 
  public:
 	//
@@ -78,198 +83,97 @@ class TreeMapNearestIteratorHelper
 
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-
-	struct value_type {
-		using value_type      = ...;
-		using reference       = value_type&;
-		using const_reference = value_type const&;
-		using pointer         = value_type*;
-		using const_pointer   = value_type const*;
-
-		value_pointer value_ptr;
-		float         distance_squared;
-
-		value_type() = default;
-
-		value_type(value_pointer value_ptr, float distance_squared)
-		    : value_ptr(value_ptr), distance_squared(distance_squared)
-		{
-		}
-
-		[[nodiscard]] reference operator*() const { return *value_ptr; }
-
-		[[nodiscard]] pointer operator->() const { return value_ptr; }
-
-		bool operator>(value_type rhs) const noexcept
-		{
-			return distance_squared > rhs.distance_squared;
-		}
-	};
-
-	using value_type = std::pair<value_pointer, float>;
-	using reference  = value_type&;
-	using pointer    = value_type*;
+	using value_type =
+	    std::conditional_t<IsMap, TreeMapNearest<RawIterator>, TreeSetNearest<RawIterator>>;
+	using reference = value_type&;
+	using pointer   = value_type*;
 
  public:
-	TreeMapNearestIteratorHelper(TreeMap* tm = nullptr) : tm_(tm) {}
+	TreeSetOrMapQueryNearestIteratorHelper() = default;
+	TreeSetOrMapQueryNearestIteratorHelper(TreeSetOrMapQueryNearestIteratorHelper const&) =
+	    default;
+	TreeSetOrMapQueryNearestIteratorHelper(TreeSetOrMapQueryNearestIteratorHelper&&) =
+	    default;
 
-	virtual ~TreeMapNearestIteratorHelper() {}
+	template <
+	    class TreeSetOrMap2,
+	    typename std::enable_if_t<
+	        IsConst && !TreeSetOrMapQueryNearestIteratorHelper<TreeSetOrMap2>::IsConst &&
+	            std::is_same_v<std::decay_t<TreeSetOrMap>, std::decay_t<TreeSetOrMap2>>,
+	        bool> = true>
+	TreeSetOrMapQueryNearestIteratorHelper(
+	    TreeSetOrMapQueryNearestIteratorHelper<TreeSetOrMap2> const& other)
+	    : t_(other.t_)
+	{
+	}
+
+	TreeSetOrMapQueryNearestIteratorHelper(TreeSetOrMap* t = nullptr) : t_(t) {}
+
+	virtual ~TreeSetOrMapQueryNearestIteratorHelper() {}
 
 	[[nodiscard]] virtual value_type init(Index node) = 0;
 
 	[[nodiscard]] virtual value_type next() = 0;
 
-	[[nodiscard]] virtual TreeMapNearestIteratorHelper* copy() const = 0;
+	[[nodiscard]] virtual TreeSetOrMapQueryNearestIteratorHelper* copy() const = 0;
+
+	[[nodiscard]] virtual TreeSetOrMapQueryNearestIteratorHelper<TreeSetOrMap const>*
+	copyToConst() const = 0;
 
  protected:
-	[[nodiscard]] auto iters(Index node) const { return tm_->iters(node); }
+	[[nodiscard]] auto& values(Index node) const { return t_->values(node); }
 
-	[[nodiscard]] auto children(Index node) const { return tm_->children(node); }
+	[[nodiscard]] auto boundsMin(Index node) const { return t_->boundsMin(node); }
+
+	[[nodiscard]] auto boundsMax(Index node) const { return t_->boundsMax(node); }
+
+	[[nodiscard]] auto children(Index node) const { return t_->children(node); }
 
 	template <class Predicate>
 	void initPredicate(Predicate& predicate) const
 	{
-		pred::Init<Predicate>::apply(predicate, *tm_);
+		pred::init(predicate, *t_);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(Index node, Predicate const& predicate) const
+	[[nodiscard]] bool validReturn(Predicate const&                         predicate,
+	                               typename TreeSetOrMap::value_type const& value) const
 	{
-		return tm_->isPureLeaf(node) && !tm_->empty(node) &&
-		       pred::ValueCheck<Predicate>::apply(predicate, *tm_, node);
+		return pred::valueCheck(predicate, value);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(Index node, Point point,
-	                               Predicate const& predicate) const
+	[[nodiscard]] bool validReturn(Predicate const& predicate, Index node) const
 	{
-		return pred::ValueCheck<Predicate>::apply(predicate, *tm_, node, point);
+		return t_->isPureLeaf(node) && !t_->empty(node) &&
+		       pred::innerCheck(predicate, *t_, node);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validInner(Index node, Predicate const& predicate) const
+	[[nodiscard]] bool validInner(Predicate const& predicate, Index node) const
 	{
-		return tm_->isParent(node) &&
-		       pred::InnerCheck<Predicate>::apply(predicate, *tm_, node);
+		return t_->isParent(node) && pred::innerCheck(predicate, *t_, node);
 	}
 
  protected:
-	TreeMap* tm_;
+	TreeSetOrMap* t_;
 };
 
-template <class TreeMap>
-class TreeMapNearestIteratorWrapper
+template <class TreeSetOrMap, class Predicate>
+class TreeSetOrMapQueryNearestIterator final
+    : public TreeSetOrMapQueryNearestIteratorHelper<TreeSetOrMap>
 {
-	using TMNIH = TreeMapNearestIteratorHelper<TreeMap>;
+	template <class TreeSetOrMap2, class Predicate2>
+	friend class TreeSetOrMapQueryNearestIterator;
 
-	using Index = typename TreeMap::Index;
+	using Base = TreeSetOrMapQueryNearestIteratorHelper<TreeSetOrMap>;
 
-	static constexpr bool const IsConst = TMNIH::IsConst;
+	using Index       = typename TreeSetOrMap::Index;
+	using Point       = typename TreeSetOrMap::Point;
+	using RawIterator = typename Base::RawIterator;
 
- public:
-	//
-	// Tags
-	//
-
-	using iterator_category = typename TMNIH::iterator_category;
-	using difference_type   = typename TMNIH::difference_type;
-	using value_type        = typename TMNIH::value_type;
-	using reference         = typename TMNIH::reference;
-	using pointer           = typename TMNIH::pointer;
-
-	TreeMapNearestIteratorWrapper() = default;
-
-	TreeMapNearestIteratorWrapper(TMNIH* it, Index node) : it_(it), cur_(it_->init(node)) {}
-
-	TreeMapNearestIteratorWrapper(TreeMapNearestIteratorWrapper const& other)
-	    : it_(other.it_->copy()), cur_(other.cur_)
-	{
-	}
-
-	template <class TreeMap2,
-	          typename std::enable_if_t<
-	              IsConst && !TreeMapNearestIteratorWrapper<TreeMap2>::IsConst &&
-	              std::is_same_v<std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
-	TreeMapNearestIteratorWrapper(TreeMapNearestIteratorWrapper<TreeMap2> const& other)
-	    : it_(other.it_->copy()), cur_(other.cur_)
-	{
-	}
-
-	TreeMapNearestIteratorWrapper& operator=(TreeMapNearestIteratorWrapper const& rhs)
-	{
-		it_  = rhs.it_->copy();
-		cur_ = rhs.cur_;
-		return *this;
-	}
-
-	template <class TreeMap2,
-	          typename std::enable_if_t<
-	              IsConst && !TreeMapNearestIteratorWrapper<TreeMap2>::IsConst &&
-	              std::is_same_v<std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
-	TreeMapNearestIteratorWrapper& operator=(
-	    TreeMapNearestIteratorWrapper<TreeMap2> const& rhs)
-	{
-		it_  = rhs.it_->copy();
-		cur_ = rhs.cur_;
-		return *this;
-	}
-
-	[[nodiscard]] reference operator*() const { return cur_; }
-
-	[[nodiscard]] pointer operator->() const { return &cur_; }
-
-	TreeMapNearestIteratorWrapper& operator++()
-	{
-		cur_ = it_->next();
-		return *this;
-	}
-
-	TreeMapNearestIteratorWrapper operator++(int)
-	{
-		auto tmp = *this;
-		++*this;
-		return tmp;
-	}
-
-	bool operator==(TreeMapNearestIteratorWrapper const& rhs) const
-	{
-		return cur_ == rhs.cur_;
-	}
-
-	template <class TreeMap2, typename std::enable_if_t<std::is_same_v<
-	                              std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
-	bool operator==(TreeMapNearestIteratorWrapper<TreeMap2> const& rhs) const
-	{
-		return cur_ == rhs.cur_;
-	}
-
-	bool operator!=(TreeMapNearestIteratorWrapper const& rhs) const
-	{
-		return cur_ != rhs.cur_;
-	}
-
-	template <class TreeMap2, typename std::enable_if_t<std::is_same_v<
-	                              std::decay_t<TreeMap>, std::decay_t<TreeMap2>>> = true>
-	bool operator!=(TreeMapNearestIteratorWrapper<TreeMap2> const& rhs) const
-	{
-		return cur_ != rhs.cur_;
-	}
-
- private:
-	std::unique_ptr<TMNIH> it_;
-	value_type             cur_;
-};
-
-template <class TreeMap, class Predicate>
-class TreeMapNearestIterator final : private TreeMapNearestIteratorHelper<TreeMap>
-{
-	using Base = TreeMapNearestIteratorHelper<TreeMap>;
-
-	using pos_t = typename TreeMap::pos_t;
-	using Index = typename TreeMap::Index;
-	using Point = typename TreeMap::Point;
-
-	static constexpr bool const IsPair = is_pair_v<typename TreeMap::value_type>;
+	static constexpr bool const IsConst = Base::IsConst;
+	static constexpr bool const IsMap   = Base::IsMap;
 
  public:
 	//
@@ -282,50 +186,83 @@ class TreeMapNearestIterator final : private TreeMapNearestIteratorHelper<TreeMa
 	using reference         = typename Base::reference;
 	using pointer           = typename Base::pointer;
 
-	TreeMapNearestIterator()                                    = default;
-	TreeMapNearestIterator(TreeMapNearestIterator const& other) = default;
-	TreeMapNearestIterator(TreeMapNearestIterator&& other)      = default;
+	TreeSetOrMapQueryNearestIterator()                                        = default;
+	TreeSetOrMapQueryNearestIterator(TreeSetOrMapQueryNearestIterator const&) = default;
+	TreeSetOrMapQueryNearestIterator(TreeSetOrMapQueryNearestIterator&&)      = default;
 
-	TreeMapNearestIterator(TreeMap* tm, Predicate const& predicate, Point query,
-	                       float epsilon)
-	    : Base(tm), predicate_(predicate), query_(query), epsilon_sq_(epsilon * epsilon)
+	template <
+	    class TreeSetOrMap2,
+	    typename std::enable_if_t<
+	        IsConst &&
+	            !TreeSetOrMapQueryNearestIterator<TreeSetOrMap2, Predicate>::IsConst &&
+	            std::is_same_v<std::decay_t<TreeSetOrMap>, std::decay_t<TreeSetOrMap2>>,
+	        bool> = true>
+	TreeSetOrMapQueryNearestIterator(
+	    TreeSetOrMapQueryNearestIterator<TreeSetOrMap2, Predicate> const& other)
+	    : Base(other), query_(other.query_), epsilon_sq_(other.epsilon_sq_)
+	{
+		auto inner_q = other.inner_queue_;
+		while (!inner_q.empty()) {
+			inner_queue_.emplace(inner_q.top().node, inner_q.top().distance);
+			inner_q.pop();
+		}
+		auto value_q = other.value_queue_;
+		while (!value_q.empty()) {
+			value_queue_.emplace(value_q.top().node, value_q.top().it, value_q.top().distance);
+			value_q.pop();
+		}
+	}
+
+	TreeSetOrMapQueryNearestIterator(TreeSetOrMap* t, Point query,
+	                                 Predicate const& predicate, float epsilon)
+	    : Base(t), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
 	}
 
-	~TreeMapNearestIterator() override {}
+	~TreeSetOrMapQueryNearestIterator() override {}
 
 	[[nodiscard]] value_type init(Index node) override
 	{
 		Base::initPredicate(predicate_);
 
-		if (Base::validReturn(node, predicate_)) {
-			auto [first, last] = Base::iters(node);
-			for (; last != first; ++first) {
+		if (Base::validReturn(predicate_, node)) {
+			auto& v = Base::values(node);
+			for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
+				if (!Base::validReturn(predicate_, *it)) {
+					continue;
+				}
+
 				Point p;
-				if constexpr (IsPair) {
-					p = first->first;
+				if constexpr (IsMap) {
+					p = it->first;
 				} else {
-					p = *first;
+					p = *it;
 				}
-				if (Base::validReturn(node, p, predicate_)) {
-					float dist_sq = squaredDistance(query_, p);
-					value_queue_.emplace(*first, dist_sq);
+
+				for (int i{}; Point::size() > i; ++i) {
+					p[i] -= query_[i];
+					p[i] *= p[i];
 				}
-			}
-			if (!value_queue_.empty()) {
-				auto value     = value_queue_.top();
-				value.distance = std::sqrt(value.distance);
-				return value;
-			} else {
-				return {{}, std::numeric_limits<float>::quiet_NaN()};
+				float dist_sq = p[0];
+				for (int i = 1; Point::size() > i; ++i) {
+					dist_sq += p[i];
+				}
+				value_queue_.emplace(node, it, dist_sq);
 			}
 
-		} else if (Base::validInner(node, predicate_)) {
-			// TODO: Implement
-			float dist_sq = squaredDistance(query_, ...) + epsilon_sq_;
-			inner_queue_.emplace(node, dist_sq);
+			if (value_queue_.empty()) {
+				return {};
+			} else {
+				auto v     = value_queue_.top();
+				v.distance = std::sqrt(v.distance);
+				return v;
+			}
+		} else if (Base::validInner(predicate_, node)) {
+			// Distance does not matter here
+			inner_queue_.emplace(node, 0.0f);
 			return next();
 		}
+		return {};
 	}
 
 	[[nodiscard]] value_type next() override
@@ -336,50 +273,81 @@ class TreeMapNearestIterator final : private TreeMapNearestIteratorHelper<TreeMa
 
 		// Skip forward to next valid return node
 		while (!inner_queue_.empty() &&
-		       (!value_queue_.empty() ||
-		        value_queue_.top().distance > inner_queue_.top().distance)) {
-			auto children = Base::children(inner_queue_.top().block);
+		       (value_queue_.empty() || value_queue_.top() > inner_queue_.top())) {
+			auto block = Base::children(inner_queue_.top().node);
 
-			for (int i = 0; TreeMap::branchingFactor() > i; ++i) {
-				Index node(children, i);
+			inner_queue_.pop();
 
-				if (Base::validReturn(node, predicate_)) {
-					auto [first, last] = Base::iters(node);
-					for (; last != first; ++first) {
+			for (int i = 0; TreeSetOrMap::branchingFactor() > i; ++i) {
+				Index node(block, i);
+
+				if (Base::validReturn(predicate_, node)) {
+					auto& v = Base::values(node);
+					for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
+						if (!Base::validReturn(predicate_, *it)) {
+							continue;
+						}
+
 						Point p;
-						if constexpr (IsPair) {
-							p = first->first;
+						if constexpr (IsMap) {
+							p = it->first;
 						} else {
-							p = *first;
+							p = *it;
 						}
-						if (Base::validReturn(node, p, predicate_)) {
-							float dist_sq = squaredDistance(query_, p);
-							value_queue_.emplace(*first, dist_sq);
+
+						for (int i{}; Point::size() > i; ++i) {
+							p[i] -= query_[i];
+							p[i] *= p[i];
 						}
+						float dist_sq = p[0];
+						for (int i = 1; Point::size() > i; ++i) {
+							dist_sq += p[i];
+						}
+						value_queue_.emplace(node, it, dist_sq);
 					}
-				} else if (Base::validInner(node, predicate_)) {
-					// TODO: Implement
-					float dist_sq = squaredDistance(query_, ...) + epsilon_sq_;
-					inner_queue_.emplace(node, dist_sq);
+				} else if (Base::validInner(predicate_, node)) {
+					auto  min = Base::boundsMin(node);
+					auto  max = Base::boundsMax(node);
+					Point p;
+					for (int i{}; Point::size() > i; ++i) {
+						p[i] = UFO_CLAMP(query_[i], min[i], max[i]);
+					}
+					for (int i{}; Point::size() > i; ++i) {
+						p[i] -= query_[i];
+						p[i] *= p[i];
+					}
+					float dist_sq = p[0];
+					for (int i = 1; Point::size() > i; ++i) {
+						dist_sq += p[i];
+					}
+					inner_queue_.emplace(node, dist_sq + epsilon_sq_);
 				}
 			}
 		}
 
-		if (!value_queue_.empty()) {
-			auto value     = value_queue_.top();
-			value.distance = std::sqrt(value.distance);
-			return value;
+		if (value_queue_.empty()) {
+			return {};
 		} else {
-			return {{}, std::numeric_limits<float>::quiet_NaN()};
+			auto v     = value_queue_.top();
+			v.distance = std::sqrt(v.distance);
+			return v;
 		}
 	}
 
-	[[nodiscard]] TreeMapNearestIterator* copy() const override
+	[[nodiscard]] TreeSetOrMapQueryNearestIterator* copy() const override
 	{
-		return new TreeMapNearestIterator(*this);
+		return new TreeSetOrMapQueryNearestIterator(*this);
+	}
+
+	[[nodiscard]] TreeSetOrMapQueryNearestIterator<TreeSetOrMap const, Predicate>*
+	copyToConst() const override
+	{
+		return new TreeSetOrMapQueryNearestIterator<TreeSetOrMap const, Predicate>(*this);
 	}
 
  private:
+	struct Value;
+
 	struct Inner {
 		Index node;
 		float distance;
@@ -387,21 +355,189 @@ class TreeMapNearestIterator final : private TreeMapNearestIteratorHelper<TreeMa
 		Inner(Index node, float distance) : node(node), distance(distance) {}
 
 		bool operator>(Inner rhs) const noexcept { return distance > rhs.distance; }
+
+		bool operator<(Value rhs) const noexcept { return distance < rhs.distance; }
+
+		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
 	};
+
+	struct Value {
+		Index       node;
+		RawIterator it;
+		float       distance;
+
+		Value(Index node, RawIterator it, float distance)
+		    : node(node), it(it), distance(distance)
+		{
+		}
+
+		operator value_type() const { return {*it, std::sqrt(distance)}; }
+
+		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
+
+		bool operator<(Inner rhs) const noexcept { return distance < rhs.distance; }
+
+		bool operator>(Inner rhs) const noexcept { return distance > rhs.distance; }
+	};
+
+	Point query_;
+	float epsilon_sq_;
 
 	// Predicate that nodes has to fulfill
 	Predicate predicate_{};
 
-	Point query_;
-
-	float epsilon_sq_;
-
-	// Inner blocks queue
 	std::priority_queue<Inner, std::vector<Inner>, std::greater<Inner>> inner_queue_;
-	// Value queue
-	std::priority_queue<TreeMapNearest, std::vector<TreeMapNearest>,
-	                    std::greater<TreeMapNearest>>
-	    value_queue_;
+	std::priority_queue<Value, std::vector<Value>, std::greater<Value>> value_queue_;
+};
+}  // namespace detail
+
+template <class TreeSetOrMap>
+class TreeSetOrMapQueryNearestIterator
+{
+	using Iterator    = detail::TreeSetOrMapQueryNearestIteratorHelper<TreeSetOrMap>;
+	using RawIterator = typename Iterator::RawIterator;
+
+	using Index = typename TreeSetOrMap::Index;
+	using Point = typename TreeSetOrMap::Point;
+
+	static constexpr bool const IsConst = Iterator::IsConst;
+
+ public:
+	//
+	// Tags
+	//
+
+	using iterator_category = typename Iterator::iterator_category;
+	using difference_type   = typename Iterator::difference_type;
+	using value_type        = typename Iterator::value_type;
+	using reference         = typename Iterator::reference;
+	using pointer           = typename Iterator::pointer;
+
+	TreeSetOrMapQueryNearestIterator() = default;
+
+	TreeSetOrMapQueryNearestIterator(Iterator* it, Index node)
+	    : it_(it), cur_(it_->init(node))
+	{
+	}
+
+	template <class Predicate>
+	TreeSetOrMapQueryNearestIterator(TreeSetOrMap* tree, Index node, Point query,
+	                                 Predicate const& pred, float epsilon)
+	    : it_(std::make_unique<
+	          detail::TreeSetOrMapQueryNearestIterator<TreeSetOrMap, Predicate>>(
+	          tree, query, pred, epsilon))
+	    , cur_(it_->init(node))
+	{
+	}
+
+	TreeSetOrMapQueryNearestIterator(TreeSetOrMapQueryNearestIterator const& other)
+	    : cur_(other.cur_)
+	{
+		if (other.it_) {
+			it_.reset(other.it_->copy());
+		}
+	}
+
+	TreeSetOrMapQueryNearestIterator(TreeSetOrMapQueryNearestIterator&&) = default;
+
+	template <
+	    class TreeSetOrMap2,
+	    typename std::enable_if_t<
+	        IsConst && !TreeSetOrMapQueryNearestIterator<TreeSetOrMap2>::IsConst &&
+	            std::is_same_v<std::decay_t<TreeSetOrMap>, std::decay_t<TreeSetOrMap2>>,
+	        bool> = true>
+	TreeSetOrMapQueryNearestIterator(
+	    TreeSetOrMapQueryNearestIterator<TreeSetOrMap2> const& other)
+	    : cur_(other.cur_)
+	{
+		if (other.it_) {
+			it_.reset(other.it_->copyToConst());
+		}
+	}
+
+	TreeSetOrMapQueryNearestIterator& operator=(TreeSetOrMapQueryNearestIterator const& rhs)
+	{
+		if (rhs.it_) {
+			it_.reset(rhs.it_->copy());
+		} else {
+			it_.reset();
+		}
+		cur_ = rhs.cur_;
+		return *this;
+	}
+
+	TreeSetOrMapQueryNearestIterator& operator=(TreeSetOrMapQueryNearestIterator&&) =
+	    default;
+
+	template <
+	    class TreeSetOrMap2,
+	    typename std::enable_if_t<
+	        IsConst && !TreeSetOrMapQueryNearestIterator<TreeSetOrMap2>::IsConst &&
+	            std::is_same_v<std::decay_t<TreeSetOrMap>, std::decay_t<TreeSetOrMap2>>,
+	        bool> = true>
+	TreeSetOrMapQueryNearestIterator& operator=(
+	    TreeSetOrMapQueryNearestIterator<TreeSetOrMap2> const& rhs)
+	{
+		if (rhs.it_) {
+			it_.reset(rhs.it_->copyToConst());
+		} else {
+			it_.reset();
+		}
+		cur_ = rhs.cur_;
+		return *this;
+	}
+
+	[[nodiscard]] reference operator*() const { return cur_; }
+
+	[[nodiscard]] pointer operator->() const { return &cur_; }
+
+	TreeSetOrMapQueryNearestIterator& operator++()
+	{
+		cur_ = it_->next();
+		return *this;
+	}
+
+	TreeSetOrMapQueryNearestIterator operator++(int)
+	{
+		auto tmp = *this;
+		++*this;
+		return tmp;
+	}
+
+	bool operator==(TreeSetOrMapQueryNearestIterator const& rhs) const
+	{
+		return cur_.it_ == rhs.cur_.it_;
+	}
+
+	template <class TreeSetOrMap2,
+	          typename std::enable_if_t<
+	              std::is_same_v<std::decay_t<TreeSetOrMap>, std::decay_t<TreeSetOrMap2>>,
+	              bool> = true>
+	bool operator==(TreeSetOrMapQueryNearestIterator<TreeSetOrMap2> const& rhs) const
+	{
+		return cur_.it_ == rhs.cur_.it_;
+	}
+
+	bool operator!=(TreeSetOrMapQueryNearestIterator const& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+	template <class TreeSetOrMap2,
+	          typename std::enable_if_t<
+	              std::is_same_v<std::decay_t<TreeSetOrMap>, std::decay_t<TreeSetOrMap2>>,
+	              bool> = true>
+	bool operator!=(TreeSetOrMapQueryNearestIterator<TreeSetOrMap2> const& rhs) const
+	{
+		return !(*this == rhs);
+	}
+
+ private:
+	[[nodiscard]] RawIterator iterator() const { return cur_.it_; }
+
+ private:
+	std::unique_ptr<Iterator> it_;
+	value_type                cur_;
 };
 }  // namespace ufo
 

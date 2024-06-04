@@ -43,35 +43,41 @@
 #define UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP
 
 // UFO
+#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
 namespace ufo::pred
 {
+template <bool Negated = false>
 struct Modified {
 };
 
-template <>
-struct InnerCheck<Modified> {
-	using Pred = Modified;
+template <bool Negated>
+constexpr Modified<!Negated> operator!(Modified<Negated>)
+{
+	return {};
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n) noexcept
-	{
-		return m.isModified(n.index());
+template <bool Negated, class Tree>
+[[nodiscard]] constexpr bool valueCheck(Modified<Negated>, Tree const& t, TreeIndex n)
+{
+	if constexpr (Negated) {
+		return !t.isModified(n);
+	} else {
+		return t.isModified(n);
 	}
-};
+}
 
-template <>
-struct ValueCheck<Modified> {
-	using Pred = Modified;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const& m, Node const& n)
-	{
-		return m.isModified(n.index());
+template <bool Negated, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Modified<Negated>, Tree const& t, TreeIndex n)
+{
+	if constexpr (Negated) {
+		return true;
+	} else {
+		return t.isModified(n);
 	}
-};
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP

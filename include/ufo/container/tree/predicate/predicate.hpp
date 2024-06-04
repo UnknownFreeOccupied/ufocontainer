@@ -1,5 +1,5 @@
 /*!
- * UFOMap: An Efficient Probabilistic 3D Mapping Framework That Embraces the Unknown
+ * UFOTree: An Efficient Probabilistic 3D Treeping Framework That Embraces the Unknown
  *
  * @author Daniel Duberg (dduberg@kth.se)
  * @see https://github.com/UnknownFreeOccupied/ufomap
@@ -54,16 +54,16 @@ namespace ufo::pred
 // Predicate types
 //
 
-enum class PredicateType { RETURN = 1, INNER, RETURN_AND_INNER };
+enum class PredicateType { VALUE = 1, INNER, VALUE_AND_INNER };
 
 //
 // AND (&&)
 //
 
 template <class Pred1, class Pred2>
-constexpr std::tuple<Pred1, Pred2> operator&&(Pred1 const& p1, Pred2 const& p2)
+constexpr std::tuple<Pred1, Pred2> operator&&(Pred1&& p1, Pred2&& p2)
 {
-	return std::tuple<Pred1, Pred2>(p1, p2);
+	return {std::forward<Pred1>(p1), std::forward<Pred2>(p2)};
 }
 
 template <class... Preds1, class... Preds2>
@@ -74,17 +74,15 @@ constexpr std::tuple<Preds1..., Preds2...> operator&&(std::tuple<Preds1...> cons
 }
 
 template <class... Preds, class Pred>
-constexpr std::tuple<Preds..., Pred> operator&&(std::tuple<Preds...> const& t,
-                                                Pred const&                 p)
+constexpr std::tuple<Preds..., Pred> operator&&(std::tuple<Preds...> const& t, Pred&& p)
 {
-	return std::tuple_cat(t, std::tie(p));
+	return std::tuple_cat(t, std::make_tuple(std::forward<Pred>(p)));
 }
 
 template <class Pred, class... Preds>
-constexpr std::tuple<Pred, Preds...> operator&&(Pred const&                 p,
-                                                std::tuple<Preds...> const& t)
+constexpr std::tuple<Pred, Preds...> operator&&(Pred&& p, std::tuple<Preds...> const& t)
 {
-	return std::tuple_cat(std::tie(p), t);
+	return std::tuple_cat(std::make_tuple(std::forward<Pred>(p)), t);
 }
 
 //
@@ -100,31 +98,10 @@ struct OR {
 };
 
 template <class PredLeft, class PredRight>
-constexpr OR<PredLeft, PredRight> operator||(PredLeft const& p1, PredRight const& p2)
+constexpr OR<PredLeft, PredRight> operator||(PredLeft&& p1, PredRight&& p2)
 {
-	return OR<PredLeft, PredRight>{p1, p2};
+	return {std::forward<PredLeft>(p1), std::forward<PredRight>(p2)};
 }
-
-// template <class... PredsLeft, class... PredsRight>
-// constexpr OR<std::tuple<PredsLeft...>, std::tuple<PredsRight...>> operator||(
-//     std::tuple<PredsLeft...> const& t1, std::tuple<PredsRight...> const& t2)
-// {
-// 	return OR<std::tuple<PredsLeft...>, std::tuple<PredsRight...>>{t1, t2};
-// }
-
-// template <class... PredsLeft, class PredRight>
-// constexpr OR<std::tuple<PredsLeft...>, PredRight> operator||(
-//     std::tuple<PredsLeft...> const& t, PredRight const& p)
-// {
-// 	return OR<std::tuple<PredsLeft...>, PredRight>{t, p};
-// }
-
-// template <class PredLeft, class... PredsRight>
-// constexpr OR<PredLeft, std::tuple<PredsRight...>> operator||(
-//     PredLeft const& p, std::tuple<PredsRight...> const& t)
-// {
-// 	return OR<PredLeft, std::tuple<PredsRight...>>{p, t};
-// }
 
 //
 // THEN
@@ -180,606 +157,307 @@ inline constexpr bool static_assert_check_v = static_assert_check<Check, Ts...>:
 // Predicate init
 //
 
-template <class Predicate>
-struct Init {
-	using Pred = Predicate;
+template <class Pred, class Tree>
+constexpr void init(Pred&, Tree const&)
+{
+}
 
-	template <class Map>
-	static constexpr void apply(Pred const&, Map const&)
-	{
-	}
-};
+template <class... Preds, class Tree>
+constexpr void init(std::tuple<Preds...>& p, Tree const& t)
+{
+	std::apply([&t](auto&... p) { (init(p, t), ...); }, p);
+}
 
-template <class... Preds>
-struct Init<std::tuple<Preds...>> {
-	using Pred = std::tuple<Preds...>;
+template <class PredLeft, class PredRight, class Tree>
+constexpr void init(OR<PredLeft, PredRight>& p, Tree const& t)
+{
+	init(p.left, t);
+	init(p.right, t);
+}
 
-	template <class Map>
-	static constexpr void apply(Pred const& p, Map const& m)
-	{
-		std::apply(
-		    [&m](auto&... p) { ((Init<std::decay_t<decltype(p)>>::apply(p, m)), ...); }, p);
-	}
-};
+template <class PredPre, class PredPost, class Tree>
+constexpr void init(THEN<PredPre, PredPost>& p, Tree const& t)
+{
+	init(p.pre, t);
+	init(p.post, t);
+}
 
-template <class PredLeft, class PredRight>
-struct Init<OR<PredLeft, PredRight>> {
-	using Pred = OR<PredLeft, PredRight>;
-
-	template <class Map>
-	static constexpr void apply(Pred const& p, Map const& m)
-	{
-		Init<PredLeft>::apply(p.left, m);
-		Init<PredRight>::apply(p.right, m);
-	}
-};
-
-template <class PredPre, class PredPost>
-struct Init<THEN<PredPre, PredPost>> {
-	using Pred = THEN<PredPre, PredPost>;
-
-	template <class Map>
-	static constexpr void apply(Pred const& p, Map const& m)
-	{
-		Init<PredPre>::apply(p.pre, m);
-		Init<PredPost>::apply(p.post, m);
-	}
-};
-
-template <class PredLeft, class PredRight>
-struct Init<IFF<PredLeft, PredRight>> {
-	using Pred = IFF<PredLeft, PredRight>;
-
-	template <class Map>
-	static constexpr void apply(Pred const& p, Map const& m)
-	{
-		Init<PredLeft>::apply(p.pre, m);
-		Init<PredRight>::apply(p.post, m);
-	}
-};
+template <class PredLeft, class PredRight, class Tree>
+constexpr void init(IFF<PredLeft, PredRight>& p, Tree const& t)
+{
+	init(p.left, t);
+	init(p.right, t);
+}
 
 //
-// Predicate value/return check
+// Predicate value check
 //
 
-template <class Predicate>
-struct ValueCheck {
-	// REVIEW: Make better
-	// static_assert(static_assert_check_v<false, Predicate>,
-	//               "Not implemented for this Predicate.");
-};
+template <class Pred, class Value>
+[[nodiscard]] constexpr bool valueCheck(Pred const&, Value const&) = delete;
 
-template <class... Preds>
-struct ValueCheck<std::tuple<Preds...>> {
-	using Pred = std::tuple<Preds...>;
+template <class Pred, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(Pred const&, Tree const&, Node) = delete;
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred const& p, Map const& m, Node const& n)
-	{
-		return std::apply(
-		    [&m, &n](auto const&... p) {
-			    return ((ValueCheck<std::decay_t<decltype(p)>>::apply(p, m, n)) && ...);
-		    },
-		    p);
-	}
-};
+template <class... Preds, class Value>
+[[nodiscard]] constexpr bool valueCheck(std::tuple<Preds...> const& p, Value const v)
+{
+	return std::apply([&v](auto const&... p) { return (valueCheck(p, v) && ...); }, p);
+}
 
-template <class PredLeft, class PredRight>
-struct ValueCheck<OR<PredLeft, PredRight>> {
-	using Pred = OR<PredLeft, PredRight>;
+template <class... Preds, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(std::tuple<Preds...> const& p, Tree const& t,
+                                        Node n)
+{
+	return std::apply([&t, n](auto const&... p) { return (valueCheck(p, t, n) && ...); },
+	                  p);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred const& p, Map const& m, Node const& n)
-	{
-		return ValueCheck<PredLeft>::apply(p.left, m, n) ||
-		       ValueCheck<PredRight>::apply(p.right, m, n);
-	}
-};
+template <class PredLeft, class PredRight, class Value>
+[[nodiscard]] constexpr bool valueCheck(OR<PredLeft, PredRight> const& p, Value const& v)
+{
+	return valueCheck(p.left, v) || valueCheck(p.right, v);
+}
 
-template <class PredPre, class PredPost>
-struct ValueCheck<THEN<PredPre, PredPost>> {
-	using Pred = THEN<PredPre, PredPost>;
+template <class PredLeft, class PredRight, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(OR<PredLeft, PredRight> const& p, Tree const& t,
+                                        Node n)
+{
+	return valueCheck(p.left, t, n) || valueCheck(p.right, t, n);
+}
 
-	template <class Map, class Node>
-	static constexpr auto apply(Pred const& p, Map const& m, Node const& n)
-	    -> decltype(ValueCheck<PredPre>::apply(p.pre, m, n), bool())
-	{
-		return !ValueCheck<PredPre>::apply(p.pre, m, n) ||
-		       ValueCheck<PredPost>::apply(p.post, m, n);
-	}
+template <class PredPre, class PredPost, class Value>
+[[nodiscard]] constexpr bool valueCheck(THEN<PredPre, PredPost> const& p, Value const& v)
+{
+	return !valueCheck(p.pre, v) || valueCheck(p.post, v);
+}
 
-	static constexpr bool apply(...) { return true; }
-};
+template <class PredPre, class PredPost, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(THEN<PredPre, PredPost> const& p, Tree const& t,
+                                        Node n)
+{
+	return !valueCheck(p.pre, t, n) || valueCheck(p.post, t, n);
+}
 
-template <class PredLeft, class PredRight>
-struct ValueCheck<IFF<PredLeft, PredRight>> {
-	using Pred = IFF<PredLeft, PredRight>;
+template <class PredLeft, class PredRight, class Value>
+[[nodiscard]] constexpr bool valueCheck(IFF<PredLeft, PredRight> const& p, Value const& v)
+{
+	return valueCheck(p.left, v) == valueCheck(p.right, v);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred const& p, Map const& m, Node const& n)
-	{
-		bool left  = ValueCheck<PredLeft>::apply(p.left, m, n);
-		bool right = ValueCheck<PredRight>::apply(p.right, m, n);
-		return (left && right) || (!left && !right);
-	}
-};
+template <class PredLeft, class PredRight, class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(IFF<PredLeft, PredRight> const& p, Tree const& t,
+                                        Node n)
+{
+	return valueCheck(p.left, t, n) == valueCheck(p.right, t, n);
+}
 
-template <>
-struct ValueCheck<True> {
-	using Pred = True;
+template <class Value>
+[[nodiscard]] constexpr bool valueCheck(True, Value const&)
+{
+	return true;
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const&)
-	{
-		return true;
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(True, Tree const&, Node)
+{
+	return true;
+}
 
-template <>
-struct ValueCheck<False> {
-	using Pred = False;
+template <class Value>
+[[nodiscard]] constexpr bool valueCheck(False, Value const&)
+{
+	return false;
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const&)
-	{
-		return false;
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(False, Tree const&, Node)
+{
+	return false;
+}
 
-template <>
-struct ValueCheck<bool> {
-	using Pred = bool;
+template <class Value>
+[[nodiscard]] constexpr bool valueCheck(bool p, Value const&)
+{
+	return p;
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const&, Node const&)
-	{
-		return p;
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(bool p, Tree const&, Node)
+{
+	return p;
+}
 
 //
 // Predicate inner check
 //
 
-template <class Predicate>
-struct InnerCheck {
-	// REVIEW: Make better
-	// static_assert(static_assert_check_v<false, Predicate>,
-	//               "Not implemented for this Predicate.");
-};
+template <class Pred, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(Pred const&, Tree const&, Node) = delete;
 
-template <class... Preds>
-struct InnerCheck<std::tuple<Preds...>> {
-	using Pred = std::tuple<Preds...>;
+template <class... Preds, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(std::tuple<Preds...> const& p, Tree const& t,
+                                        Node n)
+{
+	return std::apply([&t, n](auto const&... p) { return (innerCheck(p, t, n) && ...); },
+	                  p);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred const& p, Map const& m, Node const& n)
-	{
-		return std::apply(
-		    [&m, &n](auto const&... p) {
-			    return ((InnerCheck<std::decay_t<decltype(p)>>::apply(p, m, n)) && ...);
-		    },
-		    p);
-	}
-};
+template <class PredLeft, class PredRight, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(OR<PredLeft, PredRight> const& p, Tree const& t,
+                                        Node n)
+{
+	return innerCheck(p.left, t, n) || innerCheck(p.right, t, n);
+}
 
-template <class PredLeft, class PredRight>
-struct InnerCheck<OR<PredLeft, PredRight>> {
-	using Pred = OR<PredLeft, PredRight>;
+template <class PredPre, class PredPost, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(THEN<PredPre, PredPost> const& p, Tree const& t,
+                                        Node n)
+{
+	return !innerCheck(p.pre, t, n) || innerCheck(p.post, t, n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred const& p, Map const& m, Node const& n)
-	{
-		return InnerCheck<PredLeft>::apply(p.left, m, n) ||
-		       InnerCheck<PredRight>::apply(p.right, m, n);
-	}
-};
+template <class PredLeft, class PredRight, class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(IFF<PredLeft, PredRight> const& p, Tree const& t,
+                                        Node n)
+{
+	return innerCheck(p.left, t, n) == innerCheck(p.right, t, n);
+}
 
-template <class PredPre, class PredPost>
-struct InnerCheck<THEN<PredPre, PredPost>> {
-	using Pred = THEN<PredPre, PredPost>;
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(True, Tree const&, Node)
+{
+	return true;
+}
 
-	template <class Map, class Node>
-	static constexpr auto apply(Pred const& p, Map const& m, Node const& n)
-	    -> decltype(InnerCheck<PredPre>::apply(p.pre, m, n), bool())
-	{
-		return !InnerCheck<PredPre>::apply(p.pre, m, n) ||
-		       InnerCheck<PredPost>::apply(p.post, m, n);
-	}
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(False, Tree const&, Node)
+{
+	return false;
+}
 
-	static constexpr bool apply(...) { return true; }
-};
-
-template <class PredLeft, class PredRight>
-struct InnerCheck<IFF<PredLeft, PredRight>> {
-	using Pred = IFF<PredLeft, PredRight>;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred const& p, Map const& m, Node const& n)
-	{
-		bool left  = InnerCheck<PredLeft>::apply(p.left, m, n);
-		bool right = InnerCheck<PredRight>::apply(p.right, m, n);
-		return (left && right) || (!left && !right);
-	}
-};
-
-template <>
-struct InnerCheck<True> {
-	using Pred = True;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const&)
-	{
-		return true;
-	}
-};
-
-template <>
-struct InnerCheck<False> {
-	using Pred = False;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred, Map const&, Node const&)
-	{
-		return false;
-	}
-};
-
-template <>
-struct InnerCheck<bool> {
-	using Pred = bool;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const&, Node const&)
-	{
-		return p;
-	}
-};
-
-//
-// Shader value check
-//
-
-template <class Predicate>
-struct ShaderValueCheck {
-	// REVIEW: Make better
-};
-
-template <class... Preds>
-struct ShaderValueCheck<std::tuple<Preds...>> {
-	using Pred = std::tuple<Preds...>;
-
-	template <class Map>
-	static std::string apply(Pred const& p, Map const& m)
-	{
-		std::ostringstream stream;
-		std::apply(
-		    [&m, &stream](auto const& first, auto const&... rest) {
-			    stream << '('
-			           << ShaderValueCheck<std::decay_t<decltype(first)>>::apply(first, m)
-			           << ')';
-			    ((stream << " && ("
-			             << ShaderValueCheck<std::decay_t<decltype(rest)>>::apply(rest, m)
-			             << ')'),
-			     ...);
-		    },
-		    p);
-		return stream.str();
-	}
-};
-
-template <class PredLeft, class PredRight>
-struct ShaderValueCheck<OR<PredLeft, PredRight>> {
-	using Pred = OR<PredLeft, PredRight>;
-
-	template <class Map>
-	static std::string apply(Pred const& p, Map const& m)
-	{
-		return "((" + ShaderValueCheck<PredLeft>::apply(p.left, m) + ") || (" +
-		       ShaderValueCheck<PredRight>::apply(p.right, m) + "))";
-	}
-};
-
-template <class PredPre, class PredPost>
-struct ShaderValueCheck<THEN<PredPre, PredPost>> {
-	using Pred = THEN<PredPre, PredPost>;
-
-	template <class Map>
-	static auto apply(Pred const& p,
-	                  Map const&  m) -> decltype(ShaderValueCheck<PredPre>::apply(p.pre, m),
-	                                            std::string())
-	{
-		return "(!(" + ShaderValueCheck<PredPre>::apply(p.pre, m) + ") || (" +
-		       ShaderValueCheck<PredPost>::apply(p.post, m) + "))";
-	}
-
-	static std::string apply(...) { return ""; }
-};
-
-// TODO: Implement
-// template <class PredLeft, class PredRight>
-// struct ShaderValueCheck<IFF<PredLeft, PredRight>> {
-// 	using Pred = IFF<PredLeft, PredRight>;
-
-// 	template <class Map>
-// 	static std::string apply(Pred const& p, Map const& m)
-// 	{
-// 		return "((" + ShaderValueCheck<PredLeft>::apply(p.left, m) + ") || (" +
-// 		       ShaderValueCheck<PredRight>::apply(p.right, m) + "))";
-// 	}
-// };
-
-template <>
-struct ShaderValueCheck<True> {
-	using Pred = True;
-
-	template <class Map>
-	static std::string apply(Pred, Map const&)
-	{
-		return "true";
-	}
-};
-
-template <>
-struct ShaderValueCheck<False> {
-	using Pred = False;
-
-	template <class Map>
-	static std::string apply(Pred, Map const&)
-	{
-		return "false";
-	}
-};
-
-template <>
-struct ShaderValueCheck<bool> {
-	using Pred = bool;
-
-	template <class Map>
-	static std::string apply(Pred p, Map const&)
-	{
-		return p ? "true" : "false";
-	}
-};
-
-//
-// Shader inner check
-//
-
-template <class Predicate>
-struct ShaderInnerCheck {
-	// REVIEW: Make better
-};
-
-template <class... Preds>
-struct ShaderInnerCheck<std::tuple<Preds...>> {
-	using Pred = std::tuple<Preds...>;
-
-	template <class Map>
-	static std::string apply(Pred const& p, Map const& m)
-	{
-		std::ostringstream stream;
-		std::apply(
-		    [&m, &stream](auto const& first, auto const&... rest) {
-			    stream << '('
-			           << ShaderInnerCheck<std::decay_t<decltype(first)>>::apply(first, m)
-			           << ')';
-			    ((stream << " && ("
-			             << ShaderInnerCheck<std::decay_t<decltype(rest)>>::apply(rest, m)
-			             << ')'),
-			     ...);
-		    },
-		    p);
-		return stream.str();
-	}
-};
-
-template <class PredLeft, class PredRight>
-struct ShaderInnerCheck<OR<PredLeft, PredRight>> {
-	using Pred = OR<PredLeft, PredRight>;
-
-	template <class Map>
-	static std::string apply(Pred const& p, Map const& m)
-	{
-		return "((" + ShaderInnerCheck<PredLeft>::apply(p.left, m) + ") || (" +
-		       ShaderInnerCheck<PredRight>::apply(p.right, m) + "))";
-	}
-};
-
-template <class PredPre, class PredPost>
-struct ShaderInnerCheck<THEN<PredPre, PredPost>> {
-	using Pred = THEN<PredPre, PredPost>;
-
-	template <class Map>
-	static auto apply(Pred const& p,
-	                  Map const&  m) -> decltype(ShaderInnerCheck<PredPre>::apply(p.pre, m),
-	                                            std::string())
-	{
-		return "(!(" + ShaderInnerCheck<PredPre>::apply(p.pre, m) + ") || (" +
-		       ShaderInnerCheck<PredPost>::apply(p.post, m) + "))";
-	}
-
-	static std::string apply(...) { return ""; }
-};
-
-// TODO: Implement
-// template <class PredLeft, class PredRight>
-// struct ShaderInnerCheck<IFF<PredLeft, PredRight>> {
-// 	using Pred = IFF<PredLeft, PredRight>;
-
-// 	template <class Map>
-// 	static std::string apply(Pred const& p, Map const& m)
-// 	{
-// 		return "((" + ShaderInnerCheck<PredLeft>::apply(p.left, m) + ") || (" +
-// 		       ShaderInnerCheck<PredRight>::apply(p.right, m) + "))";
-// 	}
-// };
-
-template <>
-struct ShaderInnerCheck<True> {
-	using Pred = True;
-
-	template <class Map>
-	static std::string apply(Pred, Map const&)
-	{
-		return "true";
-	}
-};
-
-template <>
-struct ShaderInnerCheck<False> {
-	using Pred = False;
-
-	template <class Map>
-	static std::string apply(Pred, Map const&)
-	{
-		return "false";
-	}
-};
-
-template <>
-struct ShaderInnerCheck<bool> {
-	using Pred = bool;
-
-	template <class Map>
-	static std::string apply(Pred p, Map const&)
-	{
-		return p ? "true" : "false";
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(bool p, Tree const&, Node)
+{
+	return p;
+}
 
 //
 // Contains predicate
 //
 
-template <typename T, typename T2>
-struct has_type : std::false_type {
+namespace detail
+{
+template <class, class>
+struct contains_pred : std::false_type {
 };
 
-template <typename T>
-struct has_type<T, std::tuple<>> : std::false_type {
+template <class T>
+struct contains_pred<T, T> : std::true_type {
 };
 
-template <typename T, typename L>
-struct has_type<T, OR<L, T>> : std::true_type {
+template <class T, class... Ts>
+struct contains_pred<T, std::tuple<Ts...>> : std::disjunction<contains_pred<T, Ts>...> {
 };
 
-template <typename T, typename R>
-struct has_type<T, OR<T, R>> : std::true_type {
+template <class T, class L, class R>
+struct contains_pred<T, OR<L, R>>
+    : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
 };
 
-template <typename T, typename L, typename R>
-struct has_type<T, OR<L, R>> : std::false_type {
+template <class T, class L, class R>
+struct contains_pred<T, THEN<L, R>>
+    : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
 };
 
-template <typename T, typename L>
-struct has_type<T, THEN<L, T>> : std::true_type {
+template <class T, class L, class R>
+struct contains_pred<T, IFF<L, R>>
+    : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
 };
+}  // namespace detail
 
-template <typename T, typename R>
-struct has_type<T, THEN<T, R>> : std::true_type {
-};
+template <class Pred, class Preds>
+using contains_pred = detail::contains_pred<Pred, Preds>;
 
-template <typename T, typename L, typename R>
-struct has_type<T, THEN<L, R>> : std::false_type {
-};
-
-template <typename T, typename L>
-struct has_type<T, IFF<L, T>> : std::true_type {
-};
-
-template <typename T, typename R>
-struct has_type<T, IFF<T, R>> : std::true_type {
-};
-
-template <typename T, typename L, typename R>
-struct has_type<T, IFF<L, R>> : std::false_type {
-};
-
-template <typename T, typename U, typename... Ts>
-struct has_type<T, std::tuple<U, Ts...>> : has_type<T, std::tuple<Ts...>> {
-};
-
-template <typename T, typename... Ts>
-struct has_type<T, std::tuple<T, Ts...>> : std::true_type {
-};
-
-template <typename T>
-struct has_type<T, T> : std::true_type {
-};
-
-template <typename Predicate, typename Predicates>
-using contains_predicate = has_type<Predicate, Predicates>;
-
-template <typename Predicate, typename Predicates>
-inline constexpr bool contains_predicate_v =
-    contains_predicate<Predicate, Predicates>::value;
+template <class Pred, class Preds>
+inline constexpr bool contains_pred_v = contains_pred<Pred, Preds>::value;
 
 //
 // Contains always predicate
 //
 
-template <typename T, typename T2>
-struct has_always_type : std::false_type {
+namespace detail
+{
+template <class, class>
+struct contains_always_pred : std::false_type {
 };
 
-template <typename T>
-struct has_always_type<T, std::tuple<>> : std::false_type {
+template <class T>
+struct contains_always_pred<T, T> : std::true_type {
 };
 
-template <typename T, typename L, typename R>
-struct has_always_type<T, OR<L, R>> : std::false_type {
+template <class T, class... Ts>
+struct contains_always_pred<T, std::tuple<Ts...>>
+    : std::disjunction<contains_always_pred<T, Ts>...> {
 };
 
-// FIXME: Should this be false if L is T?
-template <typename T, typename L, typename R>
-struct has_always_type<T, THEN<L, R>> : std::false_type {
+template <class T, class L, class R>
+struct contains_always_pred<T, OR<L, R>>
+    : std::conjunction<contains_always_pred<T, L>, contains_always_pred<T, R>> {
 };
 
-// FIXME: Should this be false if L is T?
-template <typename T, typename L, typename R>
-struct has_always_type<T, IFF<L, R>> : std::false_type {
+template <class T, class L, class R>
+struct contains_always_pred<T, THEN<L, R>> : std::false_type {
 };
 
-template <typename T, typename U, typename... Ts>
-struct has_always_type<T, std::tuple<U, Ts...>> : has_always_type<T, std::tuple<Ts...>> {
+template <class T, class L, class R>
+struct contains_always_pred<T, IFF<L, R>> : std::false_type {
 };
+}  // namespace detail
 
-template <typename T, typename... Ts>
-struct has_always_type<T, std::tuple<T, Ts...>> : std::true_type {
-};
+template <class Pred, class Preds>
+using contains_always_pred = detail::contains_always_pred<Pred, Preds>;
 
-template <typename T>
-struct has_always_type<T, T> : std::true_type {
-};
-
-template <typename Predicate, typename Predicates>
-using contains_always_predicate = has_always_type<Predicate, Predicates>;
-
-template <typename Predicate, typename Predicates>
-inline constexpr bool contains_always_predicate_v =
-    contains_always_predicate<Predicate, Predicates>::value;
+template <class Pred, class Preds>
+inline constexpr bool contains_always_pred_v = contains_always_pred<Pred, Preds>::value;
 
 //
-// Type traits
+// Is predicate
 //
 
-template <typename P, class Map, class Node, class = void>
-struct is_predicate : std::false_type {
+template <class, class, class, class = void>
+struct is_pred : std::false_type {
 };
 
-template <typename P, class Map, class Node>
-struct is_predicate<
-    P, Map, Node,
-    std::void_t<decltype(ufo::pred::ValueCheck<P>::apply(
-                    std::declval<P>(), std::declval<Map>(), std::declval<Node>())),
-                decltype(ufo::pred::InnerCheck<P>::apply(
-                    std::declval<P>(), std::declval<Map>(), std::declval<Node>()))>>
-    : std::true_type {
+template <class Pred, class Tree, class Node>
+struct is_pred<Pred, Tree, Node,
+               std::void_t<decltype(valueCheck(std::declval<Pred>(), std::declval<Tree>(),
+                                               std::declval<Node>())),
+                           decltype(innerCheck(std::declval<Pred>(), std::declval<Tree>(),
+                                               std::declval<Node>()))>> : std::true_type {
 };
 
-template <typename P, class Map, class Node>
-inline constexpr bool is_predicate_v = is_predicate<P, Map, Node>::value;
+template <class Pred, class Tree, class Node>
+inline constexpr bool is_pred_v = is_pred<Pred, Tree, Node>::value;
+
+//
+// Is point predicate
+//
+
+template <class, class, class, class, class = void>
+struct is_value_pred : std::false_type {
+};
+
+template <class Pred, class Tree, class Node, class Value>
+struct is_value_pred<
+    Pred, Tree, Node, Value,
+    std::void_t<decltype(valueCheck(std::declval<Pred>(), std::declval<Value>())),
+                decltype(innerCheck(std::declval<Pred>(), std::declval<Tree>(),
+                                    std::declval<Node>()))>> : std::true_type {
+};
+
+template <class Pred, class Tree, class Node, class Value>
+inline constexpr bool is_value_pred_v = is_value_pred<Pred, Tree, Node, Value>::value;
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_PREDICATE_HPP

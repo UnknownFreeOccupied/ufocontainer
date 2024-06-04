@@ -43,7 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_PREDICATE_COMPARE_HPP
 
 // STL
-#include <string>
+#include <string_view>
 
 namespace ufo::pred
 {
@@ -56,15 +56,38 @@ enum class PredicateCompare {
 	GREATER
 };
 
-inline std::string enumToString(PredicateCompare PC)
+template <PredicateCompare PC>
+constexpr std::string_view enumToString() noexcept
 {
-	switch (PC) {
-		case PredicateCompare::EQUAL: return "=";
-		case PredicateCompare::NOT_EQUAL: return "~=";
-		case PredicateCompare::LESS_EQUAL: return "<=";
-		case PredicateCompare::GREATER_EQUAL: return ">=";
-		case PredicateCompare::LESS: return "<";
-		case PredicateCompare::GREATER: return ">";
+	using namespace std::literals;
+	if constexpr (PredicateCompare::EQUAL == PC) {
+		return "="sv;
+	} else if constexpr (PredicateCompare::NOT_EQUAL == PC) {
+		return "~="sv;
+	} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
+		return "<="sv;
+	} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
+		return ">="sv;
+	} else if constexpr (PredicateCompare::LESS == PC) {
+		return "<"sv;
+	} else if constexpr (PredicateCompare::GREATER == PC) {
+		return ">"sv;
+	} else {
+		// Error
+	}
+}
+
+constexpr std::string_view enumToString(PredicateCompare pc) noexcept
+{
+	switch (pc) {
+		case PredicateCompare::EQUAL: return enumToString<PredicateCompare::EQUAL>();
+		case PredicateCompare::NOT_EQUAL: return enumToString<PredicateCompare::NOT_EQUAL>();
+		case PredicateCompare::LESS_EQUAL:
+			return enumToString<PredicateCompare::LESS_EQUAL>();
+		case PredicateCompare::GREATER_EQUAL:
+			return enumToString<PredicateCompare::GREATER_EQUAL>();
+		case PredicateCompare::LESS: return enumToString<PredicateCompare::LESS>();
+		case PredicateCompare::GREATER: return enumToString<PredicateCompare::GREATER>();
 	}
 }
 
@@ -81,75 +104,75 @@ constexpr PredicateCompare switchSide(PredicateCompare PC) noexcept
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
-Pred<PredicateCompare::EQUAL> operator==(Pred<PC> const& o, T&& t)
+Pred<PredicateCompare::EQUAL> operator==(Pred<PC> const&, T const& t)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
-Pred<PredicateCompare::NOT_EQUAL> operator!=(Pred<PC> const& o, T&& t)
+Pred<PredicateCompare::NOT_EQUAL> operator!=(Pred<PC> const&, T const& t)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
-Pred<PredicateCompare::LESS_EQUAL> operator<=(Pred<PC> const& o, T&& t)
+Pred<PredicateCompare::LESS_EQUAL> operator<=(Pred<PC> const&, T const& t)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
-Pred<PredicateCompare::GREATER_EQUAL> operator>=(Pred<PC> const& o, T&& t)
+Pred<PredicateCompare::GREATER_EQUAL> operator>=(Pred<PC> const&, T const& t)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
-Pred<PredicateCompare::LESS> operator<(Pred<PC> const& o, T&& t)
+Pred<PredicateCompare::LESS> operator<(Pred<PC> const&, T const& t)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
-Pred<PredicateCompare::GREATER> operator>(Pred<PC> const& o, T&& t)
+Pred<PredicateCompare::GREATER> operator>(Pred<PC> const&, T const& t)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
-Pred<PredicateCompare::EQUAL> operator==(T&& t, Pred<PC> const& o)
+Pred<PredicateCompare::EQUAL> operator==(T const& t, Pred<PC> const&)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
-Pred<PredicateCompare::NOT_EQUAL> operator!=(T&& t, Pred<PC> const& o)
+Pred<PredicateCompare::NOT_EQUAL> operator!=(T const& t, Pred<PC> const&)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
-Pred<PredicateCompare::GREATER_EQUAL> operator<=(T&& t, Pred<PC> const& o)
+Pred<PredicateCompare::GREATER_EQUAL> operator<=(T const& t, Pred<PC> const&)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
-Pred<PredicateCompare::LESS_EQUAL> operator>=(T&& t, Pred<PC> const& o)
+Pred<PredicateCompare::LESS_EQUAL> operator>=(T const& t, Pred<PC> const&)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
-Pred<PredicateCompare::GREATER> operator<(T&& t, Pred<PC> const& o)
+Pred<PredicateCompare::GREATER> operator<(T const& t, Pred<PC> const&)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
-Pred<PredicateCompare::LESS> operator>(T&& t, Pred<PC> const& o)
+Pred<PredicateCompare::LESS> operator>(T const& t, Pred<PC> const&)
 {
-	return {std::forward<T>(t)};
+	return {t};
 }
 }  // namespace ufo::pred
 

@@ -47,89 +47,76 @@
 
 // STL
 #include <memory>
-#include <type_traits>
 
 namespace ufo::pred
 {
-namespace impl
+namespace detail
 {
-template <class Map>
-struct DynamicBase {
-	virtual ~DynamicBase() {}
-
-	[[nodiscard]] virtual bool valueCheck(typename Map::Base const&,
-	                                      typename Map::Node) const = 0;
-
-	[[nodiscard]] virtual bool innerCheck(typename Map::Base const&,
-	                                      typename Map::Node) const = 0;
-
-	[[nodiscard]] virtual DynamicBase* clone() const = 0;
-};
-
-template <class Map, class Predicate>
-struct Dynamic
-    : DynamicBase<Map>
-    , Predicate {
-	template <class... Args>
-	Dynamic(Args&&... args) : Predicate(std::forward<Args>(args)...)
-	{
-	}
-
-	template <class... Args>
-	Dynamic(Map const&, Args&&... args) : Predicate(std::forward<Args>(args)...)
-	{
-	}
-
-	Dynamic(Predicate const& pred) : Predicate(pred) {}
-
-	Dynamic(Predicate&& pred) : Predicate(std::move(pred)) {}
-
-	Dynamic(Map const&, Predicate const& pred) : Predicate(pred) {}
-
-	Dynamic(Map const&, Predicate&& pred) : Predicate(std::move(pred)) {}
-
+template <class Tree>
+struct Dynamic {
 	virtual ~Dynamic() {}
 
-	[[nodiscard]] bool valueCheck(typename Map::Base const& map,
-	                              typename Map::Node        node) const override
+	[[nodiscard]] virtual bool valueCheck(Tree const&, typename Tree::Node) const = 0;
+
+	[[nodiscard]] virtual bool innerCheck(Tree const&, typename Tree::Node) const = 0;
+
+	[[nodiscard]] virtual Dynamic* clone() const = 0;
+};
+
+template <class Tree, class Predicate>
+struct DynamicPredicate
+    : Dynamic<Tree>
+    , Predicate {
+	template <class... Args>
+	DynamicPredicate(Args&&... args) : Predicate(std::forward<Args>(args)...)
 	{
-		return ValueCheck<Predicate>::apply(*this, map, node);
 	}
 
-	[[nodiscard]] bool innerCheck(typename Map::Base const& map,
-	                              typename Map::Node        node) const override
+	template <class... Args>
+	DynamicPredicate(Tree const&, Args&&... args) : Predicate(std::forward<Args>(args)...)
 	{
-		return InnerCheck<Predicate>::apply(*this, map, node);
+	}
+
+	DynamicPredicate(Predicate const& pred) : Predicate(pred) {}
+
+	DynamicPredicate(Predicate&& pred) : Predicate(std::move(pred)) {}
+
+	DynamicPredicate(Tree const&, Predicate const& pred) : Predicate(pred) {}
+
+	DynamicPredicate(Tree const&, Predicate&& pred) : Predicate(std::move(pred)) {}
+
+	virtual ~DynamicPredicate() {}
+
+	[[nodiscard]] bool valueCheck(Tree const& tree, typename Tree::Node node) const override
+	{
+		return valueCheck(static_cast<Predicate const&>(*this), tree, node);
+	}
+
+	[[nodiscard]] bool innerCheck(Tree const& tree, typename Tree::Node node) const override
+	{
+		return innerCheck(static_cast<Predicate const&>(*this), tree, node);
 	}
 
  protected:
-	Dynamic* clone() const override { return new Dynamic(*this); }
-};
-}  // namespace impl
-
-template <class Map, class Predicate>
-struct ValueCheck<impl::Dynamic<Map, Predicate>> {
-	using Pred = impl::Dynamic<Map, Predicate>;
-
-	[[nodiscard]] static bool apply(Pred const& p, typename Map::Base const& m,
-	                                typename Map::Node n)
-	{
-		return p.valueCheck(m, n);
-	}
+	DynamicPredicate* clone() const override { return new DynamicPredicate(*this); }
 };
 
-template <class Map, class Predicate>
-struct InnerCheck<impl::Dynamic<Map, Predicate>> {
-	using Pred = impl::Dynamic<Map, Predicate>;
+template <class Predicate, class Tree, class Node>
+[[nodiscard]] bool valueCheck(DynamicPredicate<Tree, Predicate> const& p, Tree const& t,
+                              Node n)
+{
+	return p.valueCheck(t, n);
+}
 
-	[[nodiscard]] static bool apply(Pred const& p, typename Map::Base const& m,
-	                                typename Map::Node n)
-	{
-		return p.innerCheck(m, n);
-	}
-};
+template <class Predicate, class Tree, class Node>
+[[nodiscard]] bool innerCheck(DynamicPredicate<Tree, Predicate> const& p, Tree const& t,
+                              Node n)
+{
+	return p.innerCheck(t, n);
+}
+}  // namespace detail
 
-template <class Map>
+template <class Tree>
 struct Predicate {
  public:
 	Predicate() = default;
@@ -143,19 +130,18 @@ struct Predicate {
 
 	Predicate(Predicate&& other) = default;
 
-	Predicate(impl::DynamicBase<Map> const& pred) : predicate_(pred.clone()) {}
-
-	Predicate(impl::DynamicBase<Map>&& pred) : predicate_(pred.clone()) {}
+	Predicate(detail::Dynamic<Tree> const& pred) : predicate_(pred.clone()) {}
 
 	template <class Pred>
 	Predicate(Pred const& pred)
-	    : predicate_(std::make_unique<impl::Dynamic<Map, Pred>>(pred))
+	    : predicate_(std::make_unique<detail::DynamicPredicate<Tree, Pred>>(pred))
 	{
 	}
 
 	template <class Pred>
 	Predicate(Pred&& pred)
-	    : predicate_(std::make_unique<impl::Dynamic<Map, Pred>>(std::forward<Pred>(pred)))
+	    : predicate_(std::make_unique<detail::DynamicPredicate<Tree, Pred>>(
+	          std::forward<Pred>(pred)))
 	{
 	}
 
@@ -163,19 +149,15 @@ struct Predicate {
 	{
 		if (rhs.hasPredicate()) {
 			predicate_.reset(rhs.predicate_->clone());
+		} else {
+			predicate_.reset();
 		}
 		return *this;
 	}
 
 	Predicate& operator=(Predicate&&) = default;
 
-	Predicate& operator=(impl::DynamicBase<Map> const& rhs)
-	{
-		predicate_.reset(rhs.clone());
-		return *this;
-	}
-
-	Predicate& operator=(impl::DynamicBase<Map>&& rhs)
+	Predicate& operator=(detail::Dynamic<Tree> const& rhs)
 	{
 		predicate_.reset(rhs.clone());
 		return *this;
@@ -184,14 +166,15 @@ struct Predicate {
 	template <class Pred>
 	Predicate& operator=(Pred const& pred)
 	{
-		predicate_ = std::make_unique<impl::Dynamic<Map, Pred>>(pred);
+		predicate_ = std::make_unique<detail::DynamicPredicate<Tree, Pred>>(pred);
 		return *this;
 	}
 
 	template <class Pred>
 	Predicate& operator=(Pred&& pred)
 	{
-		predicate_ = std::make_unique<impl::Dynamic<Map, Pred>>(std::forward<Pred>(pred));
+		predicate_ =
+		    std::make_unique<detail::DynamicPredicate<Tree, Pred>>(std::forward<Pred>(pred));
 		return *this;
 	}
 
@@ -221,43 +204,31 @@ struct Predicate {
 
 	[[nodiscard]] bool hasPredicate() const { return !!predicate_; }
 
-	[[nodiscard]] bool valueCheck(typename Map::Base const& map,
-	                              typename Map::Node        node) const
+	[[nodiscard]] bool valueCheck(Tree const& tree, typename Tree::Node node) const
 	{
-		return !hasPredicate() || predicate_->valueCheck(map, node);
+		return !hasPredicate() || predicate_->valueCheck(tree, node);
 	}
 
-	[[nodiscard]] bool innerCheck(typename Map::Base const& map,
-	                              typename Map::Node        node) const
+	[[nodiscard]] bool innerCheck(Tree const& tree, typename Tree::Node node) const
 	{
-		return !hasPredicate() || predicate_->innerCheck(map, node);
+		return !hasPredicate() || predicate_->innerCheck(tree, node);
 	}
 
  private:
-	std::unique_ptr<impl::DynamicBase<Map>> predicate_;
+	std::unique_ptr<detail::Dynamic<Tree>> predicate_;
 };
 
-template <class Map>
-struct ValueCheck<Predicate<Map>> {
-	using Pred = Predicate<Map>;
+template <class Tree, class Node>
+[[nodiscard]] bool valueCheck(Predicate<Tree> const& p, Tree const& t, Node n)
+{
+	return p.valueCheck(t, n);
+}
 
-	[[nodiscard]] static bool apply(Pred const& p, typename Map::Base const& m,
-	                                typename Map::Node n)
-	{
-		return p.valueCheck(m, n);
-	}
-};
-
-template <class Map>
-struct InnerCheck<Predicate<Map>> {
-	using Pred = Predicate<Map>;
-
-	[[nodiscard]] static bool apply(Pred const& p, typename Map::Base const& m,
-	                                typename Map::Node n)
-	{
-		return p.innerCheck(m, n);
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] bool innerCheck(Predicate<Tree> const& p, Tree const& t, Node n)
+{
+	return p.innerCheck(t, n);
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_DYNAMIC_HPP

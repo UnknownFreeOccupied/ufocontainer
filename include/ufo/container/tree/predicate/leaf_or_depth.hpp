@@ -43,6 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_LEAF_OR_DEPTH_HPP
 
 // UFO
+#include <ufo/container/tree/predicate/leaf.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
@@ -52,32 +53,22 @@ struct LeafOrDepth {
 	using depth_t = std::uint32_t;
 
 	// Depth to consider as leaf
-	depth_t min_depth;
+	depth_t depth;
 
-	constexpr LeafOrDepth(depth_t min_depth = 0) : min_depth(min_depth) {}
+	constexpr LeafOrDepth(depth_t depth = 0) : depth(depth) {}
 };
 
-template <>
-struct InnerCheck<LeafOrDepth> {
-	using Pred = LeafOrDepth;
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool valueCheck(LeafOrDepth p, Tree const& t, Node n)
+{
+	return p.depth == t.depth(n) || valueCheck(Leaf(), t, n);
+}
 
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const& m, Node const& n)
-	{
-		return p.min_depth < n.depth();
-	}
-};
-
-template <>
-struct ValueCheck<LeafOrDepth> {
-	using Pred = LeafOrDepth;
-
-	template <class Map, class Node>
-	static constexpr bool apply(Pred p, Map const& m, Node const& n)
-	{
-		return p.min_depth == n.depth() || m.isLeaf(n.index());
-	}
-};
+template <class Tree, class Node>
+[[nodiscard]] constexpr bool innerCheck(LeafOrDepth p, Tree const& t, Node n)
+{
+	return p.depth < t.depth(n);
+}
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_LEAF_OR_DEPTH_HPP

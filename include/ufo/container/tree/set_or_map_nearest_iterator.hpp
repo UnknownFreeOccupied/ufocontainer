@@ -45,7 +45,6 @@
 // UFO
 #include <ufo/container/tree/map_nearest.hpp>
 #include <ufo/container/tree/set_nearest.hpp>
-#include <ufo/container/tree/set_or_map_nearest.hpp>
 #include <ufo/utility/macros.hpp>
 
 // STL
@@ -66,12 +65,11 @@ class TreeSetOrMapNearestIterator
 	friend TreeSetOrMap;
 
 	static constexpr bool const IsConst = std::is_const_v<TreeSetOrMap>;
-	static constexpr bool const IsPair  = TreeSetOrMap::IsPair;
+	static constexpr bool const IsMap   = TreeSetOrMap::IsMap;
+	static constexpr auto const BF      = TreeSetOrMap::branchingFactor();
 
 	using Index = typename TreeSetOrMap::Index;
 	using Point = typename TreeSetOrMap::Point;
-
-	static constexpr auto const BF = TreeSetOrMap::branchingFactor();
 
 	using RawIterator =
 	    std::conditional_t<IsConst, typename TreeSetOrMap::const_raw_iterator,
@@ -84,9 +82,10 @@ class TreeSetOrMapNearestIterator
 
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = TreeSetOrMapNearest<typename TreeSetOrMap::value_type>;
-	using reference         = std::conditional_t<IsConst, value_type const&, value_type&>;
-	using pointer           = std::conditional_t<IsConst, value_type const*, value_type*>;
+	using value_type =
+	    std::conditional_t<IsMap, TreeMapNearest<RawIterator>, TreeSetNearest<RawIterator>>;
+	using reference = value_type&;
+	using pointer   = value_type*;
 
 	TreeSetOrMapNearestIterator()                                   = default;
 	TreeSetOrMapNearestIterator(TreeSetOrMapNearestIterator const&) = default;
@@ -128,7 +127,7 @@ class TreeSetOrMapNearestIterator
 			auto& v = t_->values(node);
 			for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
 				Point p;
-				if constexpr (IsPair) {
+				if constexpr (IsMap) {
 					p = it->first;
 				} else {
 					p = *it;
@@ -144,7 +143,8 @@ class TreeSetOrMapNearestIterator
 				}
 				value_queue_.emplace(node, it, dist_sq);
 			}
-			cur_ = value_queue_.top();
+			cur_          = value_queue_.top();
+			cur_.distance = std::sqrt(cur_.distance);
 		}
 	}
 
@@ -207,11 +207,7 @@ class TreeSetOrMapNearestIterator
 
 	bool operator==(TreeSetOrMapNearestIterator const& rhs) const
 	{
-		if (value_queue_.empty() && rhs.value_queue_.empty()) {
-			return true;
-		}
-		return value_queue_.empty() == rhs.value_queue_.empty() &&
-		       value_queue_.top().it == rhs.value_queue_.top().it;
+		return cur_.it_ == rhs.cur_.it_;
 	}
 
 	template <class TreeSetOrMap2,
@@ -220,11 +216,7 @@ class TreeSetOrMapNearestIterator
 	              bool> = true>
 	bool operator==(TreeSetOrMapNearestIterator<TreeSetOrMap2> const& rhs) const
 	{
-		if (value_queue_.empty() && rhs.value_queue_.empty()) {
-			return true;
-		}
-		return !value_queue_.empty() && !rhs.value_queue_.empty() &&
-		       value_queue_.top().it == rhs.value_queue_.top().it;
+		return cur_.it_ == rhs.cur_.it_;
 	}
 
 	bool operator!=(TreeSetOrMapNearestIterator const& rhs) const
@@ -315,7 +307,7 @@ class TreeSetOrMapNearestIterator
 					auto& v = t_->values(node);
 					for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
 						Point p;
-						if constexpr (IsPair) {
+						if constexpr (IsMap) {
 							p = it->first;
 						} else {
 							p = *it;
@@ -336,13 +328,14 @@ class TreeSetOrMapNearestIterator
 		}
 
 		if (!value_queue_.empty()) {
-			cur_ = value_queue_.top();
+			cur_          = value_queue_.top();
+			cur_.distance = std::sqrt(cur_.distance);
 		} else {
 			cur_ = {};
 		}
 	}
 
-	[[nodiscard]] RawIterator iterator() const { return value_queue_.top().it; }
+	[[nodiscard]] RawIterator iterator() const { return value_queue_.top().it_; }
 
  private:
 	struct Value;
@@ -360,23 +353,19 @@ class TreeSetOrMapNearestIterator
 		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
 	};
 
-	struct Value {
-		Index       node;
-		RawIterator it;
-		float       distance;
+	struct Value : value_type {
+		Index node;
 
 		Value(Index node, RawIterator it, float distance)
-		    : node(node), it(it), distance(distance)
+		    : node(node), value_type(it, distance)
 		{
 		}
 
-		operator value_type() const { return {*it, std::sqrt(distance)}; }
+		bool operator>(Value rhs) const noexcept { return this->distance > rhs.distance; }
 
-		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
+		bool operator<(Inner rhs) const noexcept { return this->distance < rhs.distance; }
 
-		bool operator<(Inner rhs) const noexcept { return distance < rhs.distance; }
-
-		bool operator>(Inner rhs) const noexcept { return distance > rhs.distance; }
+		bool operator>(Inner rhs) const noexcept { return this->distance > rhs.distance; }
 	};
 
 	TreeSetOrMap* t_;

@@ -83,7 +83,7 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	**************************************************************************************/
 
 	TreeSet(length_t leaf_node_length = static_cast<length_t>(0.1),
-	        depth_t  num_depth_levels = std::max(static_cast<depth_t>(17),
+	        depth_t  num_depth_levels = std::min(static_cast<depth_t>(17),
 	                                             Base::maxNumDepthLevels()))
 	    : Base(leaf_node_length, num_depth_levels)
 	{
