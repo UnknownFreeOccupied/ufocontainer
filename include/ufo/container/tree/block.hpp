@@ -65,7 +65,8 @@ struct TreeBlock {
 	Code                             parent_code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
 
-	constexpr TreeBlock() = default;
+	constexpr TreeBlock()                 = default;
+	constexpr TreeBlock(TreeBlock const&) = default;
 
 	constexpr TreeBlock(Code parent_code) : parent_code(parent_code) {}
 
@@ -102,7 +103,8 @@ struct TreeBlockCenter {
 	Point                            center;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
 
-	constexpr TreeBlockCenter() = default;
+	constexpr TreeBlockCenter()                       = default;
+	constexpr TreeBlockCenter(TreeBlockCenter const&) = default;
 
 	constexpr TreeBlockCenter(Code parent_code) : parent_code(parent_code) {}
 

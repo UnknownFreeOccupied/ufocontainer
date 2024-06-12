@@ -587,7 +587,7 @@ class TreeContainer
  private:
 	[[nodiscard]] constexpr size_type num_buckets() const noexcept
 	{
-		return empty() ? 0 : bucket_pos(size_ - 1);
+		return empty() ? 0 : bucket_pos(size_ - 1) + 1;
 	}
 
 	[[nodiscard]] constexpr size_type bucket_pos(size_type n) const noexcept

@@ -78,7 +78,8 @@ struct TreeSetOrMapBlock : public TreeBlock<TT> {
 	std::array<Point, BF>                 max = createArray<BF>(Point(MIN));
 	std::array<std::list<value_type>, BF> values;
 
-	constexpr TreeSetOrMapBlock() = default;
+	constexpr TreeSetOrMapBlock()                         = default;
+	constexpr TreeSetOrMapBlock(TreeSetOrMapBlock const&) = default;
 
 	constexpr TreeSetOrMapBlock(Code parent_code) : TreeBlock<TT>(parent_code) {}
 

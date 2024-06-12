@@ -44,16 +44,15 @@ TEST_CASE("[OctreeSet] constructor")
 		}
 	}
 
-	// TODO: Implement
-	// SECTION("Copy constructor")
-	// {
-	// 	std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
-	// 	ufo::OctreeSet set1(v);
-	// 	ufo::OctreeSet set2(set1);
-	// 	// TODO: Implement REQUIRE(set1 == set2);
-	// 	REQUIRE(std::equal(set1.begin(), set1.end(), set2.begin(), set2.end(),
-	// 	                   [](auto const& a, auto const& b) { return ufo::equal(a, b); }));
-	// }
+	SECTION("Copy constructor")
+	{
+		std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
+		ufo::OctreeSet set1(v);
+		ufo::OctreeSet set2(set1);
+		// TODO: Implement REQUIRE(set1 == set2);
+		REQUIRE(std::equal(set1.begin(), set1.end(), set2.begin(), set2.end(),
+		                   [](auto const& a, auto const& b) { return ufo::equal(a, b); }));
+	}
 
 	SECTION("Move constructor")
 	{
@@ -68,17 +67,16 @@ TEST_CASE("[OctreeSet] constructor")
 
 TEST_CASE("[OctreeSet] assignment operator")
 {
-	// TODO: Implement
-	// SECTION("Copy assignment")
-	// {
-	// 	std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
-	// 	ufo::OctreeSet set1(v);
-	// 	ufo::OctreeSet set2;
-	// 	set2 = set1;
-	// 	// TODO: Implement REQUIRE(set1 == set2);
-	// 	REQUIRE(std::equal(set1.begin(), set1.end(), set2.begin(), set2.end(),
-	// 	                   [](auto const& a, auto const& b) { return ufo::equal(a, b); }));
-	// }
+	SECTION("Copy assignment")
+	{
+		std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
+		ufo::OctreeSet set1(v);
+		ufo::OctreeSet set2;
+		set2 = set1;
+		// TODO: Implement REQUIRE(set1 == set2);
+		REQUIRE(std::equal(set1.begin(), set1.end(), set2.begin(), set2.end(),
+		                   [](auto const& a, auto const& b) { return ufo::equal(a, b); }));
+	}
 
 	SECTION("Move assignment")
 	{
