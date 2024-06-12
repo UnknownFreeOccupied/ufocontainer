@@ -302,6 +302,44 @@ class TreeContainer
 	//     allocator_traits<Allocator>::propagate_on_container_move_assignment::value ||
 	//     allocator_traits<Allocator>::is_always_equal::value);
 
+	/**************************************************************************************
+	|                                                                                     |
+	|                                    Constructors                                     |
+	|                                                                                     |
+	**************************************************************************************/
+
+	TreeContainer() = default;
+
+	TreeContainer(TreeContainer const& other) : size_(other.size_)
+	{
+		for (std::size_t i{}; other.num_buckets() > i; ++i) {
+			createBucket(buckets_[i]);
+			std::copy(other.buckets_[i].get(), other.buckets_[i].get() + NumBlocksPerBucket,
+			          buckets_[i].get());
+		}
+	}
+
+	TreeContainer(TreeContainer&&) = default;
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                 Assignment operator                                 |
+	|                                                                                     |
+	**************************************************************************************/
+
+	constexpr TreeContainer& operator=(TreeContainer const& rhs)
+	{
+		size_ = rhs.size_;
+		for (std::size_t i{}; rhs.num_buckets() > i; ++i) {
+			createBucket(buckets_[i]);
+			std::copy(rhs.buckets_[i].get(), rhs.buckets_[i].get() + NumBlocksPerBucket,
+			          buckets_[i].get());
+		}
+		return *this;
+	}
+
+	constexpr TreeContainer& operator=(TreeContainer&&) = default;
+
 	// iterators
 	iterator begin() noexcept { return iterator(this, 0); }
 

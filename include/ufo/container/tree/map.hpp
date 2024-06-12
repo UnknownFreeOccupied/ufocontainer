@@ -165,7 +165,9 @@ class TreeMap : public TreeSetOrMap<TreeMap<Tree, T>, Tree, T>
 
 		auto&     v           = values(trail[0]);
 		size_type num_removed = v.size();
-		v.remove(value);
+		v.remove_if([&value](auto const& x) {
+			return equal(x.first, value.first) && x.second == value.second;
+		});
 		num_removed -= v.size();
 
 		Base::size_ -= num_removed;

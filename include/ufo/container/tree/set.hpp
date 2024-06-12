@@ -106,6 +106,14 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	{
 	}
 
+	template <class Range>
+	TreeSet(Range const& range, length_t leaf_node_length = static_cast<length_t>(0.1),
+	        depth_t num_depth_levels = std::max(static_cast<depth_t>(17),
+	                                            Base::maxNumDepthLevels()))
+	    : Base(range, leaf_node_length, num_depth_levels)
+	{
+	}
+
 	TreeSet(TreeSet const&) = default;
 
 	TreeSet(TreeSet&&) = default;

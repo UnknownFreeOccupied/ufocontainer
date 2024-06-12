@@ -195,7 +195,14 @@ class TreeSetOrMap
 
 	TreeSetOrMap(std::initializer_list<value_type> init, length_t leaf_node_length,
 	             depth_t num_depth_levels)
-	    : TreeSetOrMap(leaf_node_length, num_depth_levels, std::begin(init), std::end(init))
+	    : TreeSetOrMap(std::begin(init), std::end(init), leaf_node_length, num_depth_levels)
+	{
+	}
+
+	template <class Range>
+	TreeSetOrMap(Range const& range, length_t leaf_node_length, depth_t num_depth_levels)
+	    : TreeSetOrMap(std::begin(range), std::end(range), leaf_node_length,
+	                   num_depth_levels)
 	{
 	}
 
@@ -371,7 +378,11 @@ class TreeSetOrMap
 	 * @brief Erases all elements from the container. After this call, `size()` returns
 	 * zero.
 	 */
-	void clear() { Base::clear(); }
+	void clear()
+	{
+		Base::clear();
+		size_ = 0;
+	}
 
 	void insert(value_type const& value)
 	{
@@ -710,17 +721,19 @@ class TreeSetOrMap
 
 		auto&     v           = values(trail[0]);
 		size_type num_removed = v.size();
-		if constexpr (IsMap) {
-			v.remove_if([point](auto const& x) { return x.first == point; });
-		} else {
-			v.remove(point);
-		}
+		v.remove_if([point](auto const& x) {
+			if constexpr (IsMap) {
+				return equal(x.first, point);
+			} else {
+				return equal(x, point);
+			}
+		});
 		num_removed -= v.size();
 
 		size_ -= num_removed;
 
-		Point min(std::numeric_limits<typename Point::scalar_t>::max());
-		Point max(std::numeric_limits<typename Point::scalar_t>::lowest());
+		Point min(std::numeric_limits<typename Point::value_type>::max());
+		Point max(std::numeric_limits<typename Point::value_type>::lowest());
 		if constexpr (IsMap) {
 			for (auto const& [p, _] : v) {
 				for (int i{}; Point::size() > i; ++i) {
@@ -786,12 +799,13 @@ class TreeSetOrMap
 	[[nodiscard]] size_type count(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		if constexpr (IsMap) {
-			return std::count_if(std::begin(v), std::end(v),
-			                     [point](auto const& x) { return x.first == point; });
-		} else {
-			return std::count(std::begin(v), std::end(v), point);
-		}
+		return std::count_if(std::begin(v), std::end(v), [point](auto const& x) {
+			if constexpr (IsMap) {
+				return equal(x.first, point);
+			} else {
+				return equal(x, point);
+			}
+		});
 	}
 
 	/*!
@@ -804,13 +818,14 @@ class TreeSetOrMap
 	[[nodiscard]] bool contains(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		if constexpr (IsMap) {
-			return std::end(v) !=
-			       std::find_if(std::begin(v), std::end(v),
-			                    [point](auto const& x) { return x.first == point; });
-		} else {
-			return std::end(v) != std::find(std::begin(v), std::end(v), point);
-		}
+		return std::end(v) !=
+		       std::find_if(std::begin(v), std::end(v), [point](auto const& x) {
+			       if constexpr (IsMap) {
+				       return equal(x.first, point);
+			       } else {
+				       return equal(x, point);
+			       }
+		       });
 	}
 
 	template <class Predicate>
@@ -1040,6 +1055,30 @@ class TreeSetOrMap
  protected:
 	size_type size_{};
 };
+
+/**************************************************************************************
+|                                                                                     |
+|                                       Compare                                       |
+|                                                                                     |
+**************************************************************************************/
+
+// template <class Derived, template <class, template <TreeType> class> class TTree,
+//           class T = void>
+// [[nodiscard]] constexpr Vec<1, bool> operator==(
+//     TreeSetOrMap<Derived, TTree, T> const& lhs,
+//     TreeSetOrMap<Derived, TTree, T> const& rhs) noexcept
+// {
+// 	// TODO: Implement
+// }
+
+// template <class Derived, template <class, template <TreeType> class> class TTree,
+//           class T = void>
+// [[nodiscard]] constexpr Vec<1, bool> operator!=(
+//     TreeSetOrMap<Derived, TTree, T> const& lhs,
+//     TreeSetOrMap<Derived, TTree, T> const& rhs) noexcept
+// {
+// 	return {lhs.x != rhs.x};
+// }
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_SET_OR_MAP_HPP
