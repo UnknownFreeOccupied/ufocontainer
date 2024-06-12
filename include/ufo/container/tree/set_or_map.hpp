@@ -104,7 +104,7 @@ class TreeSetOrMap
 	using Key      = typename Base::Key;
 	using Point    = typename Base::Point;
 	using Coord    = typename Base::Coord;
-	using Bounds   = typename Base::Bounds2;
+	using Bounds   = typename Base::Bounds;
 	using coord_t  = typename Base::coord_t;
 	using depth_t  = typename Base::depth_t;
 	using offset_t = typename Base::offset_t;
@@ -942,8 +942,8 @@ class TreeSetOrMap
 		v.erase(it);
 		--size_;
 
-		Point min(std::numeric_limits<typename Point::scalar_t>::max());
-		Point max(std::numeric_limits<typename Point::scalar_t>::lowest());
+		Point min(std::numeric_limits<typename Point::value_type>::max());
+		Point max(std::numeric_limits<typename Point::value_type>::lowest());
 		if constexpr (IsMap) {
 			for (auto const& [p, _] : v) {
 				for (int i{}; Point::size() > i; ++i) {

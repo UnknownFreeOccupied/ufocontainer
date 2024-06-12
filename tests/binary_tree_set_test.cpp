@@ -22,8 +22,8 @@ TEST_CASE("Octree Set")
 
 	b = set.bounds();
 
-	REQUIRE(equal(ufo::Vec3f(-102.3, -234, 5), min(b)));
-	REQUIRE(equal(ufo::Vec3f(100, 200, 40), max(b)));
+	REQUIRE(all(ufo::Vec3f(-102.3, -234, 5) == min(b)));
+	REQUIRE(all(ufo::Vec3f(100, 200, 40) == max(b)));
 
 	std::cout << "Before" << std::endl;
 	for (auto x : set) {
@@ -35,8 +35,8 @@ TEST_CASE("Octree Set")
 
 	b = set.bounds();
 
-	REQUIRE(equal(ufo::Vec3f(-102.3, -234, 5), min(b)));
-	REQUIRE(equal(ufo::Vec3f(100, 200, 40), max(b)));
+	REQUIRE(all(ufo::Vec3f(-102.3, 0, 5) == min(b)));
+	REQUIRE(all(ufo::Vec3f(1, 200, 35) == max(b)));
 
 	std::cout << "After" << std::endl;
 	for (auto x : set) {
@@ -47,8 +47,8 @@ TEST_CASE("Octree Set")
 
 	b = set.bounds();
 
-	REQUIRE(equal(ufo::Vec3f(100, -234, 40), min(b)));
-	REQUIRE(equal(ufo::Vec3f(100, -234, 40), max(b)));
+	REQUIRE(all(ufo::Vec3f(-102.3, 200, 33) == min(b)));
+	REQUIRE(all(ufo::Vec3f(-102.3, 200, 33) == max(b)));
 
 	std::cout << "After 2" << std::endl;
 	for (auto x : set) {

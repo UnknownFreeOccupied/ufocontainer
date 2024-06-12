@@ -43,7 +43,7 @@
 #define UFO_CONTAINER_OCTREE_SET_HPP
 
 // UFO
-#include <ufo/container/octree/octree.hpp>
+#include <ufo/container/tree/octree.hpp>
 #include <ufo/container/tree/set.hpp>
 
 namespace ufo

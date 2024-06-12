@@ -43,24 +43,21 @@
 #define UFO_CONTAINER_HEXTREE_HPP
 
 // UFO
-#include <ufo/container/hextree/hextree_code.hpp>
-#include <ufo/container/hextree/hextree_key.hpp>
-#include <ufo/container/hextree/hextree_node.hpp>
 #include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/tree_type.hpp>
+#include <ufo/container/tree/type.hpp>
 
 namespace ufo
 {
-template <class Derived, template <std::size_t, class> class TreeBlock>
-class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX, HexCode, HexKey, Vec4f>
+template <class Derived, template <TreeType> class TreeBlock>
+class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX>
 {
-	using Base = Tree<Derived, TreeBlock, TreeType::HEX, HexCode, HexKey, Vec4f>;
+	using Base = Tree<Derived, TreeBlock, TreeType::HEX>;
 
 	//
 	// Friends
 	//
 
-	friend class Base;
+	friend Base;
 
  public:
 	//
@@ -102,12 +99,12 @@ class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX, HexCode, HexKey, 
 	Hextree(Hextree&& other) = default;
 
 	template <class Derived2>
-	Hextree(Hextree<Derived2> const& other) : Base(other)
+	Hextree(Hextree<Derived2, TreeBlock> const& other) : Base(other)
 	{
 	}
 
 	template <class Derived2>
-	Hextree(Hextree<Derived2>&& other) : Base(std::move(other))
+	Hextree(Hextree<Derived2, TreeBlock>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -130,14 +127,14 @@ class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX, HexCode, HexKey, 
 	Hextree& operator=(Hextree&& rhs) = default;
 
 	template <class Derived2>
-	Hextree& operator=(Hextree<Derived2> const& rhs)
+	Hextree& operator=(Hextree<Derived2, TreeBlock> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
 	template <class Derived2>
-	Hextree& operator=(Hextree<Derived2>&& rhs)
+	Hextree& operator=(Hextree<Derived2, TreeBlock>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;

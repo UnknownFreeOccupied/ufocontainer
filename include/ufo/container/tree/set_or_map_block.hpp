@@ -44,8 +44,9 @@
 
 // UFO
 #include <ufo/container/tree/block.hpp>
+#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/type.hpp>
-#include <ufo/container/tree/types.hpp>
+#include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
 
 // STL
@@ -60,14 +61,18 @@ namespace ufo
 {
 template <TreeType TT, class T = void>
 struct TreeSetOrMapBlock : public TreeBlock<TT> {
-	using Code  = typename TreeTypes<TT>::Code;
-	using Point = typename TreeTypes<TT>::Point;
+	static constexpr std::size_t const BF  = branchingFactor<TT>();
+	static constexpr std::size_t const Dim = dimensions<TT>();
+
+	using Code  = TreeCode<Dim>;
+	using Point = Vec<Dim, float>;
 	using value_type =
 	    std::conditional_t<std::is_void_v<T>, Point, std::pair<Point const, T>>;
-	static constexpr auto const BF = branchingFactor(TT);
+
 	static constexpr auto const MIN =
-	    std::numeric_limits<typename Point::scalar_t>::lowest();
-	static constexpr auto const MAX = std::numeric_limits<typename Point::scalar_t>::max();
+	    std::numeric_limits<typename Point::value_type>::lowest();
+	static constexpr auto const MAX =
+	    std::numeric_limits<typename Point::value_type>::max();
 
 	std::array<Point, BF>                 min = createArray<BF>(Point(MAX));
 	std::array<Point, BF>                 max = createArray<BF>(Point(MIN));

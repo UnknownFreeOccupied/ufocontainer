@@ -43,9 +43,10 @@
 #define UFO_CONTAINER_TREE_BLOCK_HPP
 
 // UFO
+#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/type.hpp>
-#include <ufo/container/tree/types.hpp>
+#include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
 
 // STL
@@ -56,8 +57,10 @@ namespace ufo
 {
 template <TreeType TT>
 struct TreeBlock {
-	using Code                     = typename TreeTypes<TT>::Code;
-	static constexpr auto const BF = branchingFactor(TT);
+	static constexpr std::size_t const BF  = branchingFactor<TT>();
+	static constexpr std::size_t const Dim = dimensions<TT>();
+
+	using Code = TreeCode<Dim>;
 
 	Code                             parent_code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
@@ -89,9 +92,11 @@ struct TreeBlock {
 // TODO: Implement
 template <TreeType TT>
 struct TreeBlockCenter {
-	using Code                     = typename TreeTypes<TT>::Code;
-	using Point                    = typename TreeTypes<TT>::Point;
-	static constexpr auto const BF = branchingFactor(TT);
+	static constexpr std::size_t const BF  = branchingFactor<TT>();
+	static constexpr std::size_t const Dim = dimensions<TT>();
+
+	using Code  = TreeCode<Dim>;
+	using Point = Vec<Dim, float>;
 
 	Code                             parent_code;
 	Point                            center;

@@ -43,8 +43,8 @@
 #define UFO_CONTAINER_OCTREE_MAP_HPP
 
 // UFO
-#include <ufo/container/octree/octree.hpp>
 #include <ufo/container/tree/map.hpp>
+#include <ufo/container/tree/octree.hpp>
 
 namespace ufo
 {

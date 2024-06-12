@@ -43,12 +43,12 @@
 #define UFO_CONTAINER_QUADTREE_SET_HPP
 
 // UFO
-#include <ufo/container/quadtree/quadtree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree/quadtree.hpp>
+#include <ufo/container/tree/set.hpp>
 
 namespace ufo
 {
-using QuadtreeSet = TreeMap<Quadtree>;
+using QuadtreeSet = TreeSet<Quadtree>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_QUADTREE_SET_HPP

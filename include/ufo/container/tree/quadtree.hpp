@@ -39,28 +39,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_BINARY_TREE_HPP
-#define UFO_CONTAINER_BINARY_TREE_HPP
+#ifndef UFO_CONTAINER_QUADTREE_HPP
+#define UFO_CONTAINER_QUADTREE_HPP
 
 // UFO
-#include <ufo/container/binary_tree/binary_code.hpp>
-#include <ufo/container/binary_tree/binary_key.hpp>
 #include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/tree_type.hpp>
+#include <ufo/container/tree/type.hpp>
 
 namespace ufo
 {
-template <class Derived, template <std::size_t, class> class TreeBlock>
-class BinaryTree
-    : public Tree<Derived, TreeBlock, TreeType::BINARY, BinaryCode, BinaryKey, Vec1f>
+template <class Derived, template <TreeType> class TreeBlock>
+class Quadtree : public Tree<Derived, TreeBlock, TreeType::QUAD>
 {
-	using Base = Tree<Derived, TreeBlock, TreeType::BINARY, BinaryCode, BinaryKey, Vec1f>;
+	using Base = Tree<Derived, TreeBlock, TreeType::QUAD>;
 
 	//
 	// Friends
 	//
 
-	friend class Base;
+	friend Base;
 
  public:
 	//
@@ -92,22 +89,22 @@ class BinaryTree
 	|                                                                                     |
 	**************************************************************************************/
 
-	BinaryTree(length_t leaf_node_length, depth_t num_depth_levels)
+	Quadtree(length_t leaf_node_length, depth_t num_depth_levels)
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}
 
-	BinaryTree(BinaryTree const& other) = default;
+	Quadtree(Quadtree const& other) = default;
 
-	BinaryTree(BinaryTree&& other) = default;
+	Quadtree(Quadtree&& other) = default;
 
 	template <class Derived2>
-	BinaryTree(BinaryTree<Derived2> const& other) : Base(other)
+	Quadtree(Quadtree<Derived2, TreeBlock> const& other) : Base(other)
 	{
 	}
 
 	template <class Derived2>
-	BinaryTree(BinaryTree<Derived2>&& other) : Base(std::move(other))
+	Quadtree(Quadtree<Derived2, TreeBlock>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -117,7 +114,7 @@ class BinaryTree
 	|                                                                                     |
 	**************************************************************************************/
 
-	~BinaryTree() {}
+	~Quadtree() {}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -125,19 +122,19 @@ class BinaryTree
 	|                                                                                     |
 	**************************************************************************************/
 
-	BinaryTree& operator=(BinaryTree const& rhs) = default;
+	Quadtree& operator=(Quadtree const& rhs) = default;
 
-	BinaryTree& operator=(BinaryTree&& rhs) = default;
+	Quadtree& operator=(Quadtree&& rhs) = default;
 
 	template <class Derived2>
-	BinaryTree& operator=(BinaryTree<Derived2> const& rhs)
+	Quadtree& operator=(Quadtree<Derived2, TreeBlock> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
 	template <class Derived2>
-	BinaryTree& operator=(BinaryTree<Derived2>&& rhs)
+	Quadtree& operator=(Quadtree<Derived2, TreeBlock>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;
@@ -149,11 +146,11 @@ class BinaryTree
 	|                                                                                     |
 	**************************************************************************************/
 
-	friend void swap(BinaryTree& lhs, BinaryTree& rhs)
+	friend void swap(Quadtree& lhs, Quadtree& rhs)
 	{
 		Base::swap(static_cast<Base&>(lhs), static_cast<Base&>(rhs));
 	}
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_BINARY_TREE_HPP
+#endif  // UFO_CONTAINER_QUADTREE_HPP

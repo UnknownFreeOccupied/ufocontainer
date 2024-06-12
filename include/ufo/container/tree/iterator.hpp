@@ -46,8 +46,8 @@
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/node_nearest.hpp>
 #include <ufo/container/tree/predicate.hpp>
-#include <ufo/geometry/bounding_volume.hpp>
-#include <ufo/geometry/minimum_distance.hpp>
+// #include <ufo/geometry/bounding_volume.hpp>
+// #include <ufo/geometry/minimum_distance.hpp>
 
 // STL
 #include <cstddef>   // For std::ptrdiff_t
@@ -409,19 +409,19 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 
 				if constexpr (OnlyLeavesOrFixedDepth) {
 					if (this->validReturn(current, predicate_)) {
-						return_nodes_.emplace(current, sqDistance(current));
+						return_nodes_.emplace(current, distanceSquared(current));
 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
-						inner_nodes_.emplace(current, sqDistance(current) + epsilon_);
+						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 					}
 				} else {
 					if (this->validReturn(current, predicate_)) {
-						auto dist_sq = sqDistance(current);
+						auto dist_sq = distanceSquared(current);
 						return_nodes_.emplace(current, dist_sq);
 						if (this->template validInner<OnlyExists>(current, predicate_)) {
 							inner_nodes_.emplace(current, dist_sq + epsilon_);
 						}
 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
-						inner_nodes_.emplace(current, sqDistance(current) + epsilon_);
+						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 					}
 				}
 			}
@@ -444,9 +444,9 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 	}
 
  private:
-	double sqDistance(Node const& node) const
+	double distanceSquared(Node const& node) const
 	{
-		return squaredDistance(this->boundingVolume(node), geometry_);
+		return distanceSquared(this->boundingVolume(node), geometry_);
 	}
 
 	void init(Node const& node)
@@ -461,7 +461,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 
 		if constexpr (OnlyLeavesOrFixedDepth) {
 			if (this->validReturn(node, predicate_)) {
-				return_nodes_.emplace(node, sqDistance(node));
+				return_nodes_.emplace(node, distanceSquared(node));
 			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
 				std::vector<value_type> container;
 				container.reserve(256);
@@ -470,7 +470,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 				    std::greater<value_type>(), std::move(container));
 				inner_nodes_ = return_nodes_;
 
-				inner_nodes_.emplace(node, sqDistance(node) + epsilon_);
+				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
 				next();
 			}
 		} else {
@@ -482,7 +482,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 				    std::greater<value_type>(), std::move(container));
 				inner_nodes_ = return_nodes_;
 
-				auto const dist_sq = sqDistance(node);
+				auto const dist_sq = distanceSquared(node);
 
 				return_nodes_.emplace(node, dist_sq);
 				if (this->template validInner<OnlyExists>(node, predicate_)) {
@@ -496,7 +496,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 				    std::greater<value_type>(), std::move(container));
 				inner_nodes_ = return_nodes_;
 
-				inner_nodes_.emplace(node, sqDistance(node) + epsilon_);
+				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
 				next();
 			}
 		}
@@ -834,19 +834,19 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 
 // 				if constexpr (OnlyLeavesOrFixedDepth) {
 // 					if (this->validReturn(current, predicate_)) {
-// 						return_nodes_.emplace(current, sqDistance(current));
+// 						return_nodes_.emplace(current, distanceSquared(current));
 // 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
-// 						inner_nodes_.emplace(current, sqDistance(current) + epsilon_);
+// 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 // 					}
 // 				} else {
 // 					if (this->validReturn(current, predicate_)) {
-// 						auto dist_sq = sqDistance(current);
+// 						auto dist_sq = distanceSquared(current);
 // 						return_nodes_.emplace(current, dist_sq);
 // 						if (this->template validInner<OnlyExists>(current, predicate_)) {
 // 							inner_nodes_.emplace(current, dist_sq + epsilon_);
 // 						}
 // 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
-// 						inner_nodes_.emplace(current, sqDistance(current) + epsilon_);
+// 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 // 					}
 // 				}
 // 			}
@@ -869,9 +869,9 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 	}
 
 //  private:
-// 	double sqDistance(Node const& node) const
+// 	double distanceSquared(Node const& node) const
 // 	{
-// 		return squaredDistance(this->boundingVolume(node), geometry_);
+// 		return distanceSquared(this->boundingVolume(node), geometry_);
 // 	}
 
 // 	void init(Node const& node)
@@ -886,7 +886,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 
 // 		if constexpr (OnlyLeavesOrFixedDepth) {
 // 			if (this->validReturn(node, predicate_)) {
-// 				return_nodes_.emplace(node, sqDistance(node));
+// 				return_nodes_.emplace(node, distanceSquared(node));
 // 			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
 // 				std::vector<value_type> container;
 // 				container.reserve(256);
@@ -895,7 +895,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				    std::greater<value_type>(), std::move(container));
 // 				inner_nodes_ = return_nodes_;
 
-// 				inner_nodes_.emplace(node, sqDistance(node) + epsilon_);
+// 				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
 // 				next();
 // 			}
 // 		} else {
@@ -907,7 +907,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				    std::greater<value_type>(), std::move(container));
 // 				inner_nodes_ = return_nodes_;
 
-// 				auto const dist_sq = sqDistance(node);
+// 				auto const dist_sq = distanceSquared(node);
 
 // 				return_nodes_.emplace(node, dist_sq);
 // 				if (this->template validInner<OnlyExists>(node, predicate_)) {
@@ -921,7 +921,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				    std::greater<value_type>(), std::move(container));
 // 				inner_nodes_ = return_nodes_;
 
-// 				inner_nodes_.emplace(node, sqDistance(node) + epsilon_);
+// 				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
 // 				next();
 // 			}
 // 		}

@@ -52,9 +52,42 @@ namespace ufo
 {
 enum class TreeType : std::size_t { BINARY = 2, QUAD = 4, OCT = 8, HEX = 16 };
 
+template <TreeType TT>
+[[nodiscard]] constexpr std::size_t branchingFactor() noexcept
+{
+	return to_underlying(TT);
+}
+
 [[nodiscard]] constexpr std::size_t branchingFactor(TreeType tree_type) noexcept
 {
 	return to_underlying(tree_type);
+}
+
+template <TreeType TT>
+[[nodiscard]] constexpr std::size_t dimensions() noexcept
+{
+	if constexpr (TreeType::BINARY == TT) {
+		return 1;
+	} else if constexpr (TreeType::QUAD == TT) {
+		return 2;
+	} else if constexpr (TreeType::OCT == TT) {
+		return 3;
+	} else if constexpr (TreeType::HEX == TT) {
+		return 4;
+	} else {
+		// Error
+		return 0;
+	}
+}
+
+[[nodiscard]] constexpr std::size_t dimensions(TreeType tree_type) noexcept
+{
+	switch (tree_type) {
+		case TreeType::BINARY: return 1;
+		case TreeType::QUAD: return 2;
+		case TreeType::OCT: return 3;
+		case TreeType::HEX: return 4;
+	}
 }
 }  // namespace ufo
 

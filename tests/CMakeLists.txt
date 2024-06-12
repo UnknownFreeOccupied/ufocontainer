@@ -9,6 +9,7 @@ include("${PROJECT_SOURCE_DIR}/3rdparty/catch2/catch2.cmake")
 add_executable(ufocontainer_tests
 	octree_map_test.cpp
 	octree_set_test.cpp
+	quadtree_set_test.cpp
 	range_test.cpp
 	tree_index_test.cpp
 	tree_node_test.cpp

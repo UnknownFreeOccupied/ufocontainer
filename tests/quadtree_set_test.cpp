@@ -1,29 +1,29 @@
 // UFO
-#include <ufo/container/octree_set.hpp>
+#include <ufo/container/quadtree_set.hpp>
 #include <ufo/geometry/fun.hpp>
 
 // Catch2
 #include <catch2/catch_test_macros.hpp>
 
-TEST_CASE("Octree Set")
+TEST_CASE("Quadtree Set")
 {
-	ufo::OctreeSet set;
+	ufo::QuadtreeSet set;
 
 	auto b = set.bounds();
 
-	for (std::size_t i{}; 3 > i; ++i) {
+	for (std::size_t i{}; 2 > i; ++i) {
 		std::cout << min(b)[i] << " and " << max(b)[i] << std::endl;
 		REQUIRE(min(b)[i] > max(b)[i]);
 	}
 
-	set.insert({0, 0, 35});
-	set.insert({{100, -234, 40}, {-102.3, 200, 33}});
-	set.insert(ufo::Vec3f(1, 0, 5));
+	set.insert({0, 0});
+	set.insert({{100, -234}, {-102.3, 200}});
+	set.insert(ufo::Vec2f(1, 0));
 
 	b = set.bounds();
 
-	REQUIRE(equal(ufo::Vec3f(-102.3, -234, 5), min(b)));
-	REQUIRE(equal(ufo::Vec3f(100, 200, 40), max(b)));
+	REQUIRE(all(ufo::Vec2f(-102.3, -234) == min(b)));
+	REQUIRE(all(ufo::Vec2f(100, 200) == max(b)));
 
 	std::cout << "Before" << std::endl;
 	for (auto x : set) {
@@ -35,8 +35,8 @@ TEST_CASE("Octree Set")
 
 	b = set.bounds();
 
-	REQUIRE(equal(ufo::Vec3f(-102.3, -234, 5), min(b)));
-	REQUIRE(equal(ufo::Vec3f(100, 200, 40), max(b)));
+	REQUIRE(all(ufo::Vec2f(-102.3, -234) == min(b)));
+	REQUIRE(all(ufo::Vec2f(100, 200) == max(b)));
 
 	std::cout << "After" << std::endl;
 	for (auto x : set) {
@@ -47,8 +47,8 @@ TEST_CASE("Octree Set")
 
 	b = set.bounds();
 
-	REQUIRE(equal(ufo::Vec3f(100, -234, 40), min(b)));
-	REQUIRE(equal(ufo::Vec3f(100, -234, 40), max(b)));
+	REQUIRE(all(ufo::Vec2f(100, -234) == min(b)));
+	REQUIRE(all(ufo::Vec2f(100, -234) == max(b)));
 
 	std::cout << "After 2" << std::endl;
 	for (auto x : set) {
@@ -59,7 +59,7 @@ TEST_CASE("Octree Set")
 
 	b = set.bounds();
 
-	for (std::size_t i{}; 3 > i; ++i) {
+	for (std::size_t i{}; 2 > i; ++i) {
 		REQUIRE(min(b)[i] > max(b)[i]);
 	}
 
@@ -68,9 +68,9 @@ TEST_CASE("Octree Set")
 		std::cout << x << std::endl;
 	}
 
-	set.insert({0, 0, 35});
-	set.insert({{100, -234, 40}, {-102.3, 200, 33}});
-	set.insert(ufo::Vec3f(1, 0, 5));
+	set.insert({0, 0});
+	set.insert({{100, -234}, {-102.3, 200}});
+	set.insert(ufo::Vec2f(1, 0));
 
 	std::cout << "After 4" << std::endl;
 	for (auto x : set) {
@@ -78,11 +78,11 @@ TEST_CASE("Octree Set")
 	}
 
 	std::cout << "After 5" << std::endl;
-	for (auto [p, d] : set.nearest({0, 0, 0})) {
+	for (auto [p, d] : set.nearest({0, 0})) {
 		std::cout << p << " with distance: " << d << std::endl;
 	}
 
-	auto nearest_it = set.beginNearest({0, 0, 0});
+	auto nearest_it = set.beginNearest({0, 0});
 
 	set.erase(nearest_it, std::next(nearest_it, 2));
 

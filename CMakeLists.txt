@@ -18,7 +18,7 @@ set_target_properties(ufocontainer PROPERTIES
 	CXX_EXTENSIONS OFF
 )
 
-target_link_libraries(ufocontainer INTERFACE UFO::Geometry UFO::Utility)
+target_link_libraries(ufocontainer INTERFACE UFO::Geometry UFO::Morton UFO::Utility)
 
 target_include_directories(ufocontainer INTERFACE
 	$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>

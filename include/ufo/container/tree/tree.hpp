@@ -47,14 +47,17 @@
 #include <ufo/container/tree/container.hpp>
 #include <ufo/container/tree/coord.hpp>
 // #include <ufo/container/tree/file_header.hpp>
+#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/iterator.hpp>
+#include <ufo/container/tree/key.hpp>
 #include <ufo/container/tree/node.hpp>
 #include <ufo/container/tree/node_nearest.hpp>
 #include <ufo/container/tree/predicate.hpp>
 #include <ufo/container/tree/type.hpp>
-#include <ufo/container/tree/types.hpp>
-#include <ufo/math/util.hpp>
+#include <ufo/geometry/shape/aabb.hpp>
+#include <ufo/math/utility.hpp>
+#include <ufo/math/vec.hpp>
 #include <ufo/utility/bit_set.hpp>
 #include <ufo/utility/compression.hpp>
 #include <ufo/utility/execution.hpp>
@@ -99,6 +102,9 @@ class Tree
 	template <class Derived2, template <TreeType> class TreeBlock2, TreeType TT2>
 	friend class Tree;
 
+	static constexpr std::size_t const BF  = branchingFactor<TT>();
+	static constexpr std::size_t const Dim = dimensions<TT>();
+
  public:
 	//
 	// Tags
@@ -107,17 +113,15 @@ class Tree
 	using length_t = double;
 	using depth_t  = unsigned;
 
-	using Code   = typename TreeTypes<TT>::Code;
-	using Key    = typename TreeTypes<TT>::Key;
-	using Point  = typename TreeTypes<TT>::Point;
-	using Bounds = typename TreeTypes<TT>::Bounds;
-	// TODO: What to call this?
-	using Bounds2 = typename TreeTypes<TT>::Bounds2;
+	using Code   = TreeCode<Dim>;
+	using Key    = TreeKey<Dim>;
+	using Point  = Vec<Dim, float>;
+	using Bounds = AABB<Dim, float>;
 
 	using Index       = TreeIndex;
 	using Node        = TreeNode<Code>;
 	using NodeNearest = TreeNodeNearest<Node>;
-	using coord_t     = typename Point::scalar_t;
+	using coord_t     = typename Point::value_type;
 	using Coord       = TreeCoord<Point, depth_t>;
 
 	using pos_t    = typename TreeIndex::pos_t;
@@ -1092,17 +1096,15 @@ class Tree
 	{
 		assert(valid(node));
 
-		auto lr = lengthReciprocal(depth(node));
+		auto  d = depth(node);
+		Point p = node;
 
-		Key k;
-		for (std::size_t i{}; node.size() != i; ++i) {
-			k[i] = static_cast<key_t>(
-			           static_cast<std::make_signed_t<key_t>>(std::floor(node[i] * lr))) +
-			       half_max_value_;
-		}
-		// TODO: Change when fixed
-		k.depth_ = depth(node);
-		return k;
+		float lr = static_cast<float>(lengthReciprocal(d));
+
+		Vec<Key::size(), key_t> k(
+		    static_cast<Vec<Key::size(), std::make_signed_t<key_t>>>(floor(p * lr)));
+
+		return {(k + half_max_value_) >> d, d};
 	}
 
 	[[nodiscard]] std::optional<Key> keyChecked(Coord node) const
@@ -1968,7 +1970,7 @@ class Tree
 		// std::greater<NodeNearest>>
 		//        nodes;
 		// NodeBV nbv = toNodeBV(node);
-		// nodes.emplace(nbv, squaredDistance(nbv.boundingVolume(), g));
+		// nodes.emplace(nbv, distanceSquared(nbv.boundingVolume(), g));
 
 		// if (only_exists) {
 		// 	if (!exists(node)) {
@@ -1981,7 +1983,7 @@ class Tree
 		// 		if (f(n_d) && isParent(n_d)) {
 		// 			for (offset_t i{}; branchingFactor() != i; ++i) {
 		// 				auto c = child(n_d, i);
-		// 				nodes.emplace(c, squaredDistance(c.boundingVolume(), g));
+		// 				nodes.emplace(c, distanceSquared(c.boundingVolume(), g));
 		// 			}
 		// 		}
 		// 	}
@@ -1993,7 +1995,7 @@ class Tree
 		// 		if (f(n_d) && !isPureLeaf(n_d)) {
 		// 			for (offset_t i{}; branchingFactor() != i; ++i) {
 		// 				auto c = child(n_d, i);
-		// 				nodes.emplace(c, squaredDistance(c.boundingVolume(), g));
+		// 				nodes.emplace(c, distanceSquared(c.boundingVolume(), g));
 		// 			}
 		// 		}
 		// 	}
