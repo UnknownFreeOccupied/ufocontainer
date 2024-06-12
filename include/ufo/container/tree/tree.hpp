@@ -1101,10 +1101,10 @@ class Tree
 
 		float lr = static_cast<float>(lengthReciprocal(d));
 
-		Vec<Key::size(), key_t> k(
-		    static_cast<Vec<Key::size(), std::make_signed_t<key_t>>>(floor(p * lr)));
+		auto k =
+		    cast<key_t>(cast<std::make_signed_t<key_t>>(floor(p * lr))) + half_max_value_;
 
-		return {(k + half_max_value_) >> d, d};
+		return {k >> d, d};
 	}
 
 	[[nodiscard]] std::optional<Key> keyChecked(Coord node) const
