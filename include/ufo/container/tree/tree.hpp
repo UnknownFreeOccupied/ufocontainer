@@ -3195,6 +3195,7 @@ class Tree
 		}
 
 		// ERROR
+		return {-1.0f, {}};
 	}
 
 	template <class ValueFun, class InnerFun>
