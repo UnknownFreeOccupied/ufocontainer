@@ -59,10 +59,10 @@
 #include <ufo/math/utility.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/bit_set.hpp>
-#include <ufo/utility/compression.hpp>
 #include <ufo/utility/execution.hpp>
 #include <ufo/utility/io/buffer.hpp>
 #include <ufo/utility/iterator_wrapper.hpp>
+#include <ufo/utility/macros.hpp>
 #include <ufo/utility/type_traits.hpp>
 
 // STL
@@ -75,6 +75,7 @@
 #include <iterator>
 #include <mutex>
 #include <optional>
+#include <queue>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -83,27 +84,28 @@
 namespace ufo
 {
 
+enum class NearestSearchAlgorithm { DEPTH_FIRST, A_STAR };
+
 /*!
  * @brief
  *
  * Utilizing curiously recurring template pattern (CRTP)
  *
  * \tparam Derived ...
- * \tparam TreeBlock ...
- * \tparam TT ...
+ * \tparam Block ...
  */
-template <class Derived, template <TreeType> class TreeBlock, TreeType TT>
+template <class Derived, class Block>
 class Tree
 {
 	//
 	// Friends
 	//
 
-	template <class Derived2, template <TreeType> class TreeBlock2, TreeType TT2>
+	template <class Derived2, class Block2>
 	friend class Tree;
 
-	static constexpr std::size_t const BF  = branchingFactor<TT>();
-	static constexpr std::size_t const Dim = dimensions<TT>();
+	static constexpr std::size_t const BF  = ufo::branchingFactor(Block::tree_type);
+	static constexpr std::size_t const Dim = ufo::dimensions(Block::tree_type);
 
  public:
 	//
@@ -137,9 +139,6 @@ class Tree
 	using Query        = IteratorWrapper<const_query_iterator>;
 	using QueryNearest = IteratorWrapper<const_nearest_query_iterator>;
 
-	using Block     = TreeBlock<TT>;
-	using Container = TreeContainer<Block>;
-
  public:
 	/**************************************************************************************
 	|                                                                                     |
@@ -152,7 +151,7 @@ class Tree
 	 *
 	 * @return The tree type.
 	 */
-	[[nodiscard]] static constexpr TreeType treeType() noexcept { return TT; }
+	[[nodiscard]] static constexpr TreeType treeType() noexcept { return Block::tree_type; }
 
 	/*!
 	 * @brief Returns the branching factor of the tree (i.e., 2 = binary tree, 4 = quadtree,
@@ -160,10 +159,15 @@ class Tree
 	 *
 	 * @return The branching factor of the tree.
 	 */
-	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept
-	{
-		return ufo::branchingFactor(treeType());
-	}
+	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept { return BF; }
+
+	/*!
+	 * @brief Returns the number of dimensions of the tree (i.e., 1 = binary tree, 2 =
+	 * quadtree, 3 = octree, 4 = hextree).
+	 *
+	 * @return The number of dimensions of the tree.
+	 */
+	[[nodiscard]] static constexpr std::size_t dimensions() noexcept { return Dim; }
 
 	/*!
 	 * @brief Erases all nodes from the tree.
@@ -173,7 +177,8 @@ class Tree
 		blocks_.clear();
 		free_blocks_.clear();
 		// Create root
-		blocks_.emplace_back(code().parent());
+		blocks_.emplace_back(code().parent(), parentCenter(center(), halfLength(), 0),
+		                     length());
 		derived().derivedClear();
 	}
 
@@ -310,7 +315,7 @@ class Tree
 	 */
 	[[nodiscard]] length_t length(depth_t depth) const
 	{
-		assert(numDepthLevels() > depth + 1);
+		assert(numDepthLevels() > depth);
 		return node_half_length_[depth + 1];
 	}
 
@@ -661,6 +666,7 @@ class Tree
 	 */
 	[[nodiscard]] Bounds bounds(Index node) const
 	{
+		// TODO: Check if TreeBlockBounds
 		return Bounds(center(node), halfLength(node));
 	}
 
@@ -670,7 +676,11 @@ class Tree
 	 * @param node the node
 	 * @return The bounds of the node.
 	 */
-	[[nodiscard]] Bounds bounds(Node node) const { return bounds(index(node)); }
+	[[nodiscard]] Bounds bounds(Node node) const
+	{
+		// TODO: Optimize
+		return Bounds(center(node), halfLength(node));
+	}
 
 	/*!
 	 * @brief Returns the bounds of `node`.
@@ -678,7 +688,10 @@ class Tree
 	 * @param node the node
 	 * @return The bounds of the node.
 	 */
-	[[nodiscard]] Bounds bounds(Code node) const { return bounds(index(node)); }
+	[[nodiscard]] Bounds bounds(Code node) const
+	{
+		return Bounds(center(node), halfLength(node));
+	}
 
 	/*!
 	 * @brief Returns the bounds of `node`.
@@ -686,7 +699,10 @@ class Tree
 	 * @param node the node
 	 * @return The bounds of the node.
 	 */
-	[[nodiscard]] Bounds bounds(Key node) const { return bounds(index(node)); }
+	[[nodiscard]] Bounds bounds(Key node) const
+	{
+		return Bounds(center(node), halfLength(node));
+	}
 
 	/*!
 	 * @brief Returns the bounds of `node`.
@@ -694,7 +710,10 @@ class Tree
 	 * @param node the node
 	 * @return The bounds of the node.
 	 */
-	[[nodiscard]] Bounds bounds(Coord node) const { return bounds(index(node)); }
+	[[nodiscard]] Bounds bounds(Coord node) const
+	{
+		return Bounds(center(node), halfLength(node));
+	}
 
 	//
 	// Inside
@@ -742,7 +761,7 @@ class Tree
 	 */
 	[[nodiscard]] Coord center(Index node) const
 	{
-		return center(blocks_[node.pos].parent_code.child(node.offset));
+		return center(blocks_[node.pos].code.child(node.offset));
 	}
 
 	/*!
@@ -1063,7 +1082,7 @@ class Tree
 	[[nodiscard]] Code code(Index node) const
 	{
 		assert(valid(node));
-		return blocks_[node.pos].parent_code.child(node.offset);
+		return blocks_[node.pos].code.child(node.offset);
 	}
 
 	[[nodiscard]] Code code(Node node) const { return node.code(); }
@@ -1085,7 +1104,7 @@ class Tree
 
 	[[nodiscard]] Key key(Index node) const
 	{
-		return blocks_[node.pos].parent_code.child(node.offset);
+		return blocks_[node.pos].code.child(node.offset);
 	}
 
 	[[nodiscard]] Key key(Node node) const { return Key(node.code()); }
@@ -1206,7 +1225,7 @@ class Tree
 	{
 		assert(!isPureLeaf(node));
 		if (isParent(node)) {
-			return children(node);
+			return childrenBlock(node);
 		}
 
 		pos_t block;
@@ -1235,7 +1254,7 @@ class Tree
 	void eraseChildren(Index node)
 	{
 		assert(valid(node));
-		erase(node, children(node));
+		erase(node, childrenBlock(node));
 	}
 
 	/**************************************************************************************
@@ -1332,7 +1351,7 @@ class Tree
 	 */
 	[[nodiscard]] bool isLeaf(Index node) const
 	{
-		return TreeIndex::NULL_POS == children(node);
+		return TreeIndex::NULL_POS == childrenBlock(node);
 	}
 
 	/*!
@@ -1480,7 +1499,7 @@ class Tree
 	[[nodiscard]] bool valid(Index index) const
 	{
 		return valid(index.pos) && branchingFactor() > index.offset &&
-		       blocks_[index.pos].parent_code.valid();
+		       blocks_[index.pos].code.valid();
 	}
 
 	/*!
@@ -1576,17 +1595,17 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] std::array<pos_t, branchingFactor()> children(pos_t block) const
+	[[nodiscard]] std::array<pos_t, branchingFactor()> childrenBlock(pos_t block) const
 	{
 		assert(valid(block));
 		return blocks_[block].children;
 	}
 
-	[[nodiscard]] pos_t children(Index node) const
+	[[nodiscard]] pos_t childrenBlock(Index node) const
 	{
 		assert(valid(node));
 		// assert(isParent(node));
-		return children(node.pos)[node.offset];
+		return childrenBlock(node.pos)[node.offset];
 	}
 
 	[[nodiscard]] Index child(Index node, offset_t child_index) const
@@ -1594,7 +1613,7 @@ class Tree
 		assert(valid(node));
 		assert(branchingFactor() > child_index);
 		// assert(isParent(node));
-		return {children(node), child_index};
+		return {childrenBlock(node), child_index};
 	}
 
 	/*!
@@ -1745,7 +1764,7 @@ class Tree
 	[[nodiscard]] Index parent(Index node) const
 	{
 		assert(!isRoot(node));
-		return index(blocks_[node.pos].parent_code);
+		return index(blocks_[node.pos].code);
 	}
 
 	/*!
@@ -1757,7 +1776,7 @@ class Tree
 	[[nodiscard]] Node parent(Node node) const
 	{
 		assert(!isRoot(node));
-		return this->node(node.code().parent());
+		return this->node(parent(node.code()));
 	}
 
 	[[nodiscard]] Code parent(Code node) const
@@ -2501,7 +2520,6 @@ class Tree
 	// TODO: Add comments
 
 	Tree(length_t leaf_node_length, depth_t num_depth_levels)
-
 	{
 		if (minNumDepthLevels() > num_depth_levels ||
 		    maxNumDepthLevels() < num_depth_levels) {
@@ -2542,7 +2560,8 @@ class Tree
 		}
 
 		// Create root
-		blocks_.emplace_back(code().parent());
+		blocks_.emplace_back(code().parent(), parentCenter(center(), halfLength(), 0),
+		                     length());
 	}
 
 	Tree(Tree const& other)
@@ -2566,7 +2585,7 @@ class Tree
 	}
 
 	template <class Derived2>
-	Tree(Tree<Derived2, TreeBlock, TT> const& other)
+	Tree(Tree<Derived2, Block> const& other)
 	    : num_depth_levels_(other.num_depth_levels_)
 	    , half_max_value_(other.half_max_value_)
 	    , blocks_(other.blocks_)
@@ -2577,7 +2596,7 @@ class Tree
 	}
 
 	template <class Derived2>
-	Tree(Tree<Derived2, TreeBlock, TT>&& other)
+	Tree(Tree<Derived2, Block>&& other)
 	    : num_depth_levels_(std::move(other.num_depth_levels_))
 	    , half_max_value_(std::move(other.half_max_value_))
 	    , blocks_(std::move(other.blocks_))
@@ -2626,7 +2645,7 @@ class Tree
 	}
 
 	template <class Derived2>
-	Tree& operator=(Tree<Derived2, TreeBlock, TT> const& rhs)
+	Tree& operator=(Tree<Derived2, Block> const& rhs)
 	{
 		num_depth_levels_            = rhs.num_depth_levels_;
 		half_max_value_              = rhs.half_max_value_;
@@ -2638,7 +2657,7 @@ class Tree
 	}
 
 	template <class Derived2>
-	Tree& operator=(Tree<Derived2, TreeBlock, TT>&& rhs)
+	Tree& operator=(Tree<Derived2, Block>&& rhs)
 	{
 		num_depth_levels_            = std::move(rhs.num_depth_levels_);
 		half_max_value_              = std::move(rhs.half_max_value_);
@@ -2655,14 +2674,14 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	friend void swap(Tree& lhs, Tree& rhs)
+	void swap(Tree& other)
 	{
-		std::swap(lhs.num_depth_levels_, rhs.num_depth_levels_);
-		std::swap(lhs.half_max_value_, rhs.half_max_value_);
-		std::swap(lhs.blocks_, rhs.blocks_);
-		std::swap(lhs.free_blocks_, rhs.free_blocks_);
-		std::swap(lhs.node_half_length_, rhs.node_half_length_);
-		std::swap(lhs.node_half_length_reciprocal_, rhs.node_half_length_reciprocal_);
+		std::swap(num_depth_levels_, other.num_depth_levels_);
+		std::swap(half_max_value_, other.half_max_value_);
+		std::swap(blocks_, other.blocks_);
+		std::swap(free_blocks_, other.free_blocks_);
+		std::swap(node_half_length_, other.node_half_length_);
+		std::swap(node_half_length_reciprocal_, other.node_half_length_reciprocal_);
 	}
 
 	/**************************************************************************************
@@ -2704,7 +2723,7 @@ class Tree
 			return;
 		}
 
-		auto c = children(node);
+		auto c = childrenBlock(node);
 		for (offset_t i{}; branchingFactor() > i; ++i) {
 			recurs(Index(c, i), node_f);
 		}
@@ -2725,7 +2744,7 @@ class Tree
 			if (isLeaf(node)) {
 				continue;
 			}
-			recurs(children(node), block_f);
+			recurs(childrenBlock(node), block_f);
 		}
 	}
 
@@ -2740,7 +2759,7 @@ class Tree
 			return;
 		}
 
-		recurs(children(node), node_f, block_f);
+		recurs(childrenBlock(node), node_f, block_f);
 	}
 
 	template <class NodeFun,
@@ -2752,7 +2771,7 @@ class Tree
 			return;
 		}
 
-		auto c = children(node);
+		auto c = childrenBlock(node);
 		for (offset_t i{}; branchingFactor() > i; ++i) {
 			recursLeaves(Index(c, i), node_f);
 		}
@@ -2765,8 +2784,8 @@ class Tree
 	{
 		if (isLeaf(node)) {
 			node_f(node);
-		} else if (allLeaf(children(node))) {
-			block_f(children(node));
+		} else if (allLeaf(childrenBlock(node))) {
+			block_f(childrenBlock(node));
 		} else {
 			std::array<Index, maxNumDepthLevels()> nodes;
 			nodes[1] = child(node, 0);
@@ -2775,8 +2794,8 @@ class Tree
 				i -= branchingFactor() <= ++nodes[i].offset;
 				if (isLeaf(node)) {
 					node_f(node);
-				} else if (allLeaf(children(node))) {
-					block_f(children(node));
+				} else if (allLeaf(childrenBlock(node))) {
+					block_f(childrenBlock(node));
 				} else {
 					nodes[++i] = child(node, 0);
 				}
@@ -2892,7 +2911,7 @@ class Tree
 	{
 		bool leaf   = false;
 		bool parent = false;
-		for (auto e : children(block)) {
+		for (auto e : childrenBlock(block)) {
 			leaf   = leaf || Index::NULL_POS == e;
 			parent = parent || Index::NULL_POS != e;
 		}
@@ -2994,14 +3013,14 @@ class Tree
 	//
 
 	[[nodiscard]] static constexpr Point childCenter(Point    node_center,
-	                                                 length_t node_half_size,
+	                                                 length_t node_half_length,
 	                                                 offset_t child_index)
 	{
 		assert(branchingFactor() > child_index);
-		length_t child_half_size = node_half_size / static_cast<length_t>(2);
-		for (std::size_t i{}; Coord::size() != i; ++i) {
+		length_t child_half_length = node_half_length / static_cast<length_t>(2);
+		for (std::size_t i{}; Point::size() > i; ++i) {
 			node_center[i] +=
-			    child_index & offset_t(1u << i) ? child_half_size : -child_half_size;
+			    child_index & offset_t(1u << i) ? child_half_length : -child_half_length;
 		}
 		return node_center;
 	}
@@ -3016,16 +3035,16 @@ class Tree
 	// Sibling center
 	//
 
-	[[nodiscard]] static constexpr Coord siblingCenter(Coord center, coord_t half_size,
+	[[nodiscard]] static constexpr Point siblingCenter(Point center, length_t half_length,
 	                                                   offset_t index,
 	                                                   offset_t sibling_index)
 	{
 		assert(branchingFactor() > sibling_index);
-		offset_t const temp = index ^ sibling_index;
-		coord_t const  size = 2 * half_size;
-		for (std::size_t i{}; Coord::size() != i; ++i) {
+		offset_t const temp   = index ^ sibling_index;
+		coord_t const  length = 2 * half_length;
+		for (std::size_t i{}; Point::size() > i; ++i) {
 			center[i] += temp & offset_t(1u << i)
-			                 ? (sibling_index & offset_t(1u << i) ? size : -size)
+			                 ? (sibling_index & offset_t(1u << i) ? length : -length)
 			                 : coord_t{};
 		}
 		return center;
@@ -3035,15 +3054,15 @@ class Tree
 	// Parent center
 	//
 
-	[[nodiscard]] static constexpr Coord parentCenter(Coord    child_center,
-	                                                  coord_t  child_half_size,
+	[[nodiscard]] static constexpr Point parentCenter(Point    child_center,
+	                                                  length_t child_half_length,
 	                                                  offset_t child_index)
 	{
 		// FIXME: Make work with quadtree
 		assert(branchingFactor() > child_index);
-		for (std::size_t i{}; Coord::size() != i; ++i) {
-			child_center[i] -=
-			    child_index & offset_t(1u << i) ? child_half_size : -child_half_size;
+		for (std::size_t i{}; Point::size() > i; ++i) {
+			child_center[i] +=
+			    child_index & offset_t(1u << i) ? -child_half_length : child_half_length;
 		}
 		return child_center;
 	}
@@ -3058,7 +3077,7 @@ class Tree
 	{
 		pos_t block                                 = static_cast<pos_t>(blocks_.size());
 		blocks_[parent.pos].children[parent.offset] = block;
-		blocks_.emplace_back(blocks_[parent.pos], parent.offset);
+		blocks_.emplace_back(blocks_[parent.pos], parent.offset, halfLength(parent));
 		derived().derivedCreateBlock(parent);
 		return block;
 	}
@@ -3096,7 +3115,7 @@ class Tree
 	{
 		assert(0 < depth(node));
 		if (isParent(node)) {
-			return children(node);
+			return childrenBlock(node);
 		}
 
 		std::lock_guard<std::mutex> const lock(create_mutex_);
@@ -3119,7 +3138,7 @@ class Tree
 			return;
 		}
 
-		auto child_blocks = children(block);
+		auto child_blocks = childrenBlock(block);
 		for (offset_t i{}; child_blocks.size() > i; ++i) {
 			eraseBlock(Index(block, i), child_blocks[i]);
 		}
@@ -3133,6 +3152,429 @@ class Tree
 		// TODO: Implement
 	}
 
+	/**************************************************************************************
+	|                                                                                     |
+	|                                       Nearest                                       |
+	|                                                                                     |
+	**************************************************************************************/
+
+	template <class ValueFun, class InnerFun>
+	[[nodiscard]] std::pair<float, Index> nearest(Index                  node,
+	                                              NearestSearchAlgorithm search_alg,
+	                                              ValueFun value_f, InnerFun inner_f,
+	                                              float max_dist, float epsilon) const
+	{
+		assert(!std::isnan(max_dist));
+		assert(!std::isnan(epsilon));
+
+		if (isPureLeaf(node)) {
+			auto dist = value_f(node);
+			assert(!std::isnan(dist));
+			return max_dist <= dist ? std::pair{max_dist, Index{}} : std::pair{dist, node};
+		} else if (isLeaf(node)) {
+			return {max_dist, Index{}};
+		}
+
+		auto cb = childrenBlock(node);
+		auto cd = depth(node) - 1u;
+
+		if (0.0f < epsilon) {
+			switch (search_alg) {
+				case NearestSearchAlgorithm::DEPTH_FIRST:
+					return nearestDepthFirst(cb, cd, max_dist, epsilon, value_f, inner_f);
+				case NearestSearchAlgorithm::A_STAR:
+					return nearestAStar(cb, cd, max_dist, epsilon, value_f, inner_f);
+			}
+		} else {
+			switch (search_alg) {
+				case NearestSearchAlgorithm::DEPTH_FIRST:
+					return nearestDepthFirst(cb, cd, max_dist, value_f, inner_f);
+				case NearestSearchAlgorithm::A_STAR:
+					return nearestAStar(cb, cd, max_dist, value_f, inner_f);
+			}
+		}
+
+		// ERROR
+	}
+
+	template <class ValueFun, class InnerFun>
+	[[nodiscard]] std::pair<float, Index> nearestDepthFirst(pos_t block, depth_t depth,
+	                                                        float c_dist, float epsilon,
+	                                                        ValueFun value_f,
+	                                                        InnerFun inner_f) const
+	{
+		using Stack =
+		    std::array<std::pair<std::size_t, std::array<std::pair<float, pos_t>, BF>>,
+		               maxNumDepthLevels() - 1>;
+
+		Stack stack;
+		stack[depth].first                 = BF - 1u;
+		stack[depth].second[BF - 1].first  = 0.0f;
+		stack[depth].second[BF - 1].second = block;
+
+		Index c_node;
+
+		for (depth_t max_depth = depth + 1; max_depth > depth;) {
+			auto& [idx, c] = stack[depth];
+
+			if (BF <= idx || c_dist <= c[idx].first + epsilon) {
+				++depth;
+				continue;
+			}
+
+			block = c[idx].second;
+			++idx;
+
+			stack[depth - 1].first = 0;
+			auto& candidates       = stack[depth - 1].second;
+
+			for (std::size_t i{}; BF > i; ++i) {
+				Index node(block, i);
+				candidates[i].first = inner_f(node);
+				assert(!std::isnan(candidates[i].first));
+				candidates[i].second = childrenBlock(node);
+			}
+
+			if (1u == depth) {
+				std::array<std::pair<float, offset_t>, BF> d;
+				for (auto [dist, child_block] : candidates) {
+					if (c_dist <= dist + epsilon) {
+						continue;
+					}
+
+					for (offset_t i{}; BF > i; ++i) {
+						d[i].first = value_f(Index(child_block, i));
+						assert(!std::isnan(d[i].first));
+						d[i].second = i;
+					}
+
+					if constexpr (2 == BF) {
+						UFO_MIN_PAIR_FIRST_2(d);
+					} else if constexpr (4 == BF) {
+						UFO_MIN_PAIR_FIRST_4(d);
+					} else if constexpr (8 == BF) {
+						UFO_MIN_PAIR_FIRST_8(d);
+					} else if constexpr (16 == BF) {
+						UFO_MIN_PAIR_FIRST_16(d);
+					} else {
+						for (std::size_t i = 1; BF > i; ++i) {
+							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+						}
+					}
+
+					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+				}
+			} else {
+				if constexpr (2 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_2(candidates);
+				} else if constexpr (4 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_4(candidates);
+				} else if constexpr (8 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_8(candidates);
+				} else if constexpr (16 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_16(candidates);
+				} else {
+					std::sort(candidates.begin(), candidates.end(),
+					          [](auto a, auto b) { return a.first < b.first; });
+				}
+				--depth;
+			}
+		}
+
+		return {c_dist, c_node};
+	}
+
+	template <class ValueFun, class InnerFun>
+	[[nodiscard]] std::pair<float, Index> nearestDepthFirst(pos_t block, depth_t depth,
+	                                                        float c_dist, ValueFun value_f,
+	                                                        InnerFun inner_f) const
+	{
+		using Stack =
+		    std::array<std::pair<std::size_t, std::array<std::pair<float, pos_t>, BF>>,
+		               maxNumDepthLevels() - 1>;
+
+		Stack stack;
+		stack[depth].first                 = BF - 1u;
+		stack[depth].second[BF - 1].first  = 0.0f;
+		stack[depth].second[BF - 1].second = block;
+
+		Index c_node;
+
+		for (depth_t max_depth = depth + 1; max_depth > depth;) {
+			auto& [idx, c] = stack[depth];
+
+			if (BF <= idx || c_dist <= c[idx].first) {
+				++depth;
+				continue;
+			}
+
+			block = c[idx].second;
+			++idx;
+
+			stack[depth - 1].first = 0;
+			auto& candidates       = stack[depth - 1].second;
+
+			for (std::size_t i{}; BF > i; ++i) {
+				Index node(block, i);
+				candidates[i].first = inner_f(node);
+				assert(!std::isnan(candidates[i].first));
+				candidates[i].second = childrenBlock(node);
+			}
+
+			if (1u == depth) {
+				std::array<std::pair<float, offset_t>, BF> d;
+				for (auto [dist, child_block] : candidates) {
+					if (c_dist <= dist) {
+						continue;
+					}
+
+					for (offset_t i{}; BF > i; ++i) {
+						d[i].first = value_f(Index(child_block, i));
+						assert(!std::isnan(d[i].first));
+						d[i].second = i;
+					}
+
+					if constexpr (2 == BF) {
+						UFO_MIN_PAIR_FIRST_2(d);
+					} else if constexpr (4 == BF) {
+						UFO_MIN_PAIR_FIRST_4(d);
+					} else if constexpr (8 == BF) {
+						UFO_MIN_PAIR_FIRST_8(d);
+					} else if constexpr (16 == BF) {
+						UFO_MIN_PAIR_FIRST_16(d);
+					} else {
+						for (std::size_t i = 1; BF > i; ++i) {
+							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+						}
+					}
+
+					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+				}
+			} else {
+				if constexpr (2 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_2(candidates);
+				} else if constexpr (4 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_4(candidates);
+				} else if constexpr (8 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_8(candidates);
+				} else if constexpr (16 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_16(candidates);
+				} else {
+					std::sort(candidates.begin(), candidates.end(),
+					          [](auto a, auto b) { return a.first < b.first; });
+				}
+				--depth;
+			}
+		}
+
+		return {c_dist, c_node};
+	}
+
+	template <class ValueFun, class InnerFun>
+	[[nodiscard]] std::pair<float, Index> nearestAStar(pos_t block, depth_t depth,
+	                                                   float c_dist, float epsilon,
+	                                                   ValueFun value_f,
+	                                                   InnerFun inner_f) const
+	{
+		struct S {
+			float   dist;
+			pos_t   block;
+			depth_t depth;
+
+			S(float dist, pos_t block, depth_t depth) noexcept
+			    : dist(dist), block(block), depth(depth)
+			{
+			}
+
+			bool operator>(S rhs) const noexcept
+			{
+				// return dist > rhs.dist;
+				return dist + (depth << 2) > rhs.dist + (rhs.depth << 2);
+			}
+		};
+
+		using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
+
+		std::vector<S> container;
+		container.reserve(1024);
+		Queue queue(std::greater<S>{}, std::move(container));
+		queue.emplace(0.0f, block, depth);
+
+		auto max_size = depth << 2;
+
+		Index c_node;
+
+		while (!queue.empty()) {
+			auto cur = queue.top();
+
+			if (c_dist + max_size - (cur.depth << 2) <= cur.dist + epsilon) {
+				return {c_dist, c_node};
+			}
+
+			if (c_dist <= cur.dist + epsilon) {
+				queue.pop();
+				continue;
+			}
+
+			queue.pop();
+
+			block = cur.block;
+			depth = cur.depth;
+
+			std::array<std::pair<float, pos_t>, BF> candidates;
+			for (std::size_t i{}; BF > i; ++i) {
+				Index node(block, i);
+				candidates[i].first = inner_f(node);
+				assert(!std::isnan(candidates[i].first));
+				candidates[i].second = childrenBlock(node);
+			}
+
+			if (1u == depth) {
+				std::array<std::pair<float, offset_t>, BF> d;
+				for (auto [dist, child_block] : candidates) {
+					if (c_dist <= dist + epsilon) {
+						continue;
+					}
+
+					for (offset_t i{}; BF > i; ++i) {
+						d[i].first = value_f(Index(child_block, i));
+						assert(!std::isnan(d[i].first));
+						d[i].second = i;
+					}
+
+					if constexpr (2 == BF) {
+						UFO_MIN_PAIR_FIRST_2(d);
+					} else if constexpr (4 == BF) {
+						UFO_MIN_PAIR_FIRST_4(d);
+					} else if constexpr (8 == BF) {
+						UFO_MIN_PAIR_FIRST_8(d);
+					} else if constexpr (16 == BF) {
+						UFO_MIN_PAIR_FIRST_16(d);
+					} else {
+						for (std::size_t i = 1; BF > i; ++i) {
+							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+						}
+					}
+
+					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+				}
+			} else {
+				for (auto [dist, child_block] : candidates) {
+					if (c_dist <= dist + epsilon) {
+						continue;
+					}
+					queue.emplace(dist, child_block, depth - 1);
+				}
+			}
+		}
+
+		return {c_dist, c_node};
+	}
+
+	template <class ValueFun, class InnerFun>
+	[[nodiscard]] std::pair<float, Index> nearestAStar(pos_t block, depth_t depth,
+	                                                   float c_dist, ValueFun value_f,
+	                                                   InnerFun inner_f) const
+	{
+		struct S {
+			float   dist;
+			pos_t   block;
+			depth_t depth;
+
+			S(float dist, pos_t block, depth_t depth) noexcept
+			    : dist(dist), block(block), depth(depth)
+			{
+			}
+
+			bool operator>(S rhs) const noexcept
+			{
+				// return dist > rhs.dist;
+				return dist + (depth << 2) > rhs.dist + (rhs.depth << 2);
+			}
+		};
+
+		using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
+
+		std::vector<S> container;
+		container.reserve(1024);
+		Queue queue(std::greater<S>{}, std::move(container));
+		queue.emplace(0.0f, block, depth);
+
+		auto max_size = depth << 2;
+
+		Index c_node;
+
+		while (!queue.empty()) {
+			auto cur = queue.top();
+
+			if (c_dist + max_size - (cur.depth << 2) <= cur.dist) {
+				return {c_dist, c_node};
+			}
+
+			if (c_dist <= cur.dist) {
+				queue.pop();
+				continue;
+			}
+
+			queue.pop();
+
+			block = cur.block;
+			depth = cur.depth;
+
+			std::array<std::pair<float, pos_t>, BF> candidates;
+			for (std::size_t i{}; BF > i; ++i) {
+				Index node(block, i);
+				candidates[i].first = inner_f(node);
+				assert(!std::isnan(candidates[i].first));
+				candidates[i].second = childrenBlock(node);
+			}
+
+			if (1u == depth) {
+				std::array<std::pair<float, offset_t>, BF> d;
+				for (auto [dist, child_block] : candidates) {
+					if (c_dist <= dist) {
+						continue;
+					}
+
+					for (offset_t i{}; BF > i; ++i) {
+						d[i].first = value_f(Index(child_block, i));
+						assert(!std::isnan(d[i].first));
+						d[i].second = i;
+					}
+
+					if constexpr (2 == BF) {
+						UFO_MIN_PAIR_FIRST_2(d);
+					} else if constexpr (4 == BF) {
+						UFO_MIN_PAIR_FIRST_4(d);
+					} else if constexpr (8 == BF) {
+						UFO_MIN_PAIR_FIRST_8(d);
+					} else if constexpr (16 == BF) {
+						UFO_MIN_PAIR_FIRST_16(d);
+					} else {
+						for (std::size_t i = 1; BF > i; ++i) {
+							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+						}
+					}
+
+					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+				}
+			} else {
+				for (auto [dist, child_block] : candidates) {
+					if (c_dist <= dist) {
+						continue;
+					}
+					queue.emplace(dist, child_block, depth - 1);
+				}
+			}
+		}
+
+		return {c_dist, c_node};
+	}
+
  protected:
 	// Mutex for creating children concurrently
 	std::mutex create_mutex_;
@@ -3143,7 +3585,7 @@ class Tree
 	key_t half_max_value_;
 
 	// Blocks
-	Container blocks_;
+	TreeContainer<Block> blocks_;
 	// Free blocks
 	std::deque<pos_t> free_blocks_;
 

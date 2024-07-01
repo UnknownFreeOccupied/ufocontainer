@@ -66,7 +66,7 @@ enum class SpatialTag {
 };
 
 template <SpatialTag Tag>
-constexpr std::string_view enumToString()
+[[nodiscard]] constexpr std::string_view enumToString()
 {
 	using namespace std::literals;
 	if constexpr (SpatialTag::CONTAINS == Tag) {
@@ -82,7 +82,7 @@ constexpr std::string_view enumToString()
 	}
 }
 
-constexpr std::string_view enumToString(SpatialTag tag)
+[[nodiscard]] constexpr std::string_view enumToString(SpatialTag tag)
 {
 	switch (tag) {
 		case SpatialTag::CONTAINS: return enumToString<SpatialTag::CONTAINS>();

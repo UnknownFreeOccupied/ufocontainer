@@ -46,6 +46,8 @@
 #include <ufo/container/tree/block.hpp>
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/type.hpp>
+#include <ufo/geometry/fun.hpp>
+#include <ufo/geometry/shape/aabb.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
 
@@ -64,27 +66,33 @@ struct TreeSetOrMapBlock : public TreeBlock<TT> {
 	static constexpr std::size_t const BF  = branchingFactor<TT>();
 	static constexpr std::size_t const Dim = dimensions<TT>();
 
-	using Code  = TreeCode<Dim>;
-	using Point = Vec<Dim, float>;
+	using Code        = TreeCode<Dim>;
+	using length_t    = typename TreeBlock<TT>::length_t;
+	using Point       = typename TreeBlock<TT>::Point;
+	using Bounds      = AABB<Dim, typename Point::value_type>;
+	using scalar_type = typename Point::value_type;
 	using value_type =
 	    std::conditional_t<std::is_void_v<T>, Point, std::pair<Point const, T>>;
 
 	static constexpr auto const MIN =
-	    std::numeric_limits<typename Point::value_type>::lowest();
+	    Point(std::numeric_limits<typename Point::value_type>::lowest());
 	static constexpr auto const MAX =
-	    std::numeric_limits<typename Point::value_type>::max();
+	    Point(std::numeric_limits<typename Point::value_type>::max());
 
-	std::array<Point, BF>                 min = createArray<BF>(Point(MAX));
-	std::array<Point, BF>                 max = createArray<BF>(Point(MIN));
+	std::array<Bounds, BF>                bounds = createArray<BF>(Bounds(MAX, MIN));
 	std::array<std::list<value_type>, BF> values;
 
 	constexpr TreeSetOrMapBlock()                         = default;
 	constexpr TreeSetOrMapBlock(TreeSetOrMapBlock const&) = default;
 
-	constexpr TreeSetOrMapBlock(Code parent_code) : TreeBlock<TT>(parent_code) {}
+	constexpr TreeSetOrMapBlock(Code code, Point center, length_t half_length)
+	    : TreeBlock<TT>(code, center, half_length)
+	{
+	}
 
-	constexpr TreeSetOrMapBlock(TreeSetOrMapBlock const& parent, std::size_t offset)
-	    : TreeBlock<TT>(parent, offset)
+	constexpr TreeSetOrMapBlock(TreeSetOrMapBlock const& parent, std::size_t offset,
+	                            length_t half_length)
+	    : TreeBlock<TT>(parent, offset, half_length)
 	{
 	}
 };

@@ -48,10 +48,10 @@
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class TreeBlock>
-class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX>
+template <class Derived, template <TreeType> class Block>
+class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 {
-	using Base = Tree<Derived, TreeBlock, TreeType::HEX>;
+	using Base = Tree<Derived, Block<TreeType::HEX>>;
 
 	//
 	// Friends
@@ -99,12 +99,12 @@ class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX>
 	Hextree(Hextree&& other) = default;
 
 	template <class Derived2>
-	Hextree(Hextree<Derived2, TreeBlock> const& other) : Base(other)
+	Hextree(Hextree<Derived2, Block> const& other) : Base(other)
 	{
 	}
 
 	template <class Derived2>
-	Hextree(Hextree<Derived2, TreeBlock>&& other) : Base(std::move(other))
+	Hextree(Hextree<Derived2, Block>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -127,14 +127,14 @@ class Hextree : public Tree<Derived, TreeBlock, TreeType::HEX>
 	Hextree& operator=(Hextree&& rhs) = default;
 
 	template <class Derived2>
-	Hextree& operator=(Hextree<Derived2, TreeBlock> const& rhs)
+	Hextree& operator=(Hextree<Derived2, Block> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
 	template <class Derived2>
-	Hextree& operator=(Hextree<Derived2, TreeBlock>&& rhs)
+	Hextree& operator=(Hextree<Derived2, Block>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;

@@ -46,6 +46,7 @@
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/type.hpp>
+#include <ufo/geometry/shape/aabb.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
 
@@ -55,76 +56,98 @@
 
 namespace ufo
 {
-template <TreeType TT>
+template <TreeType TT, bool WithCenter = false>
 struct TreeBlock {
+	static constexpr TreeType const tree_type = TT;
+
 	static constexpr std::size_t const BF  = branchingFactor<TT>();
 	static constexpr std::size_t const Dim = dimensions<TT>();
 
-	using Code = TreeCode<Dim>;
+	using Code     = TreeCode<Dim>;
+	using length_t = double;
+	using Point    = Vec<Dim, float>;
 
-	Code                             parent_code;
+	Code                             code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
 
 	constexpr TreeBlock()                 = default;
 	constexpr TreeBlock(TreeBlock const&) = default;
 
-	constexpr TreeBlock(Code parent_code) : parent_code(parent_code) {}
+	constexpr TreeBlock(Code code, Point /* center */, length_t /* half_length */)
+	    : code(code)
+	{
+	}
 
-	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset)
-	    : parent_code(parent.parent_code.child(offset))
+	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset,
+	                    length_t /* half_length */)
+	    : code(parent.code.child(offset))
 	{
 	}
 
 	constexpr void fill(TreeBlock const& parent, std::size_t offset)
 	{
-		this->parent_code = parent.parent_code.child(offset);
+		code = parent.code.child(offset);
 	}
 
 	/*!
 	 * @return The depth of the block.
 	 */
-	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(parent_code.depth()))
+	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(code.depth()))
 	{
 		// One less than the parent
-		return parent_code.depth() - 1;
+		return code.depth() - 1;
 	}
 };
 
-// TODO: Implement
 template <TreeType TT>
-struct TreeBlockCenter {
+struct TreeBlock<TT, true> {
+	static constexpr TreeType const tree_type = TT;
+
 	static constexpr std::size_t const BF  = branchingFactor<TT>();
 	static constexpr std::size_t const Dim = dimensions<TT>();
 
-	using Code  = TreeCode<Dim>;
-	using Point = Vec<Dim, float>;
+	using Code     = TreeCode<Dim>;
+	using Point    = Vec<Dim, float>;
+	using length_t = double;
 
-	Code                             parent_code;
+	Code                             code;
 	Point                            center;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
 
-	constexpr TreeBlockCenter()                       = default;
-	constexpr TreeBlockCenter(TreeBlockCenter const&) = default;
+	constexpr TreeBlock()                 = default;
+	constexpr TreeBlock(TreeBlock const&) = default;
 
-	constexpr TreeBlockCenter(Code parent_code) : parent_code(parent_code) {}
-
-	constexpr TreeBlockCenter(TreeBlockCenter const& parent, std::size_t offset)
-	    : parent_code(parent.parent_code.child(offset))
+	constexpr TreeBlock(Code code, Point center, length_t /* half_length */)
+	    : code(code), center(center)
 	{
 	}
 
-	constexpr void fill(TreeBlockCenter const& parent, std::size_t offset)
+	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset, length_t half_length)
+	    : code(parent.code.child(offset))
 	{
-		this->parent_code = parent.parent_code.child(offset);
+		for (std::size_t i{}; Point::size() > i; ++i) {
+			center[i] = offset & std::size_t(1u << i) ? parent.center[i] + half_length
+			                                          : parent.center[i] - half_length;
+		}
+	}
+
+	constexpr void fill(TreeBlock const& parent, std::size_t offset, length_t half_length)
+	{
+		code = parent.code.child(offset);
+
+		for (std::size_t i{}; Point::size() > i; ++i) {
+			center[i] = offset & std::size_t(1u << i) ? parent.center[i] + half_length
+			                                          : parent.center[i] - half_length;
+		}
 	}
 
 	/*!
 	 * @return The depth of the block.
 	 */
-	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(parent_code.depth()))
+	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(code.depth()))
 	{
 		// One less than the parent
-		return parent_code.depth() - 1;
+		return code.depth() - 1;
 	}
 };
 }  // namespace ufo

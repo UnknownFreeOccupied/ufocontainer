@@ -48,10 +48,10 @@
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class TreeBlock>
-class Octree : public Tree<Derived, TreeBlock, TreeType::OCT>
+template <class Derived, template <TreeType> class Block>
+class Octree : public Tree<Derived, Block<TreeType::OCT>>
 {
-	using Base = Tree<Derived, TreeBlock, TreeType::OCT>;
+	using Base = Tree<Derived, Block<TreeType::OCT>>;
 
 	//
 	// Friends
@@ -1312,12 +1312,12 @@ class Octree : public Tree<Derived, TreeBlock, TreeType::OCT>
 	Octree(Octree&& other) = default;
 
 	template <class Derived2>
-	Octree(Octree<Derived2, TreeBlock> const& other) : Base(other)
+	Octree(Octree<Derived2, Block> const& other) : Base(other)
 	{
 	}
 
 	template <class Derived2>
-	Octree(Octree<Derived2, TreeBlock>&& other) : Base(std::move(other))
+	Octree(Octree<Derived2, Block>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -1340,14 +1340,14 @@ class Octree : public Tree<Derived, TreeBlock, TreeType::OCT>
 	Octree& operator=(Octree&& rhs) = default;
 
 	template <class Derived2>
-	Octree& operator=(Octree<Derived2, TreeBlock> const& rhs)
+	Octree& operator=(Octree<Derived2, Block> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
 	template <class Derived2>
-	Octree& operator=(Octree<Derived2, TreeBlock>&& rhs)
+	Octree& operator=(Octree<Derived2, Block>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;

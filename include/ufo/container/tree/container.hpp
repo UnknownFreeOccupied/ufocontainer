@@ -43,6 +43,7 @@
 #define UFO_CONTAINER_TREE_CONTAINER_HPP
 
 // UFO
+#include <ufo/container/tree/container_iterator.hpp>
 #include <ufo/utility/execution.hpp>
 
 // STL

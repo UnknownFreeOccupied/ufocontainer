@@ -8,6 +8,7 @@
 // STL
 #include <algorithm>
 #include <array>
+#include <iostream>
 
 TEST_CASE("[OctreeSet] constructor")
 {
@@ -333,4 +334,8 @@ TEST_CASE("Octree Set")
 	for (auto x : set.query(ufo::pred::Satisfies([](auto e) { return 100 != e.x; }))) {
 		std::cout << x << std::endl;
 	}
+
+	std::cout << set.nearestDistance(ufo::Vec3f{0, 0, 0}) << std::endl;
+	auto [v, dist] = set.nearestPoint(ufo::Vec3f(0, 0, 0));
+	std::cout << (*v) << " with distance: " << dist << std::endl;
 }

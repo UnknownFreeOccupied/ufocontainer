@@ -48,10 +48,10 @@
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class TreeBlock>
-class Quadtree : public Tree<Derived, TreeBlock, TreeType::QUAD>
+template <class Derived, template <TreeType> class Block>
+class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 {
-	using Base = Tree<Derived, TreeBlock, TreeType::QUAD>;
+	using Base = Tree<Derived, Block<TreeType::QUAD>>;
 
 	//
 	// Friends
@@ -99,12 +99,12 @@ class Quadtree : public Tree<Derived, TreeBlock, TreeType::QUAD>
 	Quadtree(Quadtree&& other) = default;
 
 	template <class Derived2>
-	Quadtree(Quadtree<Derived2, TreeBlock> const& other) : Base(other)
+	Quadtree(Quadtree<Derived2, Block> const& other) : Base(other)
 	{
 	}
 
 	template <class Derived2>
-	Quadtree(Quadtree<Derived2, TreeBlock>&& other) : Base(std::move(other))
+	Quadtree(Quadtree<Derived2, Block>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -127,14 +127,14 @@ class Quadtree : public Tree<Derived, TreeBlock, TreeType::QUAD>
 	Quadtree& operator=(Quadtree&& rhs) = default;
 
 	template <class Derived2>
-	Quadtree& operator=(Quadtree<Derived2, TreeBlock> const& rhs)
+	Quadtree& operator=(Quadtree<Derived2, Block> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
 	template <class Derived2>
-	Quadtree& operator=(Quadtree<Derived2, TreeBlock>&& rhs)
+	Quadtree& operator=(Quadtree<Derived2, Block>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;

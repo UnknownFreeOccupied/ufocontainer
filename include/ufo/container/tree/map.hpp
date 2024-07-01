@@ -54,7 +54,7 @@ namespace ufo
 template <template <class, template <TreeType> class> class Tree, class T>
 class TreeMap : public TreeSetOrMap<TreeMap<Tree, T>, Tree, T>
 {
-	using Base = TreeSetOrMap<TreeMap<Tree, T>, Tree, T>;
+	using Base = TreeSetOrMap<TreeMap, Tree, T>;
 
 	//
 	// Friends

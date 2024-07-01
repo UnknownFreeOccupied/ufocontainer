@@ -51,6 +51,7 @@
 #include <ufo/container/tree/set_or_map_query_nearest_iterator.hpp>
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
+#include <ufo/geometry/distance.hpp>
 #include <ufo/utility/macros.hpp>
 #include <ufo/utility/type_traits.hpp>
 
@@ -84,7 +85,7 @@ class TreeSetOrMap
 	// Friends
 	//
 
-	template <class Derived2, template <TreeType> class TreeBlock, TreeType TT>
+	template <class Derived2, class Block>
 	friend class Tree;
 
 	template <class Geometry, pred::SpatialTag Tag, bool Negated>
@@ -363,10 +364,7 @@ class TreeSetOrMap
 	 *
 	 * @return The minimum `Bounds` able to contain all values stored in the container.
 	 */
-	[[nodiscard]] Bounds bounds() const
-	{
-		return {boundsMin(Base::index()), boundsMax(Base::index())};
-	}
+	[[nodiscard]] Bounds bounds() const { return bounds(Base::index()); }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -864,6 +862,106 @@ class TreeSetOrMap
 		return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
 	}
 
+	template <class Geometry>
+	[[nodiscard]] float nearestDistance(
+	    Geometry const& query, float max_distance = std::numeric_limits<float>::infinity(),
+	    float                  epsilon    = 0.0f,
+	    NearestSearchAlgorithm search_alg = NearestSearchAlgorithm::DEPTH_FIRST) const
+	{
+		float max_distance_sq = max_distance * max_distance;
+		float dist_sq =
+		    Base::nearest(
+		        Base::index(), search_alg,
+		        [this, &query](Index node) {
+			        float dist_sq = std::numeric_limits<float>::infinity();
+			        for (auto e : values(node)) {
+				        if constexpr (IsMap) {
+					        dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
+				        } else {
+					        dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
+				        }
+			        }
+			        return dist_sq;
+		        },
+		        [this, &query](Index node) { return distanceSquared(query, bounds(node)); },
+		        max_distance_sq, epsilon * epsilon)
+		        .first;
+
+		return max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq);
+	}
+
+	template <class Geometry>
+	[[nodiscard]] std::pair<value_type*, float> nearestPoint(
+	    Geometry const& query, float max_distance = std::numeric_limits<float>::infinity(),
+	    float                  epsilon    = 0.0f,
+	    NearestSearchAlgorithm search_alg = NearestSearchAlgorithm::DEPTH_FIRST)
+	{
+		float max_distance_sq = max_distance * max_distance;
+		auto [dist_sq, node]  = Base::nearest(
+        Base::index(), search_alg,
+        [this, &query](Index node) {
+          float dist_sq = std::numeric_limits<float>::infinity();
+          for (auto e : values(node)) {
+            if constexpr (IsMap) {
+              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
+            } else {
+              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
+            }
+          }
+          return dist_sq;
+        },
+        [this, &query](Index node) { return distanceSquared(query, bounds(node)); },
+        max_distance_sq, epsilon * epsilon);
+
+		value_type* value = nullptr;
+
+		for (auto e : values(node)) {
+			if constexpr (IsMap) {
+				value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
+			} else {
+				value = distanceSquared(query, e) == dist_sq ? &e : nullptr;
+			}
+		}
+
+		return {value, max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq)};
+	}
+
+	template <class Geometry>
+	[[nodiscard]] std::pair<value_type const*, float> nearestPoint(
+	    Geometry const& query, float max_distance = std::numeric_limits<float>::infinity(),
+	    float                  epsilon    = 0.0f,
+	    NearestSearchAlgorithm search_alg = NearestSearchAlgorithm::DEPTH_FIRST) const
+	{
+		float max_distance_sq = max_distance * max_distance;
+		auto [dist_sq, node]  = Base::nearest(
+        Base::index(), search_alg,
+        [this, &query](Index node) {
+          float dist_sq = std::numeric_limits<float>::infinity();
+          for (auto e : values(node)) {
+            if constexpr (IsMap) {
+              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
+            } else {
+              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
+            }
+          }
+          return dist_sq;
+        },
+        [this, &query](Index node) { return distanceSquared(query, bounds(node)); },
+        max_distance_sq, epsilon * epsilon);
+
+		value_type const* value = nullptr;
+
+		for (auto e : values(node)) {
+			if constexpr (IsMap) {
+				value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
+			} else {
+				value = distanceSquared(query, e) == dist_sq ? &e : nullptr;
+			}
+		}
+
+		return {value, max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq)};
+	}
+
  protected:
 	/**************************************************************************************
 	|                                                                                     |
@@ -917,18 +1015,6 @@ class TreeSetOrMap
 	[[nodiscard]] bool empty(Index node) const noexcept
 	{
 		return boundsMin(node)[0] > boundsMax(node)[0];
-	}
-
-	/*!
-	 * @brief Returns the minimum `Bounds` able to contain all values stored
-	 * in the node and all of its children.
-	 *
-	 * @param node the node to check
-	 * @return The minimum `Bounds` able to contain all values stored in the node.
-	 */
-	[[nodiscard]] Bounds bounds(Index node) const
-	{
-		return {boundsMin(node), boundsMax(node)};
 	}
 
 	/**************************************************************************************
@@ -1018,38 +1104,80 @@ class TreeSetOrMap
 		return Base::treeBlock(node).values[node.offset];
 	}
 
-	[[nodiscard]] auto& boundsMin(pos_t block) { return Base::treeBlock(block).min; }
-
-	[[nodiscard]] auto const& boundsMin(pos_t block) const
+	/*!
+	 * @brief Returns the minimum `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to check
+	 * @return The minimum `Bounds` able to contain all values stored in the node.
+	 */
+	[[nodiscard]] Bounds& bounds(Index node)
 	{
-		return Base::treeBlock(block).min;
+		return Base::treeBlock(node).bounds[node.offset];
 	}
 
+	/*!
+	 * @brief Returns the minimum `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to check
+	 * @return The minimum `Bounds` able to contain all values stored in the node.
+	 */
+	[[nodiscard]] Bounds const& bounds(Index node) const
+	{
+		return Base::treeBlock(node).bounds[node.offset];
+	}
+
+	/*!
+	 * @brief Returns the minimum point of the `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to return the minimum bounds point
+	 * @return The minimum point of the `Bounds` able to contain all values stored in the
+	 * node.
+	 */
 	[[nodiscard]] Point& boundsMin(Index node)
 	{
-		return Base::treeBlock(node).min[node.offset];
+		return Base::treeBlock(node).bounds[node.offset].min;
 	}
 
+	/*!
+	 * @brief Returns the minimum point of the `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to return the minimum bounds point
+	 * @return The minimum point of the `Bounds` able to contain all values stored in the
+	 * node.
+	 */
 	[[nodiscard]] Point boundsMin(Index node) const
 	{
-		return Base::treeBlock(node).min[node.offset];
+		return Base::treeBlock(node).bounds[node.offset].min;
 	}
 
-	[[nodiscard]] auto& boundsMax(pos_t block) { return Base::treeBlock(block).max; }
-
-	[[nodiscard]] auto const& boundsMax(pos_t block) const
-	{
-		return Base::treeBlock(block).max;
-	}
-
+	/*!
+	 * @brief Returns the maximum point of the `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to return the maximum bounds point
+	 * @return The maximum point of the `Bounds` able to contain all values stored in the
+	 * node.
+	 */
 	[[nodiscard]] Point& boundsMax(Index node)
 	{
-		return Base::treeBlock(node).max[node.offset];
+		return Base::treeBlock(node).bounds[node.offset].max;
 	}
 
+	/*!
+	 * @brief Returns the maximum point of the `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to return the maximum bounds point
+	 * @return The maximum point of the `Bounds` able to contain all values stored in the
+	 * node.
+	 */
 	[[nodiscard]] Point boundsMax(Index node) const
 	{
-		return Base::treeBlock(node).max[node.offset];
+		return Base::treeBlock(node).bounds[node.offset].max;
 	}
 
  protected:
@@ -1082,130 +1210,3 @@ class TreeSetOrMap
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_SET_OR_MAP_HPP
-
-// [[nodiscard]] reference nearestSingle(Index node, Point p, float epsilon = 0.0f)
-// 	{
-// 		auto root = Base::index();
-// 		if (Base::isLeaf(root)) {
-// 			return max_distance;
-// 		}
-
-// 		auto children       = Base::children(root);
-// 		auto children_depth = Base::depth() - 1;
-
-// 		return std::sqrt(0.0f < epsilon
-// 		                     ? nearestSingle(p, children, children_depth, epsilon * epsilon)
-// 		                     : nearestSingle(p, children, children_depth));
-// 	}
-
-// 	[[nodiscard]] const_reference nearestSingle(Index node, Point p,
-// 	                                            float epsilon = 0.0f) const
-// 	{
-// 		// TODO: Implement
-// 	}
-
-// 	[[nodiscard]] reference nearestSingle(Point query_point, pos_t block,
-// 	                                      depth_t block_depth, float epsilon)
-// 	{
-// 		static constexpr auto const BF = Base::branchingFactor();
-
-// 		float closest_distance_sq = std::numeric_limits<float>::max();
-
-// 		std::array<std::pair<int, std::array<std::pair<float, pos_t>, BF>>,
-// 		           Base::maxNumDepthLevels() - 1>
-// 		    stack;
-// 		stack[block_depth].first                 = BF - 1;
-// 		stack[block_depth].second[BF - 1].first  = 0.0f;
-// 		stack[block_depth].second[BF - 1].second = block;
-
-// 		for (depth_t max_depth = block_depth + static_cast<depth_t>(1);
-// 		     max_depth > block_depth;) {
-// 			auto& [idx, c] = stack[block_depth];
-
-// 			if (BF - 1 < idx || c[idx].first + epsilon >= closest_distance_sq) {
-// 				++block_depth;
-// 				continue;
-// 			}
-
-// 			block = c[idx].second;
-// 			++idx;
-
-// 			stack[block_depth - static_cast<depth_t>(1)].first = 0;
-// 			auto& candidates = stack[block_depth - static_cast<depth_t>(1)].second;
-
-// 			auto child_block = Base::children(block);
-
-// 			parents_checked2 += BF;
-// 			for (int i{}; BF > i; ++i) {
-// 				Point coord;
-// 				for (int j{}; Point::size() > j; ++j) {
-// 					coord[j] =
-// 					    UFO_CLAMP(query_point[j], extra_[block].min[i][j],
-// extra_[block].max[i][j]);
-// 				}
-
-// 				for (int j{}; Point::size() > j; ++j) {
-// 					coord[j] -= query_point[j];
-// 					coord[j] *= coord[j];
-// 				}
-
-// 				candidates[i].first = coord[0];
-// 				for (int j = 1; Point::size() > j; ++j) {
-// 					candidates[i].first += coord[j];
-// 				}
-// 				candidates[i].second = child_block[i];
-// 			}
-
-// 			if (static_cast<depth_t>(1) == block_depth) {
-// 				std::array<float, BF> d;
-// 				for (auto [dist_sq, child_block] : candidates) {
-// 					if (dist_sq + epsilon >= closest_distance_sq) {
-// 						continue;
-// 					}
-
-// 					leaves_checked2 += BF;
-// 					for (int i{}; BF > i; ++i) {
-// 						auto p = extra_[child_block].point[i];
-// 						for (int j{}; Point::size() > j; ++j) {
-// 							p[j] -= query_point[j];
-// 							p[j] *= p[j];
-// 						}
-// 						d[i] = p[0];
-// 						for (int j = 1; Point::size() > j; ++j) {
-// 							d[i] += p[j];
-// 						}
-// 					}
-// 					if constexpr (2 == BF) {
-// 						UFO_MIN_2(d);
-// 					} else if constexpr (4 == BF) {
-// 						UFO_MIN_4(d);
-// 					} else if constexpr (8 == BF) {
-// 						UFO_MIN_8(d);
-// 					} else if constexpr (16 == BF) {
-// 						UFO_MIN_16(d);
-// 					} else {
-// 						for (int i = 1; BF > i; ++i) {
-// 							d[0] = UFO_MIN(d[0], d[i]);
-// 						}
-// 					}
-// 					closest_distance_sq = UFO_MIN(closest_distance_sq, d[0]);
-// 				}
-// 			} else {
-// 				if constexpr (2 == BF) {
-// 					UFO_SORT_PAIR_FIRST_2(candidates);
-// 				} else if constexpr (4 == BF) {
-// 					UFO_SORT_PAIR_FIRST_4(candidates);
-// 				} else if constexpr (8 == BF) {
-// 					UFO_SORT_PAIR_FIRST_8(candidates);
-// 				} else if constexpr (16 == BF) {
-// 					UFO_SORT_PAIR_FIRST_16(candidates);
-// 				} else {
-// 					std::sort(std::begin(candidates), std::end(candidates),
-// 					          [](auto a, auto b) { return a.first < b.first; });
-// 				}
-// 				--block_depth;
-// 			}
-// 		}
-
-// 		return closest_distance_sq;
-// 	}

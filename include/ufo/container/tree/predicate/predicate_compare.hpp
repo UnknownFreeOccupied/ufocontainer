@@ -57,7 +57,7 @@ enum class PredicateCompare {
 };
 
 template <PredicateCompare PC>
-constexpr std::string_view enumToString() noexcept
+[[nodiscard]] constexpr std::string_view enumToString() noexcept
 {
 	using namespace std::literals;
 	if constexpr (PredicateCompare::EQUAL == PC) {
@@ -77,7 +77,7 @@ constexpr std::string_view enumToString() noexcept
 	}
 }
 
-constexpr std::string_view enumToString(PredicateCompare pc) noexcept
+[[nodiscard]] constexpr std::string_view enumToString(PredicateCompare pc) noexcept
 {
 	switch (pc) {
 		case PredicateCompare::EQUAL: return enumToString<PredicateCompare::EQUAL>();
@@ -91,7 +91,7 @@ constexpr std::string_view enumToString(PredicateCompare pc) noexcept
 	}
 }
 
-constexpr PredicateCompare switchSide(PredicateCompare PC) noexcept
+[[nodiscard]] constexpr PredicateCompare switchSide(PredicateCompare PC) noexcept
 {
 	switch (PC) {
 		case PredicateCompare::EQUAL: return PredicateCompare::EQUAL;

@@ -48,10 +48,10 @@
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class TreeBlock>
-class BinaryTree : public Tree<Derived, TreeBlock, TreeType::BINARY>
+template <class Derived, template <TreeType> class Block>
+class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
 {
-	u using Base = Tree<Derived, TreeBlock, TreeType::BINARY>;
+	using Base = Tree<Derived, Block<TreeType::BINARY>>;
 
 	//
 	// Friends
@@ -99,12 +99,12 @@ class BinaryTree : public Tree<Derived, TreeBlock, TreeType::BINARY>
 	BinaryTree(BinaryTree&& other) = default;
 
 	template <class Derived2>
-	BinaryTree(BinaryTree<Derived2, TreeBlock> const& other) : Base(other)
+	BinaryTree(BinaryTree<Derived2, Block> const& other) : Base(other)
 	{
 	}
 
 	template <class Derived2>
-	BinaryTree(BinaryTree<Derived2, TreeBlock>&& other) : Base(std::move(other))
+	BinaryTree(BinaryTree<Derived2, Block>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -127,14 +127,14 @@ class BinaryTree : public Tree<Derived, TreeBlock, TreeType::BINARY>
 	BinaryTree& operator=(BinaryTree&& rhs) = default;
 
 	template <class Derived2>
-	BinaryTree& operator=(BinaryTree<Derived2, TreeBlock> const& rhs)
+	BinaryTree& operator=(BinaryTree<Derived2, Block> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
 	template <class Derived2>
-	BinaryTree& operator=(BinaryTree<Derived2, TreeBlock>&& rhs)
+	BinaryTree& operator=(BinaryTree<Derived2, Block>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;
