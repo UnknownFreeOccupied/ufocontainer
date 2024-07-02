@@ -666,7 +666,6 @@ class Tree
 	 */
 	[[nodiscard]] Bounds bounds(Index node) const
 	{
-		// TODO: Check if TreeBlockBounds
 		return Bounds(center(node), halfLength(node));
 	}
 
@@ -678,7 +677,6 @@ class Tree
 	 */
 	[[nodiscard]] Bounds bounds(Node node) const
 	{
-		// TODO: Optimize
 		return Bounds(center(node), halfLength(node));
 	}
 
@@ -1100,7 +1098,7 @@ class Tree
 	// Key
 	//
 
-	[[nodiscard]] Key key() const { return Key(0, 0, 0, depth()); }
+	[[nodiscard]] Key key() const { return Key(Vec<Dim, key_t>(0), depth()); }
 
 	[[nodiscard]] Key key(Index node) const
 	{
@@ -1149,76 +1147,87 @@ class Tree
 
 	Index create(Coord node) { return create(code(node)); }
 
-	template <
-	    class InputIt,
-	    std::enable_if_t<std::is_same_v<Code, std::decay_t<typename std::iterator_traits<
-	                                              InputIt>::value_type>>,
-	                     bool> = true>
+	template <class InputIt>
 	std::vector<Index> create(InputIt first, InputIt last)
 	{
-		std::vector<Index> nodes;
-		nodes.reserve(std::distance(first, last));
+		using value_type = std::decay_t<typename std::iterator_traits<InputIt>::value_type>;
 
-		std::array<Index, maxNumDepthLevels()> node;
-		auto                                   cur_depth = depth();
-		node[cur_depth]                                  = index();
-		Code prev_code                                   = code();
-		for (; first != last; ++first) {
-			Code code         = *first;
-			auto wanted_depth = depth(code);
-			cur_depth         = Code::depthWhereEqual(prev_code, code);
-			prev_code         = code;
+		if constexpr (std::is_same_v<Code, value_type>) {
+			std::vector<Index> nodes;
+			nodes.reserve(std::distance(first, last));
 
-			for (; wanted_depth < cur_depth; --cur_depth) {
-				node[cur_depth - 1] = createChild(node[cur_depth], code.offset[cur_depth - 1]);
+			std::array<Index, maxNumDepthLevels()> node;
+			auto                                   cur_depth = depth();
+			node[cur_depth]                                  = index();
+			Code prev_code                                   = code();
+			for (; first != last; ++first) {
+				Code code         = *first;
+				auto wanted_depth = depth(code);
+				cur_depth         = Code::depthWhereEqual(prev_code, code);
+				prev_code         = code;
+
+				for (; wanted_depth < cur_depth; --cur_depth) {
+					node[cur_depth - 1] = createChild(node[cur_depth], code.offset[cur_depth - 1]);
+				}
+				nodes.push_back(node[cur_depth]);
 			}
-			nodes.push_back(node[cur_depth]);
+
+			return nodes;
+		} else {
+			std::vector<Code> codes;
+			codes.reserve(std::distance(first, last));
+			std::transform(first, last, std::back_inserter(codes),
+			               [this](auto const& v) { return code(v); });
+			return create(codes.begin(), codes.end());
 		}
-
-		return nodes;
 	}
 
 	template <
-	    class InputIt,
-	    std::enable_if_t<!std::is_same_v<Code, std::decay_t<typename std::iterator_traits<
-	                                               InputIt>::value_type>>,
-	                     bool> = true>
-	std::vector<Index> create(InputIt first, InputIt last)
-	{
-		std::vector<Code> codes;
-		codes.reserve(std::distance(first, last));
-		std::transform(first, last, std::back_inserter(codes),
-		               [this](auto const& v) { return code(v); });
-		return create(std::begin(codes), std::end(codes));
-	}
-
-	template <
-	    class ExecutionPolicy,
+	    class ExecutionPolicy, class ForwardIt,
 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
-	std::vector<Index> create(ExecutionPolicy&& /* policy */,
-	                          std::vector<Code> const& codes)
+	std::vector<Index> create(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last)
 	{
-		// TODO: Make it possible to use this without it having to be a `std::vector<Code>`
-		// specifically (like the two functions above)
+		using value_type = std::decay_t<typename std::iterator_traits<ForwardIt>::value_type>;
 
-		if constexpr (std::is_same_v<execution::sequenced_policy,
-		                             std::decay_t<ExecutionPolicy>>) {
-			return create(std::begin(codes), std::end(codes));
-		}
+		if constexpr (std::is_same_v<Code, value_type>) {
+			if constexpr (std::is_same_v<execution::sequenced_policy,
+			                             std::decay_t<ExecutionPolicy>>) {
+				return create(first, last);
+			}
 
 #if !defined(UFO_TBB) && !defined(UFO_OMP)
-		return create(std::begin(codes), std::end(codes));
+			return create(first, last);
 #else
-		// FIXME: Implement, using `createChildThreadSafe`
-		// FIXME: Remove when above has been implemented
-		return create(std::begin(codes), std::end(codes));
+			// FIXME: Implement, using `createChildThreadSafe`
+			// FIXME: Remove when above has been implemented
+			return create(first, last);
 #endif
+		} else {
+			// TODO: Is this correct?
+			std::vector<Code> codes;
+			codes.reserve(std::distance(first, last));
+			std::transform(policy, first, last, std::back_inserter(codes),
+			               [this](auto const& v) { return code(v); });
+			return create(std::forward<ExecutionPolicy>(policy), codes.begin(), codes.end());
+		}
 	}
 
 	template <class Range>
 	std::vector<Index> create(Range const& r)
 	{
-		return create(std::begin(r), std::end(r));
+		using std::begin;
+		using std::end;
+		return create(begin(r), end(r));
+	}
+
+	template <
+	    class ExecutionPolicy, class Range,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	std::vector<Index> create(ExecutionPolicy&& policy, Range const& r)
+	{
+		using std::begin;
+		using std::end;
+		return create(std::forward<ExecutionPolicy>(policy), begin(r), end(r));
 	}
 
 	pos_t createChildren(Index node)
@@ -1529,7 +1538,7 @@ class Tree
 	 */
 	[[nodiscard]] bool valid(Key key) const
 	{
-		// FIXME: This should be checked inside `key.valid()`
+		// TODO: Implement correct
 		auto const mv = 2 * half_max_value_;
 		for (std::size_t i{}; key.size() != i; ++i) {
 			if (mv < key[i]) {
@@ -1627,19 +1636,19 @@ class Tree
 	{
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
-		auto tmp = index(node);
-		return Node(node.code().child(child_index),
-		            isParent(tmp) ? child(tmp, child_index) : tmp);
+		return Node(child(node.code(), child_index), child(node.index(), child_index));
 	}
 
 	[[nodiscard]] Code child(Code node, offset_t child_index) const
 	{
+		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
 		return node.child(child_index);
 	}
 
 	[[nodiscard]] Key child(Key node, offset_t child_index) const
 	{
+		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
 		return node.child(child_index);
 	}
@@ -1647,22 +1656,9 @@ class Tree
 	[[nodiscard]] Coord child(Coord node, offset_t child_index) const
 	{
 		assert(0 < depth(node));
-		return Coord(childCenter(node, child_index), node.depth - 1);
-	}
-
-	/*!
-	 * @brief Get a child of a node.
-	 *
-	 * @param node The node.
-	 * @param child_index The index of the child.
-	 * @return The child.
-	 */
-	[[nodiscard]] Node childUnsafe(Node node, offset_t child_index) const
-	{
-		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
-		assert(isParent(node));
-		return Node(child(node.code(), child_index), child(node.index(), child_index));
+		return {childCenter(static_cast<Point>(node), halfLength(node), child_index),
+		        node.depth - static_cast<depth_t>(1)};
 	}
 
 	/*!
@@ -1672,25 +1668,26 @@ class Tree
 	 * @param child_index The index of the child.
 	 * @return The child.
 	 */
-	[[nodiscard]] Node childChecked(Node node, offset_t child_index) const
+	template <class T>
+	[[nodiscard]] T childChecked(T node, offset_t child_index) const
 	{
 		if (isLeaf(node)) {
 			throw std::out_of_range("Node has no children");
 		} else if (branchingFactor() <= child_index) {
 			throw std::out_of_range("child_index out of range");
-		} else {
-			return child(node, child_index);
 		}
+		return child(node, child_index);
 	}
 
 	//
 	// Sibling
 	//
 
-	[[nodiscard]] Index sibling(Index node, offset_t s) const
+	[[nodiscard]] Index sibling(Index node, offset_t sibling_index) const
 	{
-		assert(branchingFactor() > s);
-		return {node.pos, s};
+		assert(!isRoot(node));
+		assert(branchingFactor() > sibling_index);
+		return {node.pos, sibling_index};
 	}
 
 	/*!
@@ -1702,55 +1699,37 @@ class Tree
 	 */
 	[[nodiscard]] Node sibling(Node node, offset_t sibling_index) const
 	{
-		// TODO: Look at
+		assert(!isRoot(node));
 		assert(branchingFactor() > sibling_index);
-		auto tmp = index(node);
-		return Node(node.code().sibling(sibling_index),
-		            exists(node) ? node.index().sibling(sibling_index) : node.index());
+		return {sibling(node.code(), sibling_index), sibling(node.index(), sibling_index)};
 	}
 
 	[[nodiscard]] Code sibling(Code node, offset_t sibling_index) const
 	{
+		assert(!isRoot(node));
 		assert(branchingFactor() > sibling_index);
 		return node.sibling(sibling_index);
 	}
 
 	[[nodiscard]] Key sibling(Key node, offset_t sibling_index) const
 	{
+		assert(!isRoot(node));
 		assert(branchingFactor() > sibling_index);
 		return node.sibling(sibling_index);
 	}
 
 	[[nodiscard]] Coord sibling(Coord node, offset_t sibling_index) const
 	{
-		// TODO: Implement
-	}
-
-	/*!
-	 * @brief Get the sibling of a node.
-	 *
-	 * @param node The node.
-	 * @param sibling_index The index of the sibling.
-	 * @return The sibling.
-	 */
-	[[nodiscard]] Node siblingUnsafe(Node node, offset_t sibling_index) const
-	{
+		assert(!isRoot(node));
 		assert(branchingFactor() > sibling_index);
-		return Node(sibling(node.code(), sibling_index),
-		            sibling(node.index(), sibling_index));
+		return coord(sibling(key(node), sibling_index));
 	}
 
-	/*!
-	 * @brief Get the sibling of a node with bounds checking.
-	 *
-	 * @param node The node.
-	 * @param sibling_index The index of the sibling.
-	 * @return The sibling.
-	 */
-	[[nodiscard]] Node siblingChecked(Node node, offset_t sibling_index) const
+	template <class T>
+	[[nodiscard]] T siblingChecked(T node, offset_t sibling_index) const
 	{
 		if (!isRoot(node)) {
-			throw std::out_of_range("Node has no siblings");
+			throw std::out_of_range("Root node has no siblings");
 		} else if (branchingFactor() <= sibling_index) {
 			throw std::out_of_range("sibling_index out of range");
 		}
@@ -1795,6 +1774,15 @@ class Tree
 	{
 		assert(!isRoot(node));
 		return center(parent(key(node)));
+	}
+
+	template <class T>
+	[[nodiscard]] T parentChecked(T node) const
+	{
+		if (!isRoot(node)) {
+			throw std::out_of_range("Root node has no parent");
+		}
+		return parent(node);
 	}
 
 	/*!
@@ -2133,7 +2121,7 @@ class Tree
 	// Nearest iterator
 	//
 
-	template <class Geometry>  // FIXME: Add something for geometry
+	template <class Geometry>
 	[[nodiscard]] const_nearest_iterator beginNearest(Geometry const& geometry,
 	                                                  double          epsilon     = 0.0,
 	                                                  bool            only_leaves = true,
@@ -2144,7 +2132,7 @@ class Tree
 		                    early_stopping);
 	}
 
-	template <class Geometry>  // FIXME: Add something for geometry
+	template <class Geometry>
 	[[nodiscard]] const_nearest_iterator beginNearest(Index node, Geometry const& geometry,
 	                                                  double epsilon        = 0.0,
 	                                                  bool   only_leaves    = true,
@@ -2155,7 +2143,7 @@ class Tree
 		                    early_stopping);
 	}
 
-	template <class Geometry>  // FIXME: Add something for geometry
+	template <class Geometry>
 	[[nodiscard]] const_nearest_iterator beginNearest(Node node, Geometry const& geometry,
 	                                                  double epsilon        = 0.0,
 	                                                  bool   only_leaves    = true,
@@ -2168,7 +2156,7 @@ class Tree
 		                                       only_exists, early_stopping);
 	}
 
-	template <class Geometry>  // FIXME: Add something for geometry
+	template <class Geometry>
 	[[nodiscard]] const_nearest_iterator beginNearest(Code node, Geometry const& geometry,
 	                                                  double epsilon        = 0.0,
 	                                                  bool   only_leaves    = true,
@@ -2179,7 +2167,7 @@ class Tree
 		                    early_stopping);
 	}
 
-	template <class Geometry>  // FIXME: Add something for geometry
+	template <class Geometry>
 	[[nodiscard]] const_nearest_iterator beginNearest(Key node, Geometry const& geometry,
 	                                                  double epsilon        = 0.0,
 	                                                  bool   only_leaves    = true,
@@ -2190,7 +2178,7 @@ class Tree
 		                    early_stopping);
 	}
 
-	template <class Geometry>  // FIXME: Add something for geometry
+	template <class Geometry>
 	[[nodiscard]] const_nearest_iterator beginNearest(Coord node, Geometry const& geometry,
 	                                                  double epsilon        = 0.0,
 	                                                  bool   only_leaves    = true,
@@ -2286,7 +2274,6 @@ class Tree
 	// Query nearest iterator
 	//
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
@@ -2297,7 +2284,6 @@ class Tree
 		                         early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
@@ -2308,7 +2294,6 @@ class Tree
 		                         early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
@@ -2334,7 +2319,6 @@ class Tree
 		}
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
@@ -2345,7 +2329,6 @@ class Tree
 		                         early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
@@ -2356,7 +2339,6 @@ class Tree
 		                         early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
@@ -2378,8 +2360,6 @@ class Tree
 	|                                        Query                                        |
 	|                                                                                     |
 	**************************************************************************************/
-
-	// TODO: Add comments
 
 	//
 	// Query
@@ -2437,7 +2417,6 @@ class Tree
 	// Query nearest
 	//
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] QueryNearest queryNearest(Geometry const&  geometry,
@@ -2449,7 +2428,6 @@ class Tree
 		                    early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] QueryNearest queryNearest(Index node, Geometry const& geometry,
@@ -2461,7 +2439,6 @@ class Tree
 		                    early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] QueryNearest queryNearest(Node node, Geometry const& geometry,
@@ -2474,7 +2451,6 @@ class Tree
 		                    endQueryNearest());
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] QueryNearest queryNearest(Code node, Geometry const& geometry,
@@ -2486,7 +2462,6 @@ class Tree
 		                    early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] QueryNearest queryNearest(Key node, Geometry const& geometry,
@@ -2498,7 +2473,6 @@ class Tree
 		                    early_stopping);
 	}
 
-	// FIXME: Add something for geometry
 	template <class Geometry, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] QueryNearest queryNearest(Coord node, Geometry const& geometry,
@@ -2516,8 +2490,6 @@ class Tree
 	|                                    Constructors                                     |
 	|                                                                                     |
 	**************************************************************************************/
-
-	// TODO: Add comments
 
 	Tree(length_t leaf_node_length, depth_t num_depth_levels)
 	{
@@ -2551,7 +2523,7 @@ class Tree
 		}
 
 		num_depth_levels_ = num_depth_levels;
-		half_max_value_ = static_cast<key_t>(1) << (num_depth_levels - 2);  // TODO: Correct?
+		half_max_value_   = static_cast<key_t>(1) << (num_depth_levels - 2);
 
 		// For increased precision
 		for (int i{}; node_half_length_.size() > i; ++i) {
@@ -2619,8 +2591,6 @@ class Tree
 	|                                 Assignment operator                                 |
 	|                                                                                     |
 	**************************************************************************************/
-
-	// TODO: Add comments
 
 	Tree& operator=(Tree const& rhs)
 	{
@@ -2867,8 +2837,7 @@ class Tree
 	[[nodiscard]] bool allLeaf(pos_t block) const
 	{
 		assert(blocks_.size() > block);
-		return std::all_of(std::begin(blocks_[block].children),
-		                   std::end(blocks_[block].children),
+		return std::all_of(blocks_[block].children.begin(), blocks_[block].children.end(),
 		                   [](auto e) { return Index::NULL_POS == e; });
 	}
 
@@ -2881,8 +2850,7 @@ class Tree
 	[[nodiscard]] bool anyLeaf(pos_t block) const
 	{
 		assert(blocks_.size() > block);
-		return std::any_of(std::begin(blocks_[block].children),
-		                   std::end(blocks_[block].children),
+		return std::any_of(blocks_[block].children.begin(), blocks_[block].children.end(),
 		                   [](auto e) { return Index::NULL_POS == e; });
 	}
 
@@ -2895,8 +2863,7 @@ class Tree
 	[[nodiscard]] bool noneLeaf(pos_t block) const
 	{
 		assert(blocks_.size() > block);
-		return std::none_of(std::begin(blocks_[block].children),
-		                    std::end(blocks_[block].children),
+		return std::none_of(blocks_[block].children.begin(), blocks_[block].children.end(),
 		                    [](auto e) { return Index::NULL_POS == e; });
 	}
 
@@ -2957,8 +2924,6 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	// TODO: Add comments
-
 	[[nodiscard]] Block& treeBlock(pos_t block)
 	{
 		assert(valid(block));
@@ -2984,68 +2949,31 @@ class Tree
 		return node;
 	}
 
-	[[nodiscard]] std::vector<Index> trail(Code code) const
-	{
-		// TODO: assert()
-		std::vector<Index> result;
-		result.reserve(numDepthLevels());
-		auto node      = index();
-		auto depth     = this->depth();
-		auto min_depth = this->depth(code);
-		result.push_back(node);
-		while (min_depth < depth && isParent(node)) {
-			node = child(node, code.offset(--depth));
-			result.push_back(node);
-		}
-		return result;
-	}
-
 	/**************************************************************************************
 	|                                                                                     |
 	|                                       Center                                        |
 	|                                                                                     |
 	**************************************************************************************/
 
-	// TODO: Add comments
-
 	//
 	// Child center
 	//
 
-	[[nodiscard]] static constexpr Point childCenter(Point    node_center,
-	                                                 length_t node_half_length,
+	/*!
+	 * @brief Returns the center of the `child_index`th child.
+	 *
+	 * @param center the center of the parent
+	 * @param half_length the half length of the parent
+	 * @param child_index the index of the child
+	 * @return The center of the `child_index`th child.
+	 */
+	[[nodiscard]] static constexpr Point childCenter(Point center, length_t half_length,
 	                                                 offset_t child_index)
 	{
 		assert(branchingFactor() > child_index);
-		length_t child_half_length = node_half_length / static_cast<length_t>(2);
+		half_length /= static_cast<length_t>(2);
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			node_center[i] +=
-			    child_index & offset_t(1u << i) ? child_half_length : -child_half_length;
-		}
-		return node_center;
-	}
-
-	[[nodiscard]] Point childCenter(Coord node, offset_t child_index) const
-	{
-		assert(0 < depth(node));
-		return childCenter(static_cast<Point>(node), halfLength(node), child_index);
-	}
-
-	//
-	// Sibling center
-	//
-
-	[[nodiscard]] static constexpr Point siblingCenter(Point center, length_t half_length,
-	                                                   offset_t index,
-	                                                   offset_t sibling_index)
-	{
-		assert(branchingFactor() > sibling_index);
-		offset_t const temp   = index ^ sibling_index;
-		coord_t const  length = 2 * half_length;
-		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] += temp & offset_t(1u << i)
-			                 ? (sibling_index & offset_t(1u << i) ? length : -length)
-			                 : coord_t{};
+			center[i] += (child_index & offset_t(1u << i)) ? half_length : -half_length;
 		}
 		return center;
 	}
@@ -3054,17 +2982,22 @@ class Tree
 	// Parent center
 	//
 
-	[[nodiscard]] static constexpr Point parentCenter(Point    child_center,
-	                                                  length_t child_half_length,
-	                                                  offset_t child_index)
+	/*!
+	 * @brief Returns the center of the parent of the node.
+	 *
+	 * @param center the center of the child
+	 * @param half_length the half length of the child
+	 * @param index the index of the child
+	 * @return The center of the parent.
+	 */
+	[[nodiscard]] static constexpr Point parentCenter(Point center, length_t half_length,
+	                                                  offset_t index)
 	{
-		// FIXME: Make work with quadtree
 		assert(branchingFactor() > child_index);
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			child_center[i] +=
-			    child_index & offset_t(1u << i) ? -child_half_length : child_half_length;
+			center[i] += (index & offset_t(1u << i)) ? -half_length : half_length;
 		}
-		return child_center;
+		return center;
 	}
 
 	/**************************************************************************************
@@ -3092,7 +3025,7 @@ class Tree
 	void pruneBlock(Index parent, pos_t block)
 	{
 		derived().derivedPruneBlock(parent, block);
-		// NOTE: Important that derived is pruned first in case they use parent code
+		// Important that derived is pruned first in case they use parent code
 		blocks_[block] = Block();
 	}
 
@@ -3102,6 +3035,7 @@ class Tree
 
 	Index create(Code code, Index cur_node)
 	{
+		assert(valid(code));
 		assert(valid(cur_node));
 		auto wanted_depth = depth(code);
 		auto cur_depth    = depth(cur_node);

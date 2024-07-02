@@ -123,6 +123,12 @@ class TreeKey
 
 	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
 
+	[[nodiscard]] constexpr bool valid() const noexcept
+	{
+		// TODO: Add some other check
+		return maxDepth() >= depth_;
+	}
+
 	/*!
 	 * @brief Change the depth of the key.
 	 *

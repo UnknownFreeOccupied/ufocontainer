@@ -80,8 +80,6 @@ class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
 	using Coord       = typename Base::Coord;
 	using Bounds      = typename Base::Bounds;
 
-	// TODO: Implement
-
  protected:
 	/**************************************************************************************
 	|                                                                                     |

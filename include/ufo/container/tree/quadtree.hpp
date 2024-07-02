@@ -80,8 +80,6 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	using Coord       = typename Base::Coord;
 	using Bounds      = typename Base::Bounds;
 
-	// TODO: Implement
-
  protected:
 	/**************************************************************************************
 	|                                                                                     |

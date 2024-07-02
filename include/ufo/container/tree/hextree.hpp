@@ -80,8 +80,6 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 	using Coord       = typename Base::Coord;
 	using Bounds      = typename Base::Bounds;
 
-	// TODO: Implement
-
  protected:
 	/**************************************************************************************
 	|                                                                                     |

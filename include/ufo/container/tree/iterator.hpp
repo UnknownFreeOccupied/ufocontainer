@@ -110,8 +110,10 @@ class TreeIterator
 	[[nodiscard]] TNode child(TNode const& node, offset_t child_index) const
 	{
 		if constexpr (OnlyExists) {
+			// TODO: Should be tree_->child(node, child_index);
 			return tree_->childUnsafe(node, child_index);
 		} else {
+			// TODO: Should check isParent to get correct index
 			return tree_->child(node, child_index);
 		}
 	}
