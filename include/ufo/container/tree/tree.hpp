@@ -2993,7 +2993,7 @@ class Tree
 	[[nodiscard]] static constexpr Point parentCenter(Point center, length_t half_length,
 	                                                  offset_t index)
 	{
-		assert(branchingFactor() > child_index);
+		assert(branchingFactor() > index);
 		for (std::size_t i{}; Point::size() > i; ++i) {
 			center[i] += (index & offset_t(1u << i)) ? -half_length : half_length;
 		}
