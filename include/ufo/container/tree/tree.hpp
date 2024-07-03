@@ -97,6 +97,7 @@ enum class NearestSearchAlgorithm { DEPTH_FIRST, A_STAR };
 template <class Derived, class Block>
 class Tree
 {
+ protected:
 	//
 	// Friends
 	//
