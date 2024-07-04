@@ -106,7 +106,7 @@ class Tree
 	friend class Tree;
 
 	static constexpr std::size_t const BF  = ufo::branchingFactor(Block::tree_type);
-	static constexpr std::size_t const Dim = ufo::dimensions(Block::tree_type);
+	static constexpr std::size_t const DIM = ufo::dimensions(Block::tree_type);
 
  public:
 	//
@@ -116,10 +116,10 @@ class Tree
 	using length_t = double;
 	using depth_t  = unsigned;
 
-	using Code   = TreeCode<Dim>;
-	using Key    = TreeKey<Dim>;
-	using Point  = Vec<Dim, float>;
-	using Bounds = AABB<Dim, float>;
+	using Code   = TreeCode<DIM>;
+	using Key    = TreeKey<DIM>;
+	using Point  = Vec<DIM, float>;
+	using Bounds = AABB<DIM, float>;
 
 	using Index       = TreeIndex;
 	using Node        = TreeNode<Code>;
@@ -168,7 +168,7 @@ class Tree
 	 *
 	 * @return The number of dimensions of the tree.
 	 */
-	[[nodiscard]] static constexpr std::size_t dimensions() noexcept { return Dim; }
+	[[nodiscard]] static constexpr std::size_t dimensions() noexcept { return DIM; }
 
 	/*!
 	 * @brief Erases all nodes from the tree.
@@ -1099,7 +1099,7 @@ class Tree
 	// Key
 	//
 
-	[[nodiscard]] Key key() const { return Key(Vec<Dim, key_t>(0), depth()); }
+	[[nodiscard]] Key key() const { return Key(Vec<DIM, key_t>(0), depth()); }
 
 	[[nodiscard]] Key key(Index node) const
 	{
