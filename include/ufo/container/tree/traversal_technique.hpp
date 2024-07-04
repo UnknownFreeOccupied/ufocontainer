@@ -44,7 +44,7 @@
 
 namespace ufo
 {
-enum class TreeTraversalTechnique { ITERATION, RECURSIVE };
+enum class TreeTraversalTechnique { ITERATION, RECURSION };
 }
 
 #endif  // UFO_CONTAINER_TREE_TRAVERSAL_TECHNIQUE_HPP
