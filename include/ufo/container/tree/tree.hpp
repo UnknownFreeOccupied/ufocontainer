@@ -2686,65 +2686,71 @@ class Tree
 
 	template <class NodeFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
-	void recurs(Index node, NodeFun node_f) const
+	void recurs(Index node, NodeFun node_f)
 	{
+		assert(valid(node));
+
 		node_f(node);
 
 		if (isLeaf(node)) {
 			return;
 		}
 
-		auto c = childrenBlock(node);
-		for (offset_t i{}; branchingFactor() > i; ++i) {
-			recurs(Index(c, i), node_f);
+		auto children = childrenBlock(node);
+		for (std::size_t i{}; BF > i; ++i) {
+			recurs(Index(children, i), node_f);
 		}
 	}
 
 	template <class BlockFun,
 	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
-	void recurs(pos_t block, BlockFun block_f) const
+	void recurs(pos_t block, BlockFun block_f)
 	{
+		assert(valid(block));
+
 		block_f(block);
 
 		if (allLeaf(block)) {
 			return;
 		}
 
-		for (offset_t i{}; branchingFactor() > i; ++i) {
+		for (std::size_t i{}; BF > i; ++i) {
 			Index node(block, i);
-			if (isLeaf(node)) {
-				continue;
+			if (isParent(node)) {
+				recurs(childrenBlock(node), block_f);
 			}
-			recurs(childrenBlock(node), block_f);
 		}
 	}
 
 	template <class NodeFun, class BlockFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
 	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
-	void recurs(Index node, NodeFun node_f, BlockFun block_f) const
+	void recurs(Index node, NodeFun node_f, BlockFun block_f)
 	{
+		assert(valid(node));
+
 		node_f(node);
 
 		if (isLeaf(node)) {
 			return;
 		}
 
-		recurs(childrenBlock(node), node_f, block_f);
+		recurs(childrenBlock(node), block_f);
 	}
 
 	template <class NodeFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f) const
+	void recursLeaves(Index node, NodeFun node_f)
 	{
+		assert(valid(node));
+
 		if (isLeaf(node)) {
 			node_f(node);
-			return;
-		}
-
-		auto c = childrenBlock(node);
-		for (offset_t i{}; branchingFactor() > i; ++i) {
-			recursLeaves(Index(c, i), node_f);
+		} else {
+			auto children = childrenBlock(node);
+			for (std::size_t i{}; BF > i; ++i) {
+				recursLeaves(Index(children, i), node_f);
+			}
 		}
 	}
 
@@ -2753,23 +2759,16 @@ class Tree
 	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
 	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f) const
 	{
+		assert(valid(node));
+
+		auto children = childrenBlock(node);
 		if (isLeaf(node)) {
 			node_f(node);
-		} else if (allLeaf(childrenBlock(node))) {
-			block_f(childrenBlock(node));
+		} else if (allLeaf(children)) {
+			block_f(children);
 		} else {
-			std::array<Index, maxNumDepthLevels()> nodes;
-			nodes[1] = child(node, 0);
-			for (std::size_t i{1}; 0 != i;) {
-				node = nodes[i];
-				i -= branchingFactor() <= ++nodes[i].offset;
-				if (isLeaf(node)) {
-					node_f(node);
-				} else if (allLeaf(childrenBlock(node))) {
-					block_f(childrenBlock(node));
-				} else {
-					nodes[++i] = child(node, 0);
-				}
+			for (std::size_t i{}; BF > i; ++i) {
+				recursLeaves(Index(children, i), node_f, block_f);
 			}
 		}
 	}
