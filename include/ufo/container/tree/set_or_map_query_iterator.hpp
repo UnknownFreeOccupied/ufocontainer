@@ -113,7 +113,7 @@ class TreeSetOrMapQueryIteratorHelper
  protected:
 	[[nodiscard]] auto& values(Index node) const { return t_->values(node); }
 
-	[[nodiscard]] auto childrenBlock(Index node) const { return t_->childrenBlock(node); }
+	[[nodiscard]] auto children(Index node) const { return t_->children(node); }
 
 	template <class Predicate>
 	void initPredicate(Predicate& predicate) const
@@ -229,7 +229,7 @@ class TreeSetOrMapQueryIterator final
 
 		// Skip forward to next valid return node
 		while (0 == return_index_ && 0 != inner_index_) {
-			auto block = Base::childrenBlock(inner_nodes_[--inner_index_]);
+			auto block = Base::children(inner_nodes_[--inner_index_]);
 
 			// Go down the tree
 			for (int i = TreeSetOrMap::branchingFactor() - 1; 0 <= i; --i) {

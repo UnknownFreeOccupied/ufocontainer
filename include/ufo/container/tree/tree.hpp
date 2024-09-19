@@ -1235,7 +1235,7 @@ class Tree
 	{
 		assert(!isPureLeaf(node));
 		if (isParent(node)) {
-			return childrenBlock(node);
+			return children(node);
 		}
 
 		pos_t block;
@@ -1261,10 +1261,12 @@ class Tree
 	// Erase
 	//
 
+	void eraseChildren() { eraseChildren(index()); }
+
 	void eraseChildren(Index node)
 	{
 		assert(valid(node));
-		erase(node, childrenBlock(node));
+		eraseBlock(node, children(node));
 	}
 
 	/**************************************************************************************
@@ -1361,7 +1363,7 @@ class Tree
 	 */
 	[[nodiscard]] bool isLeaf(Index node) const
 	{
-		return TreeIndex::NULL_POS == childrenBlock(node);
+		return TreeIndex::NULL_POS == children(node);
 	}
 
 	/*!
@@ -1605,17 +1607,17 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] std::array<pos_t, branchingFactor()> childrenBlock(pos_t block) const
+	[[nodiscard]] std::array<pos_t, branchingFactor()> children(pos_t block) const
 	{
 		assert(valid(block));
 		return blocks_[block].children;
 	}
 
-	[[nodiscard]] pos_t childrenBlock(Index node) const
+	[[nodiscard]] pos_t children(Index node) const
 	{
 		assert(valid(node));
 		// assert(isParent(node));
-		return childrenBlock(node.pos)[node.offset];
+		return children(node.pos)[node.offset];
 	}
 
 	[[nodiscard]] Index child(Index node, offset_t child_index) const
@@ -1623,7 +1625,7 @@ class Tree
 		assert(valid(node));
 		assert(branchingFactor() > child_index);
 		// assert(isParent(node));
-		return {childrenBlock(node), child_index};
+		return {children(node), child_index};
 	}
 
 	/*!
@@ -2696,9 +2698,9 @@ class Tree
 			return;
 		}
 
-		auto children = childrenBlock(node);
+		auto c = children(node);
 		for (std::size_t i{}; BF > i; ++i) {
-			recurs(Index(children, i), node_f);
+			recurs(Index(c, i), node_f);
 		}
 	}
 
@@ -2717,7 +2719,7 @@ class Tree
 		for (std::size_t i{}; BF > i; ++i) {
 			Index node(block, i);
 			if (isParent(node)) {
-				recurs(childrenBlock(node), block_f);
+				recurs(children(node), block_f);
 			}
 		}
 	}
@@ -2735,7 +2737,56 @@ class Tree
 			return;
 		}
 
-		recurs(childrenBlock(node), block_f);
+		recurs(children(node), block_f);
+	}
+
+	template <class NodeFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recurs(Index node, NodeFun node_f, StopFun stop_f)
+	{
+		assert(valid(node));
+
+		if (isParent(node) && !stop_f(node)) {
+			auto c = children(node);
+			for (std::size_t i{}; BF > i; ++i) {
+				recurs(Index(c, i), node_f, stop_f);
+			}
+		}
+
+		node_f(node);
+	}
+
+	template <class BlockFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recurs(pos_t block, BlockFun block_f, StopFun stop_f)
+	{
+		assert(valid(block));
+
+		for (std::size_t i{}; BF > i; ++i) {
+			Index node(block, i);
+			if (isParent(node) && !stop_f(node)) {
+				recurs(children(node), block_f, stop_f);
+			}
+		}
+
+		block_f(block);
+	}
+
+	template <class NodeFun, class BlockFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recurs(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
+	{
+		assert(valid(node));
+
+		if (isParent(node) && !stop_f(node)) {
+			recurs(children(node), block_f, stop_f);
+		}
+
+		node_f(node);
 	}
 
 	template <class NodeFun,
@@ -2747,9 +2798,9 @@ class Tree
 		if (isLeaf(node)) {
 			node_f(node);
 		} else {
-			auto children = childrenBlock(node);
+			auto c = children(node);
 			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(children, i), node_f);
+				recursLeaves(Index(c, i), node_f);
 			}
 		}
 	}
@@ -2761,14 +2812,56 @@ class Tree
 	{
 		assert(valid(node));
 
-		auto children = childrenBlock(node);
+		auto c = children(node);
 		if (isLeaf(node)) {
 			node_f(node);
-		} else if (allLeaf(children)) {
-			block_f(children);
+		} else if (allLeaf(c)) {
+			block_f(c);
 		} else {
 			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(children, i), node_f, block_f);
+				recursLeaves(Index(c, i), node_f, block_f);
+			}
+		}
+	}
+
+	template <class NodeFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, StopFun stop_f)
+	{
+		assert(valid(node));
+
+		if (isLeaf(node)) {
+			node_f(node);
+		} else if (!stop_f(node)) {
+			auto c = children(node);
+			for (std::size_t i{}; BF > i; ++i) {
+				recursLeaves(Index(c, i), node_f, stop_f);
+			}
+		}
+	}
+
+	template <class NodeFun, class BlockFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
+	{
+		assert(valid(node));
+
+		auto c = children(node);
+		if (isLeaf(node)) {
+			node_f(node);
+			return;
+		} else if (stop_f(node)) {
+			return;
+		}
+
+		if (allLeaf(c)) {
+			block_f(c);
+		} else {
+			for (std::size_t i{}; BF > i; ++i) {
+				recursLeaves(Index(c, i), node_f, block_f, stop_f);
 			}
 		}
 	}
@@ -2878,7 +2971,7 @@ class Tree
 	{
 		bool leaf   = false;
 		bool parent = false;
-		for (auto e : childrenBlock(block)) {
+		for (auto e : children(block)) {
 			leaf   = leaf || Index::NULL_POS == e;
 			parent = parent || Index::NULL_POS != e;
 		}
@@ -3018,7 +3111,7 @@ class Tree
 	void fillBlock(Index parent, pos_t block)
 	{
 		blocks_[parent.pos].children[parent.offset] = block;
-		blocks_[block].fill(blocks_[parent.pos], parent.offset);
+		blocks_[block].fill(blocks_[parent.pos], parent.offset, halfLength(parent));
 		derived().derivedFillBlock(parent, block);
 	}
 
@@ -3049,7 +3142,7 @@ class Tree
 	{
 		assert(0 < depth(node));
 		if (isParent(node)) {
-			return childrenBlock(node);
+			return children(node);
 		}
 
 		std::lock_guard<std::mutex> const lock(create_mutex_);
@@ -3072,7 +3165,7 @@ class Tree
 			return;
 		}
 
-		auto child_blocks = childrenBlock(block);
+		auto child_blocks = children(block);
 		for (offset_t i{}; child_blocks.size() > i; ++i) {
 			eraseBlock(Index(block, i), child_blocks[i]);
 		}
@@ -3109,7 +3202,7 @@ class Tree
 			return {max_dist, Index{}};
 		}
 
-		auto cb = childrenBlock(node);
+		auto cb = children(node);
 		auto cd = depth(node) - 1u;
 
 		if (0.0f < epsilon) {
@@ -3167,7 +3260,7 @@ class Tree
 				Index node(block, i);
 				candidates[i].first = inner_f(node);
 				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = childrenBlock(node);
+				candidates[i].second = children(node);
 			}
 
 			if (1u == depth) {
@@ -3254,7 +3347,7 @@ class Tree
 				Index node(block, i);
 				candidates[i].first = inner_f(node);
 				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = childrenBlock(node);
+				candidates[i].second = children(node);
 			}
 
 			if (1u == depth) {
@@ -3363,7 +3456,7 @@ class Tree
 				Index node(block, i);
 				candidates[i].first = inner_f(node);
 				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = childrenBlock(node);
+				candidates[i].second = children(node);
 			}
 
 			if (1u == depth) {
@@ -3464,7 +3557,7 @@ class Tree
 				Index node(block, i);
 				candidates[i].first = inner_f(node);
 				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = childrenBlock(node);
+				candidates[i].second = children(node);
 			}
 
 			if (1u == depth) {

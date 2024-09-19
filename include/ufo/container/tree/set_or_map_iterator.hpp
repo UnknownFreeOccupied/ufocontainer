@@ -212,7 +212,7 @@ class TreeSetOrMapIterator
 	{
 		// Skip forward to next valid return node
 		while (0 == return_index_ && inner_index_) {
-			auto block = t_->childrenBlock(inner_nodes_[--inner_index_]);
+			auto block = t_->children(inner_nodes_[--inner_index_]);
 
 			// Go down the tree
 			for (int i = BF - 1; 0 <= i; --i) {

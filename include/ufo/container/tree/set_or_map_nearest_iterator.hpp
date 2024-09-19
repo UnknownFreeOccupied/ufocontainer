@@ -280,7 +280,7 @@ class TreeSetOrMapNearestIterator
 		// Skip forward to next valid return node
 		while (!inner_queue_.empty() &&
 		       (value_queue_.empty() || value_queue_.top() > inner_queue_.top())) {
-			auto children = t_->childrenBlock(inner_queue_.top().node);
+			auto children = t_->children(inner_queue_.top().node);
 
 			inner_queue_.pop();
 
