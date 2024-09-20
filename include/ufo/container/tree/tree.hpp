@@ -809,12 +809,9 @@ class Tree
 		length_t          l   = length(node_depth);
 		std::int_fast64_t hmv = static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
 
-		Point coord;
-		for (std::size_t i{}; node.size() != i; ++i) {
-			coord[i] = (static_cast<length_t>(static_cast<std::int_fast64_t>(node[i]) - hmv) +
-			            static_cast<length_t>(0.5)) *
-			           l;
-		}
+		Point coord = cast<coord_t>((cast<length_t>(cast<std::int_fast64_t>(node) - hmv) +
+		                             static_cast<length_t>(0.5)) *
+		                            l);
 		return Coord(coord, node_depth);
 	}
 
