@@ -84,7 +84,8 @@ struct TreeBlock {
 	{
 	}
 
-	constexpr void fill(TreeBlock const& parent, std::size_t offset)
+	constexpr void fill(TreeBlock const& parent, std::size_t offset,
+	                    length_t /* half_length */)
 	{
 		code = parent.code.child(offset);
 	}
