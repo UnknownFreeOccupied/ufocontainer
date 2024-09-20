@@ -806,6 +806,8 @@ class Tree
 			return center();
 		}
 
+		// TODO: Check performance, might be a lot faster to have float here and in rest of
+		// method
 		length_t          l   = length(node_depth);
 		std::int_fast64_t hmv = static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
 
@@ -1125,10 +1127,11 @@ class Tree
 		auto  d = depth(node);
 		Point p = node;
 
-		float lr = static_cast<float>(lengthReciprocal(0));
+		// TODO: Check performance, might be a lot faster to have float here
+		length_t lr = lengthReciprocal(0);
 
-		auto k =
-		    cast<key_t>(cast<std::make_signed_t<key_t>>(floor(p * lr))) + half_max_value_;
+		auto k = cast<key_t>(cast<std::make_signed_t<key_t>>(floor(cast<length_t>(p) * lr))) +
+		         half_max_value_;
 
 		return {k >> d, d};
 	}
