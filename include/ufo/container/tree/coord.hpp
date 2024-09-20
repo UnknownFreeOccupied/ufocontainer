@@ -96,23 +96,42 @@ struct TreeCoord : public Vec<Dim, T> {
 };
 
 template <class T = float>
-using BinaryCoord = TreeCoord<1, T>;
+using Coord1 = TreeCoord<1, T>;
 template <class T = float>
-using QuadCoord = TreeCoord<2, T>;
+using Coord2 = TreeCoord<2, T>;
 template <class T = float>
-using OctCoord = TreeCoord<3, T>;
+using Coord3 = TreeCoord<3, T>;
 template <class T = float>
-using HexCoord = TreeCoord<4, T>;
+using Coord4 = TreeCoord<4, T>;
 
-using BinaryCoordf = BinaryCoord<float>;
-using QuadCoordf   = QuadCoord<float>;
-using OctCoordf    = OctCoord<float>;
-using HexCoordf    = HexCoord<float>;
+template <class T = float>
+using BinaryCoord = Coord1<T>;
+template <class T = float>
+using QuadCoord = Coord2<T>;
+template <class T = float>
+using OctCoord = Coord3<T>;
+template <class T = float>
+using HexCoord = Coord4<T>;
 
-using BinaryCoordd = BinaryCoord<double>;
-using QuadCoordd   = QuadCoord<double>;
-using OctCoordd    = OctCoord<double>;
-using HexCoordd    = HexCoord<double>;
+using Coord1f      = Coord1<float>;
+using Coord1d      = Coord1<double>;
+using BinaryCoordf = Coord1f;
+using BinaryCoordd = Coord1d;
+
+using Coord2f    = Coord2<float>;
+using Coord2d    = Coord2<double>;
+using QuadCoordf = Coord2f;
+using QuadCoordd = Coord2d;
+
+using Coord3f   = Coord3<float>;
+using Coord3d   = Coord3<double>;
+using OctCoordf = Coord3f;
+using OctCoordd = Coord3d;
+
+using Coord4f   = Coord4<float>;
+using Coord4d   = Coord4<double>;
+using HexCoordf = Coord4f;
+using HexCoordd = Coord4d;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_COORD_HPP
