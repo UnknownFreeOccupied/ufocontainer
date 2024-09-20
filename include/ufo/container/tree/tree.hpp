@@ -171,6 +171,16 @@ class Tree
 	[[nodiscard]] static constexpr std::size_t dimensions() noexcept { return DIM; }
 
 	/*!
+	 * @brief Returns the number of nodes in the tree.
+	 *
+	 * @return The number of nodes in the tree.
+	 */
+	[[nodiscard]] std::size_t size() const
+	{
+		return (blocks_.size() - free_blocks_.size()) * BF;
+	}
+
+	/*!
 	 * @brief Erases all nodes from the tree.
 	 */
 	void clear()
