@@ -84,7 +84,7 @@ class TreeCode
 	constexpr explicit TreeCode(code_t code) : TreeCode(code, 0) {}
 
 	constexpr explicit TreeCode(TreeKey<Dim> key)
-	    : TreeCode(Morton<Dim>::encode(key << key.depth()), key.depth())
+	    : TreeCode(Morton<Dim>::encode(key) << (Dim * key.depth()), key.depth())
 	{
 	}
 
