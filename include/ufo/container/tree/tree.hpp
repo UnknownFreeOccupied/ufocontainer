@@ -125,7 +125,7 @@ class Tree
 	using Node        = TreeNode<Code>;
 	using NodeNearest = TreeNodeNearest<Node>;
 	using coord_t     = typename Point::value_type;
-	using Coord       = TreeCoord<Point, depth_t>;
+	using Coord       = TreeCoord<Point::size(), typename Point::value_type>;
 
 	using pos_t    = typename TreeIndex::pos_t;
 	using offset_t = typename TreeIndex::offset_t;

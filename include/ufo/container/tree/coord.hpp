@@ -42,15 +42,20 @@
 #ifndef UFO_CONTAINER_TREE_COORD_HPP
 #define UFO_CONTAINER_TREE_COORD_HPP
 
+// UFO
+#include <ufo/math/detail/vec.hpp>
+
 // STL
 #include <cstddef>
 #include <type_traits>
 
 namespace ufo
 {
-template <class Point, class depth_t>
-struct TreeCoord : public Point {
+template <std::size_t Dim, class T = float>
+struct TreeCoord : public Vec<Dim, T> {
+	using Point   = Vec<Dim, T>;
 	using coord_t = typename Point::value_type;
+	using depth_t = unsigned;
 
 	depth_t depth{};
 
@@ -89,6 +94,25 @@ struct TreeCoord : public Point {
 	{
 	}
 };
+
+template <class T = float>
+using BinaryCoord = TreeCoord<1, T>;
+template <class T = float>
+using QuadCoord = TreeCoord<2, T>;
+template <class T = float>
+using OctCoord = TreeCoord<3, T>;
+template <class T = float>
+using HexCoord = TreeCoord<4, T>;
+
+using BinaryCoordf = BinaryCoord<float>;
+using QuadCoordf   = QuadCoord<float>;
+using OctCoordf    = OctCoord<float>;
+using HexCoordf    = HexCoord<float>;
+
+using BinaryCoordd = BinaryCoord<double>;
+using QuadCoordd   = QuadCoord<double>;
+using OctCoordd    = OctCoord<double>;
+using HexCoordd    = HexCoord<double>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_COORD_HPP
