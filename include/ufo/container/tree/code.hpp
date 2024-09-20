@@ -64,7 +64,7 @@ class TreeCode
 	using size_type = std::size_t;
 
  private:
-	static constexpr code_t const OFFSET_MASK = ~(static_cast<code_t>(-1) >> Dim);
+	static constexpr code_t const OFFSET_MASK = ~(static_cast<code_t>(-1) << Dim);
 
  public:
 	/**************************************************************************************
