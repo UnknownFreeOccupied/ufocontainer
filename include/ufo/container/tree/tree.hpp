@@ -1127,7 +1127,7 @@ class Tree
 		auto  d = depth(node);
 		Point p = node;
 
-		float lr = static_cast<float>(lengthReciprocal(d));
+		float lr = static_cast<float>(lengthReciprocal(0));
 
 		auto k =
 		    cast<key_t>(cast<std::make_signed_t<key_t>>(floor(p * lr))) + half_max_value_;
