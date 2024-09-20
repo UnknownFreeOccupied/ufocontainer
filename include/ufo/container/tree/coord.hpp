@@ -42,10 +42,17 @@
 #ifndef UFO_CONTAINER_TREE_COORD_HPP
 #define UFO_CONTAINER_TREE_COORD_HPP
 
+// STL
+#include <cstddef>
+#include <type_traits>
+#include <utility>
+
 namespace ufo
 {
 template <class Point, class depth_t>
 struct TreeCoord : public Point {
+	using coord_t = typename Point::value_type;
+
 	depth_t depth{};
 
 	constexpr TreeCoord() = default;
@@ -53,6 +60,35 @@ struct TreeCoord : public Point {
 	constexpr TreeCoord(Point coord) : Point(coord) {}
 
 	constexpr TreeCoord(Point coord, depth_t depth) : Point(coord), depth(depth) {}
+
+	template <class... Args,
+	          std::enable_if_t<Point::size() == sizeof...(Args) || 1 == sizeof...(Args),
+	                           bool> = true>
+	constexpr TreeCoord(Args const&... args) : Point(args...)
+	{
+	}
+
+	template <class... Args,
+	          std::enable_if_t<Point::size() + 1 == sizeof...(Args), bool> = true>
+	constexpr TreeCoord(Args const&... args)
+	    : TreeCoord(std::integral_constant<std::size_t, Point::size()>{}, args...)
+	{
+	}
+
+ private:
+	template <std::size_t NumTimes, class First, class... Rest>
+	constexpr TreeCoord(std::integral_constant<std::size_t, NumTimes>, First const& first,
+	                    Rest const&... rest)
+	    : TreeCoord(std::integral_constant<std::size_t, NumTimes - 1>{}, rest..., first)
+	{
+	}
+
+	template <class Depth, class... PointArgs>
+	constexpr TreeCoord(std::integral_constant<std::size_t, 0>, Depth const& depth,
+	                    PointArgs const&... args)
+	    : Point(args...), depth(depth)
+	{
+	}
 };
 }  // namespace ufo
 
