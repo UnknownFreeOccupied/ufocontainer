@@ -809,8 +809,7 @@ class Tree
 
 		Point coord;
 		for (std::size_t i{}; node.size() != i; ++i) {
-			coord[i] = (static_cast<length_t>(
-			                static_cast<std::int_fast64_t>(node[i] >> node_depth) - hmv) +
+			coord[i] = (static_cast<length_t>(static_cast<std::int_fast64_t>(node[i]) - hmv) +
 			            static_cast<length_t>(0.5)) *
 			           l;
 		}
