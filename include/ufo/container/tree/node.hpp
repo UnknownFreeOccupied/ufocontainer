@@ -46,6 +46,7 @@
 #include <ufo/container/tree/index.hpp>
 
 // STL
+#include <cstddef>
 #include <functional>
 
 namespace ufo
@@ -153,7 +154,7 @@ struct TreeNode {
 	 */
 	[[nodiscard]] constexpr auto offset() const noexcept { return index_.offset; }
 
-	[[nodiscard]] constexpr auto offset(unsigned depth) const noexcept
+	[[nodiscard]] constexpr auto offset(std::size_t depth) const noexcept
 	{
 		return code_.offset(depth);
 	}

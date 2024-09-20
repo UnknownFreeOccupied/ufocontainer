@@ -188,8 +188,7 @@ class Tree
 		blocks_.clear();
 		free_blocks_.clear();
 		// Create root
-		blocks_.emplace_back(code().parent(), parentCenter(center(), halfLength(), 0),
-		                     length());
+		blocks_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
 		derived().derivedClear();
 	}
 
@@ -770,7 +769,7 @@ class Tree
 	 */
 	[[nodiscard]] Coord center(Index node) const
 	{
-		return center(blocks_[node.pos].code.child(node.offset));
+		return center(blocks_[node.pos].code(node.offset));
 	}
 
 	/*!
@@ -1091,7 +1090,7 @@ class Tree
 	[[nodiscard]] Code code(Index node) const
 	{
 		assert(valid(node));
-		return blocks_[node.pos].code.child(node.offset);
+		return blocks_[node.pos].code(node.offset);
 	}
 
 	[[nodiscard]] Code code(Node node) const { return node.code(); }
@@ -1113,7 +1112,7 @@ class Tree
 
 	[[nodiscard]] Key key(Index node) const
 	{
-		return Key(blocks_[node.pos].code.child(node.offset));
+		return Key(blocks_[node.pos].code(node.offset));
 	}
 
 	[[nodiscard]] Key key(Node node) const { return Key(node.code()); }
@@ -1521,7 +1520,7 @@ class Tree
 	[[nodiscard]] bool valid(Index index) const
 	{
 		return valid(index.pos) && branchingFactor() > index.offset &&
-		       blocks_[index.pos].code.valid();
+		       blocks_[index.pos].valid();
 	}
 
 	/*!
@@ -1756,7 +1755,7 @@ class Tree
 	[[nodiscard]] Index parent(Index node) const
 	{
 		assert(!isRoot(node));
-		return index(blocks_[node.pos].code);
+		return index(blocks_[node.pos].parentCode());
 	}
 
 	/*!
@@ -2545,8 +2544,7 @@ class Tree
 		}
 
 		// Create root
-		blocks_.emplace_back(code().parent(), parentCenter(center(), halfLength(), 0),
-		                     length());
+		blocks_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
 	}
 
 	Tree(Tree const& other)

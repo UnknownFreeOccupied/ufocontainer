@@ -225,7 +225,7 @@ class TreeCode
 	[[nodiscard]] constexpr TreeCode parent() const { return toDepth(depth_ + 1); }
 
 	/*!
-	 * @brief Get the code of a specific child to this code
+	 * @brief Get the code of a specific child of this code
 	 *
 	 * @param idx The index of the child
 	 * @return TreeCode The child code
@@ -237,20 +237,44 @@ class TreeCode
 		depth_t depth = depth_ - 1;
 		return TreeCode(code_ | (static_cast<code_t>(idx) << (Dim * depth)), depth);
 	}
+	/*!
+	 * @brief Get the code of the firstborn child of this code (same as child(0)).
+	 *
+	 * @return TreeCode The firstborn child code
+	 */
+	[[nodiscard]] constexpr TreeCode firstborn() const
+	{
+		assert(0 < depth_);
+		return TreeCode(code_, depth_ - 1);
+	}
 
 	/*!
-	 * @brief Get the code of a specific sibling to this code
+	 * @brief Get the code of a specific sibling of this code
 	 *
 	 * @param idx The index of the sibling
 	 * @return TreeCode The sibling code
 	 */
-	[[nodiscard]] inline TreeCode sibling(std::size_t idx) const
+	[[nodiscard]] constexpr TreeCode sibling(std::size_t idx) const
 	{
-		assert(maxDepth() > depth_);
 		assert(branchingFactor() > idx);
-		return TreeCode(((code_ >> (Dim * depth_)) << (Dim * depth_)) |
-		                    (static_cast<code_t>(idx) << (Dim * depth_)),
-		                depth_);
+		auto s = Dim * depth_;
+		return TreeCode(((code_ >> s) << s) | (static_cast<code_t>(idx) << s), depth_);
+	}
+
+	/*!
+	 * @brief Get the code of a specific sibling of this firstborn code
+	 *
+	 * @note Should only be called on firstborn codes (i.e., `offset(depth())` should be
+	 * `0`)
+	 *
+	 * @param idx The index of the sibling
+	 * @return TreeCode The sibling code
+	 */
+	[[nodiscard]] constexpr TreeCode firstbornSibling(std::size_t idx) const
+	{
+		assert(0 == offset(depth_));
+		assert(branchingFactor() > idx);
+		return TreeCode(code_ | (static_cast<code_t>(idx) << (Dim * depth_)), depth_);
 	}
 
 	void swap(TreeCode& other) noexcept
@@ -261,7 +285,7 @@ class TreeCode
 
  private:
 	code_t  code_{};
-	depth_t depth_{};
+	depth_t depth_ = maxDepth() + 1;
 };
 
 using BinaryCode = TreeCode<1>;

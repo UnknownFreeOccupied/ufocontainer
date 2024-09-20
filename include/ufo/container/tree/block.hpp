@@ -67,37 +67,51 @@ struct TreeBlock {
 	using length_t = double;
 	using Point    = Vec<Dim, float>;
 
-	Code                             code;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
 
 	constexpr TreeBlock()                 = default;
 	constexpr TreeBlock(TreeBlock const&) = default;
 
 	constexpr TreeBlock(Code code, Point /* center */, length_t /* half_length */)
-	    : code(code)
+	    : code_(code)
 	{
 	}
 
 	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset,
 	                    length_t /* half_length */)
-	    : code(parent.code.child(offset))
+	    : code_(parent.code(offset).firstborn())
 	{
 	}
 
 	constexpr void fill(TreeBlock const& parent, std::size_t offset,
 	                    length_t /* half_length */)
 	{
-		code = parent.code.child(offset);
+		code_ = parent.code(offset).firstborn();
+	}
+
+	[[nodiscard]] constexpr Code code(std::size_t idx) const
+	{
+		return code_.firstbornSibling(idx);
+	}
+
+	[[nodiscard]] constexpr Code parentCode() const
+	{
+		return code_.parent();
 	}
 
 	/*!
 	 * @return The depth of the block.
 	 */
-	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(code.depth()))
+	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(code_.depth()))
 	{
-		// One less than the parent
-		return code.depth() - 1;
+		return code_.depth();
 	}
+
+	[[nodiscard]] constexpr bool valid() const { return code_.valid(); }
+
+ private:
+	// Code to the first node of the block
+	Code code_;
 };
 
 template <TreeType TT>
@@ -111,6 +125,7 @@ struct TreeBlock<TT, true> {
 	using Point    = Vec<Dim, float>;
 	using length_t = double;
 
+	// Code to the first node of the block
 	Code                             code;
 	Point                            center;
 	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
