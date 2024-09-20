@@ -44,6 +44,7 @@
 
 // STL
 #include <algorithm>
+#include <cstdint>
 #include <functional>
 #include <limits>
 #include <ostream>
