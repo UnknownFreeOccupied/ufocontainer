@@ -94,10 +94,7 @@ struct TreeBlock {
 		return code_.firstbornSibling(idx);
 	}
 
-	[[nodiscard]] constexpr Code parentCode() const
-	{
-		return code_.parent();
-	}
+	[[nodiscard]] constexpr Code parentCode() const { return code_.parent(); }
 
 	/*!
 	 * @return The depth of the block.
@@ -111,7 +108,7 @@ struct TreeBlock {
 
  private:
 	// Code to the first node of the block
-	Code code_;
+	Code code_ = Code::invalid();
 };
 
 template <TreeType TT>

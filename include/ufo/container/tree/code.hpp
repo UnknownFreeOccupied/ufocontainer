@@ -88,6 +88,13 @@ class TreeCode
 	{
 	}
 
+	[[nodiscard]] static constexpr TreeCode invalid() noexcept
+	{
+		TreeCode code;
+		code.invalidate();
+		return code;
+	}
+
 	/**************************************************************************************
 	|                                                                                     |
 	|                                 Assignment operator                                 |
@@ -149,6 +156,8 @@ class TreeCode
 
 		return a && b && c;
 	}
+
+	constexpr void invalidate() noexcept { depth_ = maxDepth() + 1; }
 
 	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept
 	{
@@ -285,7 +294,7 @@ class TreeCode
 
  private:
 	code_t  code_{};
-	depth_t depth_ = maxDepth() + 1;
+	depth_t depth_{};
 };
 
 using BinaryCode = TreeCode<1>;

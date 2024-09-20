@@ -6,6 +6,8 @@ project(ufocontainer
 	LANGUAGES CXX
 )
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 add_subdirectory(1stparty)
 
 add_library(ufocontainer INTERFACE)
