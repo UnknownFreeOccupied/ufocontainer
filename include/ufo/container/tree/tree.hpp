@@ -221,7 +221,7 @@ class Tree
 	 */
 	[[nodiscard]] static constexpr depth_t maxNumDepthLevels() noexcept
 	{
-		return Code::maxDepth();
+		return Code::maxDepth() + 1;
 	}
 
 	/*!
@@ -1113,7 +1113,7 @@ class Tree
 
 	[[nodiscard]] Key key(Index node) const
 	{
-		return blocks_[node.pos].code.child(node.offset);
+		return Key(blocks_[node.pos].code.child(node.offset));
 	}
 
 	[[nodiscard]] Key key(Node node) const { return Key(node.code()); }
@@ -3114,7 +3114,7 @@ class Tree
 		pos_t block                                 = static_cast<pos_t>(blocks_.size());
 		blocks_[parent.pos].children[parent.offset] = block;
 		blocks_.emplace_back(blocks_[parent.pos], parent.offset, halfLength(parent));
-		derived().derivedCreateBlock(parent);
+		// TODO: derived().derivedCreateBlock(parent);
 		return block;
 	}
 
@@ -3122,7 +3122,7 @@ class Tree
 	{
 		blocks_[parent.pos].children[parent.offset] = block;
 		blocks_[block].fill(blocks_[parent.pos], parent.offset, halfLength(parent));
-		derived().derivedFillBlock(parent, block);
+		// TODO: derived().derivedFillBlock(parent, block);
 	}
 
 	void pruneBlock(Index parent, pos_t block)

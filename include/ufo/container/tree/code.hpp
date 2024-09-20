@@ -59,7 +59,7 @@ class TreeCode
 {
  public:
 	using code_t    = std::uint64_t;
-	using key_t     = std::uint32_t;
+	using key_t     = typename TreeKey<Dim>::key_t;
 	using depth_t   = code_t;
 	using size_type = std::size_t;
 
@@ -78,16 +78,13 @@ class TreeCode
 
 	constexpr TreeCode(code_t code, depth_t depth) : code_(code), depth_(depth)
 	{
-		assert(maxDepth() >= depth);
-		// assert(0 == (code >> 63));
-		assert(maxDepth() == depth ? code == 0
-		                           : code == ((code >> (Dim * depth)) << (Dim * depth)));
+		assert(valid());
 	}
 
 	constexpr explicit TreeCode(code_t code) : TreeCode(code, 0) {}
 
 	constexpr explicit TreeCode(TreeKey<Dim> key)
-	    : TreeCode(Morton<Dim>::encode(key.key), key.depth())
+	    : TreeCode(Morton<Dim>::encode(key << key.depth()), key.depth())
 	{
 	}
 
@@ -107,7 +104,7 @@ class TreeCode
 
 	[[nodiscard]] constexpr explicit operator TreeKey<Dim>() const noexcept
 	{
-		return TreeKey<Dim>(Morton<Dim>::decode(code_), depth_);
+		return TreeKey<Dim>(Morton<Dim>::decode(code_ >> (Dim * depth_)), depth_);
 	}
 
 	/**************************************************************************************
@@ -134,18 +131,7 @@ class TreeCode
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] static constexpr depth_t maxDepth() noexcept
-	{
-		// +1 because root does not need any bits (since it only has one child)
-		return (std::numeric_limits<code_t>::digits / size()) + 1;
-	}
-
 	[[nodiscard]] static constexpr size_type size() noexcept { return Dim; }
-
-	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept
-	{
-		return ipow(std::size_t(2), Dim);
-	}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -153,11 +139,43 @@ class TreeCode
 	|                                                                                     |
 	**************************************************************************************/
 
+	[[nodiscard]] constexpr bool valid() const noexcept
+	{
+		bool a = maxDepth() >= depth();
+		// Check if unused upper bits are set to zero
+		bool b = 0 == (code() >> (Dim * maxDepth()));
+		// Check if unused lower bits are set to zero
+		bool c = code() == ((code() >> (Dim * depth())) << (Dim * depth()));
+
+		return a && b && c;
+	}
+
+	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept
+	{
+		return ipow(std::size_t(2), Dim);
+	}
+
 	[[nodiscard]] constexpr code_t code() const noexcept { return code_; }
 
-	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
+	[[nodiscard]] static constexpr depth_t maxDepth() noexcept
+	{
+		// Root does not need any bits (since it only has one child).
+		// Shifting with `Dim * maxDepth()` causes problems when
+		// `std::numeric_limits<code_t>::digits <= Dim * maxDepth()` because you are trying to
+		// shift more bits than are allowed and has a well-defined behaviour in the C++.
+		// Therefore, we have this check otherwise would cause "shift count overflow".
+		if constexpr (0 == std::numeric_limits<code_t>::digits % size()) {
+			// All the time you have to leave the space.
+			// Meaning, we ensure some bits can be "used" for the root.
+			return (std::numeric_limits<code_t>::digits / size()) - 1;
+		} else {
+			// Thanks, you have left the space.
+			// Meaning, we have extra bits that can be "used" for the root.
+			return std::numeric_limits<code_t>::digits / size();
+		}
+	}
 
-	[[nodiscard]] constexpr bool valid() const noexcept { return maxDepth() >= depth_; }
+	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
 
 	[[nodiscard]] static constexpr bool equalAtDepth(TreeCode const& lhs,
 	                                                 TreeCode const& rhs,
@@ -165,8 +183,7 @@ class TreeCode
 	{
 		assert(maxDepth() >= depth);
 		assert(lhs.valid() && rhs.valid());
-		return maxDepth() == depth ||
-		       (lhs.code_ >> (Dim * depth)) == (rhs.code_ >> (Dim * depth));
+		return (lhs.code_ >> (Dim * depth)) == (rhs.code_ >> (Dim * depth));
 	}
 
 	[[nodiscard]] static constexpr depth_t depthWhereEqual(TreeCode const& lhs,
@@ -183,23 +200,14 @@ class TreeCode
 	[[nodiscard]] constexpr TreeCode toDepth(depth_t depth) const
 	{
 		assert(maxDepth() >= depth);
-		return TreeCode(
-		    maxDepth() == depth ? code_t(0) : (code_ >> (Dim * depth)) << (Dim * depth),
-		    depth);
+		return TreeCode((code_ >> (Dim * depth)) << (Dim * depth), depth);
 	}
 
 	constexpr void setDepth(depth_t depth)
 	{
 		assert(maxDepth() >= depth);
-		code_  = maxDepth() == depth ? static_cast<code_t>(0)
-		                             : (code_ >> (Dim * depth)) << (Dim * depth);
+		code_  = (code_ >> (Dim * depth)) << (Dim * depth);
 		depth_ = depth;
-	}
-
-	[[nodiscard]] constexpr key_t key(std::size_t pos) const
-	{
-		assert(size() > pos);
-		return Morton<Dim>::compact(code_ >> pos);
 	}
 
 	/*!
@@ -211,8 +219,7 @@ class TreeCode
 	[[nodiscard]] constexpr code_t offset(depth_t depth) const
 	{
 		assert(maxDepth() >= depth);
-		return maxDepth() == depth ? static_cast<code_t>(0)
-		                           : (code_ >> (Dim * depth)) & OFFSET_MASK;
+		return (code_ >> (Dim * depth)) & OFFSET_MASK;
 	}
 
 	[[nodiscard]] constexpr TreeCode parent() const { return toDepth(depth_ + 1); }
@@ -254,7 +261,7 @@ class TreeCode
 
  private:
 	code_t  code_{};
-	depth_t depth_ = maxDepth() + 1;
+	depth_t depth_{};
 };
 
 using BinaryCode = TreeCode<1>;

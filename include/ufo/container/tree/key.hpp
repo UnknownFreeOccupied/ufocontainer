@@ -50,19 +50,19 @@
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <ostream>
 
 namespace ufo
 {
 template <std::size_t Dim>
-class TreeKey
+class TreeKey : public Vec<Dim, std::uint32_t>
 {
  public:
 	using key_t     = std::uint32_t;
+	using Key       = Vec<Dim, key_t>;
 	using depth_t   = key_t;
 	using size_type = std::size_t;
-
-	Vec<Dim, key_t> key;
 
  public:
 	/**************************************************************************************
@@ -74,7 +74,9 @@ class TreeKey
 	constexpr TreeKey() noexcept               = default;
 	constexpr TreeKey(TreeKey const&) noexcept = default;
 
-	constexpr TreeKey(Vec<Dim, key_t> key, depth_t depth = 0) : key(key), depth_(depth) {}
+	constexpr TreeKey(Key key, depth_t depth) : Key(key), depth_(depth) {}
+
+	constexpr explicit TreeKey(Key key) : Key(key, 0) {}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -86,34 +88,19 @@ class TreeKey
 
 	/**************************************************************************************
 	|                                                                                     |
-	|                                   Element access                                    |
-	|                                                                                     |
-	**************************************************************************************/
-
-	[[nodiscard]] constexpr key_t& operator[](size_type pos) noexcept
-	{
-		assert(size() > pos);
-		return key[pos];
-	}
-
-	[[nodiscard]] constexpr key_t const& operator[](size_type pos) const noexcept
-	{
-		assert(size() > pos);
-		return key[pos];
-	}
-
-	/**************************************************************************************
-	|                                                                                     |
 	|                                      Capacity                                       |
 	|                                                                                     |
 	**************************************************************************************/
 
 	[[nodiscard]] static constexpr depth_t maxDepth() noexcept
 	{
-		return static_cast<depth_t>(64 / size());
+		// All the time you have to leave the space.
+		// Shifting with `maxDepth()` causes problems when
+		// `std::numeric_limits<key_t>::digits <= maxDepth()` because you are trying to
+		// shift more bits than are allowed and has a well-defined behaviour in the C++.
+		// Therefore, we have this check otherwise would cause "shift count overflow".
+		return std::numeric_limits<key_t>::digits - 1;
 	}
-
-	[[nodiscard]] static constexpr size_type size() noexcept { return Dim; }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -121,13 +108,9 @@ class TreeKey
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
+	[[nodiscard]] constexpr bool valid() const noexcept { return maxDepth() >= depth_; }
 
-	[[nodiscard]] constexpr bool valid() const noexcept
-	{
-		// TODO: Add some other check
-		return maxDepth() >= depth_;
-	}
+	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
 
 	/*!
 	 * @brief Change the depth of the key.
@@ -139,9 +122,9 @@ class TreeKey
 		assert(maxDepth() >= depth);
 
 		if (depth_ > depth) {
-			key <<= depth_ - depth;
+			*this <<= depth_ - depth;
 		} else {
-			key >>= depth - depth_;
+			*this >>= depth - depth_;
 		}
 		this->depth_ = depth;
 	}
@@ -151,7 +134,7 @@ class TreeKey
 		assert(maxDepth() >= depth);
 		assert(depth_ <= depth);
 
-		auto  v   = (key >> (depth - depth_)) & key_t(1);
+		auto  v   = (*this >> (depth - depth_)) & key_t(1);
 		key_t ret = v[0];
 		for (std::size_t i = 1; Dim > i; ++i) {
 			ret |= v[i] << i;
@@ -162,7 +145,7 @@ class TreeKey
 	void swap(TreeKey& other) noexcept
 	{
 		using std::swap;
-		swap(key, other.key);
+		static_cast<Key&>(*this).swap(static_cast<Key&>(other));
 		swap(depth_, other.depth_);
 	}
 
