@@ -812,6 +812,7 @@ class Tree
 		Point coord = cast<coord_t>((cast<length_t>(cast<std::int_fast64_t>(node) - hmv) +
 		                             static_cast<length_t>(0.5)) *
 		                            l);
+
 		return Coord(coord, node_depth);
 	}
 
