@@ -105,6 +105,8 @@ class Tree
 	template <class Derived2, class Block2>
 	friend class Tree;
 
+	friend Derived;
+
 	static constexpr std::size_t const BF  = ufo::branchingFactor(Block::tree_type);
 	static constexpr std::size_t const DIM = ufo::dimensions(Block::tree_type);
 
