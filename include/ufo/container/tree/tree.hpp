@@ -105,10 +105,8 @@ class Tree
 	template <class Derived2, class Block2>
 	friend class Tree;
 
-	friend Derived;
-
 	static constexpr std::size_t const BF  = ufo::branchingFactor(Block::tree_type);
-	static constexpr std::size_t const DIM = ufo::dimensions(Block::tree_type);
+	static constexpr std::size_t const Dim = ufo::dimensions(Block::tree_type);
 
  public:
 	//
@@ -118,10 +116,10 @@ class Tree
 	using length_t = double;
 	using depth_t  = unsigned;
 
-	using Code   = TreeCode<DIM>;
-	using Key    = TreeKey<DIM>;
-	using Point  = Vec<DIM, float>;
-	using Bounds = AABB<DIM, float>;
+	using Code   = TreeCode<Dim>;
+	using Key    = TreeKey<Dim>;
+	using Point  = Vec<Dim, float>;
+	using Bounds = AABB<Dim, float>;
 
 	using Index       = TreeIndex;
 	using Node        = TreeNode<Code>;
@@ -170,7 +168,7 @@ class Tree
 	 *
 	 * @return The number of dimensions of the tree.
 	 */
-	[[nodiscard]] static constexpr std::size_t dimensions() noexcept { return DIM; }
+	[[nodiscard]] static constexpr std::size_t dimensions() noexcept { return Dim; }
 
 	/*!
 	 * @brief Returns the number of nodes in the tree.
@@ -1109,7 +1107,7 @@ class Tree
 	// Key
 	//
 
-	[[nodiscard]] Key key() const { return Key(Vec<DIM, key_t>(0), depth()); }
+	[[nodiscard]] Key key() const { return Key(Vec<Dim, key_t>(0), depth()); }
 
 	[[nodiscard]] Key key(Index node) const
 	{
@@ -1552,8 +1550,7 @@ class Tree
 	 */
 	[[nodiscard]] bool valid(Key key) const
 	{
-		// TODO: Implement correct
-		auto const mv = 2 * half_max_value_;
+		auto const mv = (2 * half_max_value_) >> depth(key);
 		for (std::size_t i{}; key.size() != i; ++i) {
 			if (mv < key[i]) {
 				return false;
@@ -3114,7 +3111,7 @@ class Tree
 		pos_t block                                 = static_cast<pos_t>(blocks_.size());
 		blocks_[parent.pos].children[parent.offset] = block;
 		blocks_.emplace_back(blocks_[parent.pos], parent.offset, halfLength(parent));
-		// TODO: derived().derivedCreateBlock(parent);
+		derived().derivedCreateBlock(parent);
 		return block;
 	}
 
@@ -3122,7 +3119,7 @@ class Tree
 	{
 		blocks_[parent.pos].children[parent.offset] = block;
 		blocks_[block].fill(blocks_[parent.pos], parent.offset, halfLength(parent));
-		// TODO: derived().derivedFillBlock(parent, block);
+		derived().derivedFillBlock(parent, block);
 	}
 
 	void pruneBlock(Index parent, pos_t block)
