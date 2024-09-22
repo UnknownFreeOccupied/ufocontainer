@@ -44,10 +44,9 @@
 
 // UFO
 #include <ufo/container/tree/bounds.hpp>
+#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/container.hpp>
 #include <ufo/container/tree/coord.hpp>
-// #include <ufo/container/tree/file_header.hpp>
-#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/iterator.hpp>
 #include <ufo/container/tree/key.hpp>
@@ -177,7 +176,7 @@ class Tree
 	 */
 	[[nodiscard]] std::size_t size() const
 	{
-		return (blocks_.size() - free_blocks_.size()) * BF;
+		return (block_.size() - free_block_.size()) * BF;
 	}
 
 	/*!
@@ -185,10 +184,10 @@ class Tree
 	 */
 	void clear()
 	{
-		blocks_.clear();
-		free_blocks_.clear();
+		block_.clear();
+		free_block_.clear();
 		// Create root
-		blocks_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
+		block_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
 		derived().derivedClear();
 	}
 
@@ -242,8 +241,8 @@ class Tree
 	 */
 	[[nodiscard]] depth_t depth(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return blocks_[block].depth();
+		assert(block_.size() > block);
+		return block_[block].depth();
 	}
 
 	/*!
@@ -769,7 +768,7 @@ class Tree
 	 */
 	[[nodiscard]] Coord center(Index node) const
 	{
-		return center(blocks_[node.pos].code(node.offset));
+		return center(block_[node.pos].code(node.offset));
 	}
 
 	/*!
@@ -1089,7 +1088,7 @@ class Tree
 	[[nodiscard]] Code code(Index node) const
 	{
 		assert(valid(node));
-		return blocks_[node.pos].code(node.offset);
+		return block_[node.pos].code(node.offset);
 	}
 
 	[[nodiscard]] Code code(Node node) const { return node.code(); }
@@ -1111,7 +1110,7 @@ class Tree
 
 	[[nodiscard]] Key key(Index node) const
 	{
-		return Key(blocks_[node.pos].code(node.offset));
+		return Key(block_[node.pos].code(node.offset));
 	}
 
 	[[nodiscard]] Key key(Node node) const { return Key(node.code()); }
@@ -1248,11 +1247,11 @@ class Tree
 		}
 
 		pos_t block;
-		if (free_blocks_.empty()) {
+		if (free_block_.empty()) {
 			block = createBlock(node);
 		} else {
-			block = free_blocks_.front();
-			free_blocks_.pop_front();
+			block = free_block_.front();
+			free_block_.pop_front();
 			fillBlock(node, block);
 		}
 
@@ -1509,7 +1508,7 @@ class Tree
 	 * @param block the block to check
 	 * @return `true` if the block is valid, `false` otherwise.
 	 */
-	[[nodiscard]] bool valid(pos_t block) const { return blocks_.size() > block; }
+	[[nodiscard]] bool valid(pos_t block) const { return block_.size() > block; }
 
 	/*!
 	 * @brief Checks if an index is valid.
@@ -1520,7 +1519,7 @@ class Tree
 	[[nodiscard]] bool valid(Index index) const
 	{
 		return valid(index.pos) && branchingFactor() > index.offset &&
-		       blocks_[index.pos].valid();
+		       block_[index.pos].valid();
 	}
 
 	/*!
@@ -1618,7 +1617,7 @@ class Tree
 	[[nodiscard]] std::array<pos_t, branchingFactor()> children(pos_t block) const
 	{
 		assert(valid(block));
-		return blocks_[block].children;
+		return block_[block].children;
 	}
 
 	[[nodiscard]] pos_t children(Index node) const
@@ -1754,7 +1753,7 @@ class Tree
 	[[nodiscard]] Index parent(Index node) const
 	{
 		assert(!isRoot(node));
-		return index(blocks_[node.pos].parentCode());
+		return index(block_[node.pos].parentCode());
 	}
 
 	/*!
@@ -2543,14 +2542,14 @@ class Tree
 		}
 
 		// Create root
-		blocks_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
+		block_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
 	}
 
 	Tree(Tree const& other)
 	    : num_depth_levels_(other.num_depth_levels_)
 	    , half_max_value_(other.half_max_value_)
-	    , blocks_(other.blocks_)
-	    , free_blocks_(other.free_blocks_)
+	    , block_(other.block_)
+	    , free_block_(other.free_block_)
 	    , node_half_length_(other.node_half_length_)
 	    , node_half_length_reciprocal_(other.node_half_length_reciprocal_)
 	{
@@ -2559,8 +2558,8 @@ class Tree
 	Tree(Tree&& other)
 	    : num_depth_levels_(std::move(other.num_depth_levels_))
 	    , half_max_value_(std::move(other.half_max_value_))
-	    , blocks_(std::move(other.blocks_))
-	    , free_blocks_(std::move(other.free_blocks_))
+	    , block_(std::move(other.block_))
+	    , free_block_(std::move(other.free_block_))
 	    , node_half_length_(std::move(other.node_half_length_))
 	    , node_half_length_reciprocal_(std::move(other.node_half_length_reciprocal_))
 	{
@@ -2570,8 +2569,8 @@ class Tree
 	Tree(Tree<Derived2, Block> const& other)
 	    : num_depth_levels_(other.num_depth_levels_)
 	    , half_max_value_(other.half_max_value_)
-	    , blocks_(other.blocks_)
-	    , free_blocks_(other.free_blocks_)
+	    , block_(other.block_)
+	    , free_block_(other.free_block_)
 	    , node_half_length_(other.node_half_length_)
 	    , node_half_length_reciprocal_(other.node_half_length_reciprocal_)
 	{
@@ -2581,8 +2580,8 @@ class Tree
 	Tree(Tree<Derived2, Block>&& other)
 	    : num_depth_levels_(std::move(other.num_depth_levels_))
 	    , half_max_value_(std::move(other.half_max_value_))
-	    , blocks_(std::move(other.blocks_))
-	    , free_blocks_(std::move(other.free_blocks_))
+	    , block_(std::move(other.block_))
+	    , free_block_(std::move(other.free_block_))
 	    , node_half_length_(std::move(other.node_half_length_))
 	    , node_half_length_reciprocal_(std::move(other.node_half_length_reciprocal_))
 	{
@@ -2606,8 +2605,8 @@ class Tree
 	{
 		num_depth_levels_            = rhs.num_depth_levels_;
 		half_max_value_              = rhs.half_max_value_;
-		blocks_                      = rhs.blocks_;
-		free_blocks_                 = rhs.free_blocks_;
+		block_                       = rhs.block_;
+		free_block_                  = rhs.free_block_;
 		node_half_length_            = rhs.node_half_length_;
 		node_half_length_reciprocal_ = rhs.node_half_length_reciprocal_;
 		return *this;
@@ -2617,8 +2616,8 @@ class Tree
 	{
 		num_depth_levels_            = std::move(rhs.num_depth_levels_);
 		half_max_value_              = std::move(rhs.half_max_value_);
-		blocks_                      = std::move(rhs.blocks_);
-		free_blocks_                 = std::move(rhs.free_blocks_);
+		block_                       = std::move(rhs.block_);
+		free_block_                  = std::move(rhs.free_block_);
 		node_half_length_            = std::move(rhs.node_half_length_);
 		node_half_length_reciprocal_ = std::move(rhs.node_half_length_reciprocal_);
 		return *this;
@@ -2629,8 +2628,8 @@ class Tree
 	{
 		num_depth_levels_            = rhs.num_depth_levels_;
 		half_max_value_              = rhs.half_max_value_;
-		blocks_                      = rhs.blocks_;
-		free_blocks_                 = rhs.free_blocks_;
+		block_                       = rhs.block_;
+		free_block_                  = rhs.free_block_;
 		node_half_length_            = rhs.node_half_length_;
 		node_half_length_reciprocal_ = rhs.node_half_length_reciprocal_;
 		return *this;
@@ -2641,8 +2640,8 @@ class Tree
 	{
 		num_depth_levels_            = std::move(rhs.num_depth_levels_);
 		half_max_value_              = std::move(rhs.half_max_value_);
-		blocks_                      = std::move(rhs.blocks_);
-		free_blocks_                 = std::move(rhs.free_blocks_);
+		block_                       = std::move(rhs.block_);
+		free_block_                  = std::move(rhs.free_block_);
 		node_half_length_            = std::move(rhs.node_half_length_);
 		node_half_length_reciprocal_ = std::move(rhs.node_half_length_reciprocal_);
 		return *this;
@@ -2658,8 +2657,8 @@ class Tree
 	{
 		std::swap(num_depth_levels_, other.num_depth_levels_);
 		std::swap(half_max_value_, other.half_max_value_);
-		std::swap(blocks_, other.blocks_);
-		std::swap(free_blocks_, other.free_blocks_);
+		std::swap(block_, other.block_);
+		std::swap(free_block_, other.free_block_);
 		std::swap(node_half_length_, other.node_half_length_);
 		std::swap(node_half_length_reciprocal_, other.node_half_length_reciprocal_);
 	}
@@ -2887,8 +2886,8 @@ class Tree
 	 */
 	[[nodiscard]] bool allPureLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return 0 == blocks_[block].depth();
+		assert(block_.size() > block);
+		return 0 == block_[block].depth();
 	}
 
 	/*!
@@ -2899,8 +2898,8 @@ class Tree
 	 */
 	[[nodiscard]] bool anyPureLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return 0 == blocks_[block].depth();
+		assert(block_.size() > block);
+		return 0 == block_[block].depth();
 	}
 
 	/*!
@@ -2911,8 +2910,8 @@ class Tree
 	 */
 	[[nodiscard]] bool nonePureLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return 0 != blocks_[block].depth();
+		assert(block_.size() > block);
+		return 0 != block_[block].depth();
 	}
 
 	/*!
@@ -2924,7 +2923,7 @@ class Tree
 	 */
 	[[nodiscard]] bool somePureLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
+		assert(block_.size() > block);
 		return false;
 	}
 
@@ -2936,8 +2935,8 @@ class Tree
 	 */
 	[[nodiscard]] bool allLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return std::all_of(blocks_[block].children.begin(), blocks_[block].children.end(),
+		assert(block_.size() > block);
+		return std::all_of(block_[block].children.begin(), block_[block].children.end(),
 		                   [](auto e) { return Index::NULL_POS == e; });
 	}
 
@@ -2949,8 +2948,8 @@ class Tree
 	 */
 	[[nodiscard]] bool anyLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return std::any_of(blocks_[block].children.begin(), blocks_[block].children.end(),
+		assert(block_.size() > block);
+		return std::any_of(block_[block].children.begin(), block_[block].children.end(),
 		                   [](auto e) { return Index::NULL_POS == e; });
 	}
 
@@ -2962,8 +2961,8 @@ class Tree
 	 */
 	[[nodiscard]] bool noneLeaf(pos_t block) const
 	{
-		assert(blocks_.size() > block);
-		return std::none_of(blocks_[block].children.begin(), blocks_[block].children.end(),
+		assert(block_.size() > block);
+		return std::none_of(block_[block].children.begin(), block_[block].children.end(),
 		                    [](auto e) { return Index::NULL_POS == e; });
 	}
 
@@ -3027,13 +3026,13 @@ class Tree
 	[[nodiscard]] Block& treeBlock(pos_t block)
 	{
 		assert(valid(block));
-		return blocks_[block];
+		return block_[block];
 	}
 
 	[[nodiscard]] Block const& treeBlock(pos_t block) const
 	{
 		assert(valid(block));
-		return blocks_[block];
+		return block_[block];
 	}
 
 	[[nodiscard]] Block& treeBlock(Index node) { return treeBlock(node.pos); }
@@ -3108,17 +3107,17 @@ class Tree
 
 	pos_t createBlock(Index parent)
 	{
-		pos_t block                                 = static_cast<pos_t>(blocks_.size());
-		blocks_[parent.pos].children[parent.offset] = block;
-		blocks_.emplace_back(blocks_[parent.pos], parent.offset, halfLength(parent));
+		pos_t block                                = static_cast<pos_t>(block_.size());
+		block_[parent.pos].children[parent.offset] = block;
+		block_.emplace_back(block_[parent.pos], parent.offset, halfLength(parent));
 		derived().derivedCreateBlock(parent);
 		return block;
 	}
 
 	void fillBlock(Index parent, pos_t block)
 	{
-		blocks_[parent.pos].children[parent.offset] = block;
-		blocks_[block].fill(blocks_[parent.pos], parent.offset, halfLength(parent));
+		block_[parent.pos].children[parent.offset] = block;
+		block_[block].fill(block_[parent.pos], parent.offset, halfLength(parent));
 		derived().derivedFillBlock(parent, block);
 	}
 
@@ -3126,7 +3125,7 @@ class Tree
 	{
 		derived().derivedPruneBlock(parent, block);
 		// Important that derived is pruned first in case they use parent code
-		blocks_[block] = Block();
+		block_[block] = Block();
 	}
 
 	//
@@ -3178,7 +3177,7 @@ class Tree
 		}
 
 		pruneBlock(parent, block);
-		free_blocks_.push_back(block);
+		free_block_.push_back(block);
 	}
 
 	void eraseBlockThreadSafe(Index parent, pos_t block)
@@ -3620,9 +3619,9 @@ class Tree
 	key_t half_max_value_;
 
 	// Blocks
-	TreeContainer<Block> blocks_;
+	TreeContainer<Block> block_;
 	// Free blocks
-	std::deque<pos_t> free_blocks_;
+	std::deque<pos_t> free_block_;
 
 	// Stores the node half length at a given depth, where the index is the depth
 	std::array<length_t, maxNumDepthLevels() + 1> node_half_length_;
