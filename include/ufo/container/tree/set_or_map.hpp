@@ -992,13 +992,13 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	void derivedClear() {}
+	void onClear() {}
 
-	void derivedCreateBlock(Index parent) {}
+	void onCreateChildren(Index /* node */) {}
 
-	void derivedFillBlock(Index parent, pos_t block) {}
+	void onFillChildren(Index /* node */, pos_t /* children */) {}
 
-	void derivedPruneBlock(Index parent, pos_t block) {}
+	void onPruneChildren(Index /* node */, pos_t /* children */) {}
 
 	/**************************************************************************************
 	|                                                                                     |

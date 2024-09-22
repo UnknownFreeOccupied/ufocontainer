@@ -188,7 +188,7 @@ class Tree
 		free_block_.clear();
 		// Create root
 		block_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
-		derived().derivedClear();
+		derived().onClear();
 	}
 
 	//
@@ -1243,19 +1243,19 @@ class Tree
 	{
 		assert(!isPureLeaf(node));
 		if (isParent(node)) {
-			return children(node);
+			return this->children(node);
 		}
 
-		pos_t block;
+		pos_t children;
 		if (free_block_.empty()) {
-			block = createBlock(node);
+			children = createBlock(node);
 		} else {
-			block = free_block_.front();
+			children = free_block_.front();
 			free_block_.pop_front();
-			fillBlock(node, block);
+			fillChildren(node, children);
 		}
 
-		return block;
+		return children;
 	}
 
 	Index createChild(Index node, offset_t child_index)
@@ -3105,27 +3105,27 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	pos_t createBlock(Index parent)
+	pos_t createBlock(Index node)
 	{
-		pos_t block                                = static_cast<pos_t>(block_.size());
-		block_[parent.pos].children[parent.offset] = block;
-		block_.emplace_back(block_[parent.pos], parent.offset, halfLength(parent));
-		derived().derivedCreateBlock(parent);
-		return block;
+		pos_t children                         = static_cast<pos_t>(block_.size());
+		block_[node.pos].children[node.offset] = children;
+		block_.emplace_back(block_[node.pos], node.offset, halfLength(node));
+		derived().onCreateChildren(node);
+		return children;
 	}
 
-	void fillBlock(Index parent, pos_t block)
+	void fillChildren(Index node, pos_t children)
 	{
-		block_[parent.pos].children[parent.offset] = block;
-		block_[block].fill(block_[parent.pos], parent.offset, halfLength(parent));
-		derived().derivedFillBlock(parent, block);
+		block_[node.pos].children[node.offset] = children;
+		block_[children].fill(block_[node.pos], node.offset, halfLength(node));
+		derived().onFillChildren(node, children);
 	}
 
-	void pruneBlock(Index parent, pos_t block)
+	void pruneChildren(Index node, pos_t children)
 	{
-		derived().derivedPruneBlock(parent, block);
+		derived().onPruneChildren(node, children);
 		// Important that derived is pruned first in case they use parent code
-		block_[block] = Block();
+		block_[children] = Block();
 	}
 
 	//
@@ -3165,22 +3165,22 @@ class Tree
 	// Erase
 	//
 
-	void eraseBlock(Index parent, pos_t block)
+	void eraseChildren(Index node, pos_t children)
 	{
-		if (!valid(block)) {
+		if (!valid(children)) {
 			return;
 		}
 
-		auto child_blocks = children(block);
+		auto child_blocks = this->children(children);
 		for (offset_t i{}; child_blocks.size() > i; ++i) {
 			eraseBlock(Index(block, i), child_blocks[i]);
 		}
 
-		pruneBlock(parent, block);
-		free_block_.push_back(block);
+		pruneChildren(node, children);
+		free_block_.push_back(children);
 	}
 
-	void eraseBlockThreadSafe(Index parent, pos_t block)
+	void eraseChildrenThreadSafe(Index node, pos_t children)
 	{
 		// TODO: Implement
 	}
