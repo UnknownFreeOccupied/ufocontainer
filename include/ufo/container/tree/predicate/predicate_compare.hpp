@@ -106,73 +106,73 @@ template <PredicateCompare PC>
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
 Pred<PredicateCompare::EQUAL> operator==(Pred<PC> const&, T const& t)
 {
-	return {t};
+	return Pred<PredicateCompare::EQUAL>(t);
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
 Pred<PredicateCompare::NOT_EQUAL> operator!=(Pred<PC> const&, T const& t)
 {
-	return {t};
+	return Pred<PredicateCompare::NOT_EQUAL>(t);
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
 Pred<PredicateCompare::LESS_EQUAL> operator<=(Pred<PC> const&, T const& t)
 {
-	return {t};
+	return Pred<PredicateCompare::LESS_EQUAL>(t);
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
 Pred<PredicateCompare::GREATER_EQUAL> operator>=(Pred<PC> const&, T const& t)
 {
-	return {t};
+	return Pred<PredicateCompare::GREATER_EQUAL>(t);
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
 Pred<PredicateCompare::LESS> operator<(Pred<PC> const&, T const& t)
 {
-	return {t};
+	return Pred<PredicateCompare::LESS>(t);
 }
 
 template <template <PredicateCompare> class Pred, PredicateCompare PC, class T>
 Pred<PredicateCompare::GREATER> operator>(Pred<PC> const&, T const& t)
 {
-	return {t};
+	return Pred<PredicateCompare::GREATER>(t);
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
 Pred<PredicateCompare::EQUAL> operator==(T const& t, Pred<PC> const&)
 {
-	return {t};
+	return Pred<PredicateCompare::EQUAL>(t);
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
 Pred<PredicateCompare::NOT_EQUAL> operator!=(T const& t, Pred<PC> const&)
 {
-	return {t};
+	return Pred<PredicateCompare::NOT_EQUAL>(t);
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
 Pred<PredicateCompare::GREATER_EQUAL> operator<=(T const& t, Pred<PC> const&)
 {
-	return {t};
+	return Pred<PredicateCompare::GREATER_EQUAL>(t);
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
 Pred<PredicateCompare::LESS_EQUAL> operator>=(T const& t, Pred<PC> const&)
 {
-	return {t};
+	return Pred<PredicateCompare::LESS_EQUAL>(t);
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
 Pred<PredicateCompare::GREATER> operator<(T const& t, Pred<PC> const&)
 {
-	return {t};
+	return Pred<PredicateCompare::GREATER>(t);
 }
 
 template <class T, template <PredicateCompare> class Pred, PredicateCompare PC>
 Pred<PredicateCompare::LESS> operator>(T const& t, Pred<PC> const&)
 {
-	return {t};
+	return Pred<PredicateCompare::LESS>(t);
 }
 }  // namespace ufo::pred
 

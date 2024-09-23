@@ -59,25 +59,31 @@ constexpr Modified<!Negated> operator!(Modified<Negated>)
 	return {};
 }
 
-template <bool Negated, class Tree>
-[[nodiscard]] constexpr bool valueCheck(Modified<Negated>, Tree const& t, TreeIndex n)
-{
-	if constexpr (Negated) {
-		return !t.isModified(n);
-	} else {
-		return t.isModified(n);
+template <bool Negated>
+struct ValueCheck<Modified<Negated>> {
+	template <class Tree>
+	[[nodiscard]] static constexpr bool apply(Modified<Negated>, Tree const& t, TreeIndex n)
+	{
+		if constexpr (Negated) {
+			return !t.isModified(n);
+		} else {
+			return t.isModified(n);
+		}
 	}
-}
+};
 
-template <bool Negated, class Tree, class Node>
-[[nodiscard]] constexpr bool innerCheck(Modified<Negated>, Tree const& t, TreeIndex n)
-{
-	if constexpr (Negated) {
-		return true;
-	} else {
-		return t.isModified(n);
+template <bool Negated>
+struct InnerCheck<Modified<Negated>> {
+	template <class Tree>
+	[[nodiscard]] static constexpr bool apply(Modified<Negated>, Tree const& t, TreeIndex n)
+	{
+		if constexpr (Negated) {
+			return true;
+		} else {
+			return t.isModified(n);
+		}
 	}
-}
+};
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP
