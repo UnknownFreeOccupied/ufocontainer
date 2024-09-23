@@ -48,9 +48,12 @@
 #include <ufo/morton/morton.hpp>
 
 // STL
+#include <bitset>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <limits>
+#include <string>
 
 namespace ufo
 {
@@ -162,6 +165,11 @@ class TreeCode
 	[[nodiscard]] static constexpr std::size_t branchingFactor() noexcept
 	{
 		return ipow(std::size_t(2), Dim);
+	}
+
+	[[nodiscard]] std::string toString() const
+	{
+		return std::bitset<std::numeric_limits<code_t>::digits>(code_).to_string();
 	}
 
 	[[nodiscard]] constexpr code_t code() const noexcept { return code_; }
