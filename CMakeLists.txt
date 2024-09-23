@@ -22,6 +22,10 @@ set_target_properties(ufocontainer PROPERTIES
 
 target_link_libraries(ufocontainer INTERFACE UFO::Geometry UFO::Morton UFO::Utility)
 
+target_compile_options(ufocontainer INTERFACE
+	-fPIC
+)
+
 target_include_directories(ufocontainer INTERFACE
 	$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>
