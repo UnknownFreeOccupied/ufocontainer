@@ -57,6 +57,11 @@ namespace ufo
  */
 template <class Code>
 struct TreeNode {
+	// Friends
+
+	template <class Derived, class Block>
+	friend class Tree;
+
  public:
 	//
 	// Constructor
