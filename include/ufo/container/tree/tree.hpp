@@ -47,6 +47,7 @@
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/container.hpp>
 #include <ufo/container/tree/coord.hpp>
+// #include <ufo/container/tree/file_header.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/iterator.hpp>
 #include <ufo/container/tree/key.hpp>
@@ -71,6 +72,9 @@
 #include <cmath>
 #include <cstddef>
 #include <deque>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <iterator>
 #include <mutex>
 #include <optional>
@@ -1248,6 +1252,7 @@ class Tree
 
 		pos_t children;
 		if (free_block_.empty()) {
+			// FIXME: Maybe move the content of `createBlock` here?
 			children = createBlock(node);
 		} else {
 			children = free_block_.front();
@@ -1274,8 +1279,34 @@ class Tree
 	void eraseChildren(Index node)
 	{
 		assert(valid(node));
-		eraseBlock(node, children(node));
+		eraseChildren(node, children(node));
 	}
+
+	void eraseChildren(Node node)
+	{
+		Index n = index(node);
+		if (code(n) != code(node)) {
+			// The node does not even exist
+			return;
+		}
+
+		eraseChildren(n);
+	}
+
+	void eraseChildren(Code node)
+	{
+		Index n = index(node);
+		if (code(n) != node) {
+			// The node does not even exist
+			return;
+		}
+
+		eraseChildren(n);
+	}
+
+	void eraseChildren(Key node) { eraseChildren(code(node)); }
+
+	void eraseChildren(Coord node) { eraseChildren(code(node)); }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -2494,6 +2525,59 @@ class Tree
 		                    early_stopping);
 	}
 
+	/**************************************************************************************
+	|                                                                                     |
+	|                                         I/O                                         |
+	|                                                                                     |
+	**************************************************************************************/
+
+	// [[nodiscard]] static bool canRead(std::filesystem::path const& file)
+	// {
+	// 	std::ifstream f;
+	// 	openFileIn(file, f);
+	// 	return canRead(f);
+	// }
+
+	// [[nodiscard]] static bool canRead(std::istream& in)
+	// {
+	// 	auto g = in.tellg();
+
+	// 	// TODO: Implement
+	// 	// std::string line;
+	// 	// std::getline(in, line);
+
+	// 	in.seekg(g);
+
+	// 	return true;
+	// }
+
+	// [[nodiscard]] static bool canRead(ReadBuffer& in)
+	// {
+	// 	// TODO: Implement
+
+	// 	return true;
+	// }
+
+	// void read(std::filesystem::path const& file)
+	// {
+	// 	std::ifstream f;
+	// 	openFileIn(file, f);
+	// 	read(f);
+	// }
+
+	// void read(std::istream& in) { readData(in, readHeader(in)); }
+
+	// void read(ReadBuffer& in) { readData(in, readHeader(in)); }
+
+	// [[nodiscard]] TreeFileHeader readHeader(std::filesystem::path const& file) const
+	// {
+	// 	return {file};
+	// }
+
+	// [[nodiscard]] TreeFileHeader readHeader(std::istream& in) const { return {in}; }
+
+	// [[nodiscard]] TreeFileHeader readHeader(ReadBuffer& in) const { return {in}; }
+
  protected:
 	/**************************************************************************************
 	|                                                                                     |
@@ -3123,6 +3207,7 @@ class Tree
 
 	void pruneChildren(Index node, pos_t children)
 	{
+		block_[node.pos].children[node.offset] = Index::NULL_POS;
 		derived().onPruneChildren(node, children);
 		// Important that derived is pruned first in case they use parent code
 		block_[children] = Block();
@@ -3173,7 +3258,7 @@ class Tree
 
 		auto child_blocks = this->children(children);
 		for (offset_t i{}; child_blocks.size() > i; ++i) {
-			eraseBlock(Index(block, i), child_blocks[i]);
+			eraseChildren(Index(children, i), child_blocks[i]);
 		}
 
 		pruneChildren(node, children);
@@ -3607,6 +3692,26 @@ class Tree
 		}
 
 		return {c_dist, c_node};
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                         I/O                                         |
+	|                                                                                     |
+	**************************************************************************************/
+
+	static void openFileIn(std::filesystem::path const& file, std::ifstream& ifs)
+	{
+		ifs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		ifs.imbue(std::locale());
+		ifs.open(file, std::ios::in | std::ios::binary);
+	}
+
+	static void openFileOut(std::filesystem::path const& file, std::ofstream& ofs)
+	{
+		ofs.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		ofs.imbue(std::locale());
+		ofs.open(file, std::ios::out | std::ios::binary);
 	}
 
  protected:
