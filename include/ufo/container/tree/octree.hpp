@@ -43,8 +43,16 @@
 #define UFO_CONTAINER_OCTREE_HPP
 
 // UFO
+#include <ufo/container/tree/predicate/spatial.hpp>
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
+#include <ufo/geometry/shape/ray.hpp>
+#include <ufo/utility/type_traits.hpp>
+
+// STL
+#include <iterator>
+#include <type_traits>
+#include <utility>
 
 namespace ufo
 {
@@ -80,417 +88,344 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	using Coord       = typename Base::Coord;
 	using Bounds      = typename Base::Bounds;
 
-	// 	/**************************************************************************************
-	// 	| | 	|                                        Trace | 	| |
-	// 	**************************************************************************************/
+	/**************************************************************************************
+	|                                                                                     |
+	|                                        Trace                                        |
+	|                                                                                     |
+	**************************************************************************************/
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Node trace(Ray ray, Predicate const& predicate, bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::node(), ray, predicate, only_exists);
-	// 	}
+	template <class Pred,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	Node trace(Ray3 ray, Pred const& pred, bool only_exists = true) const
+	{
+		return trace(Base::node(), ray, pred, only_exists);
+	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto trace(Ray ray, Predicate const& predicate, BinaryFun binary_f, bool
-	// only_exists = true) const
-	// 	{
-	// 		return trace(Base::node(), ray, predicate, binary_f, only_exists);
-	// 	}
+	template <class Pred, class HitFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	auto trace(Ray3 ray, Pred const& pred, HitFun hit_f, bool only_exists = true) const
+	{
+		return trace(Base::node(), ray, pred, hit_f, only_exists);
+	}
 
-	// 	template <class InputIt, class OutputIt, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Predicate const&
-	// predicate, bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::node(), first, last, d_first, predicate, only_exists);
-	// 	}
+	template <class InputIt, class OutputIt, class Pred,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Pred const& pred,
+	               bool only_exists = true) const
+	{
+		return trace(Base::node(), first, last, d_first, pred, only_exists);
+	}
 
-	// 	template <class InputIt, class OutputIt, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Predicate const&
-	// predicate, BinaryFun binary_f, 	               bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::node(), first, last, d_first, predicate, binary_f,
-	// only_exists);
-	// 	}
+	template <class InputIt, class OutputIt, class Pred, class HitFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Pred const& pred,
+	               HitFun hit_f, bool only_exists = true) const
+	{
+		return trace(Base::node(), first, last, d_first, pred, hit_f, only_exists);
+	}
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Node trace(Node node, Ray ray, Predicate const& predicate, 	           bool
-	// only_exists = true) const
-	// 	{
-	// 		return trace(node, ray, predicate, [](Node, Ray) -> void {}, only_exists);
-	// 	}
+	template <class InputIt, class Pred,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	auto trace(InputIt first, InputIt last, Pred const& pred, bool only_exists = true) const
+	{
+		return trace(Base::node(), first, last, pred, only_exists);
+	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto trace(Node node, Ray ray, Predicate const& predicate, BinaryFun binary_f,
-	// 	           bool only_exists = true) const
-	// 	{
-	// 		pred::Init<Predicate>::apply(predicate, *this);
+	template <class InputIt, class Pred, class HitFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	auto trace(InputIt first, InputIt last, Pred const& pred, HitFun hit_f,
+	           bool only_exists = true) const
+	{
+		return trace(Base::node(), first, last, pred, hit_f, only_exists);
+	}
 
-	// 		auto [t0, t1, a] = traceInit(node, ray);
+	template <class NodeType, class Pred,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	Node trace(NodeType node, Ray3 ray, Pred const& pred, bool only_exists = true) const
+	{
+		return trace(node, ray, pred, [](Node, Ray3) -> void {}, only_exists);
+	}
 
-	// 		if constexpr (pred::contains_spatial_predicate_v<std::decay_t<Predicate>>) {
-	// 			if (only_exists) {
-	// 				return trace<true>(Base::toNodeBV(node), t0, t1, a, ray, predicate, binary_f);
-	// 			} else {
-	// 				return trace<false>(Base::toNodeBV(node), t0, t1, a, ray, predicate,
-	// binary_f);
-	// 			}
-	// 		} else {
-	// 			if (only_exists) {
-	// 				return trace<true>(node, t0, t1, a, ray, predicate, binary_f);
-	// 			} else {
-	// 				return trace<false>(node, t0, t1, a, ray, predicate, binary_f);
-	// 			}
-	// 		}
-	// 	}
+	template <class NodeType, class Pred, class HitFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	auto trace(NodeType node, Ray3 ray, Pred const& pred, HitFun hit_f,
+	           bool only_exists = true) const
+	{
+		pred::Init<Pred>::apply(pred, *this);
 
-	// 	template <class InputIt, class OutputIt, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	OutputIt trace(Node node, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, bool only_exists = true) const
-	// 	{
-	// 		return trace(
-	// 		    node, first, last, d_first, predicate, [](Node, Ray) -> void {}, only_exists);
-	// 	}
+		// Ensure that the index-part points to the node of the code-part or the closest
+		// ancestor. This is so the predicates can just use the index of the node.
+		Node n = Base::node(node);
 
-	// 	template <class InputIt, class OutputIt, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	OutputIt trace(Node node, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, BinaryFun binary_f,
-	// 	               bool only_exists = true) const
-	// 	{
-	// 		pred::Init<Predicate>::apply(predicate, *this);
+		auto [t0, t1, a] = traceInit(n, ray);
 
-	// 		for (; first != last; ++first) {
-	// 			Ray ray = *first;
+		if (only_exists) {
+			return trace<true>(n, t0, t1, a, ray, pred, hit_f);
+		} else {
+			return trace<false>(n, t0, t1, a, ray, pred, hit_f);
+		}
+	}
 
-	// 			auto [t0, t1, a] = traceInit(node, ray);
+	template <class NodeType, class InputIt, class OutputIt, class Pred,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
+	               Pred const& pred, bool only_exists = true) const
+	{
+		return trace(
+		    node, first, last, d_first, pred, [](Node, Ray3) -> void {}, only_exists);
+	}
 
-	// 			if constexpr (pred::contains_spatial_predicate_v<std::decay_t<Predicate>>) {
-	// 				if (only_exists) {
-	// 					*d_first++ =
-	// 					    trace<true>(Base::toNodeBV(node), t0, t1, a, ray, predicate, binary_f);
-	// 				} else {
-	// 					*d_first++ =
-	// 					    trace<false>(Base::toNodeBV(node), t0, t1, a, ray, predicate, binary_f);
-	// 				}
-	// 			} else {
-	// 				if (only_exists) {
-	// 					*d_first++ = trace<true>(node, t0, t1, a, ray, predicate, binary_f);
-	// 				} else {
-	// 					*d_first++ = trace<false>(node, t0, t1, a, ray, predicate, binary_f);
-	// 				}
-	// 			}
-	// 		}
-	// 		return d_first;
-	// 	}
+	template <class NodeType, class InputIt, class OutputIt, class Pred, class HitFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
+	               Pred const& pred, HitFun hit_f, bool only_exists = true) const
+	{
+		pred::Init<Pred>::apply(pred, *this);
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Node trace(Code code, Ray ray, Predicate const& predicate, 	           bool
-	// only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(code), ray, predicate, only_exists);
-	// 	}
+		// Ensure that the index-part points to the node of the code-part or the closest
+		// ancestor. This is so the predicates can just use the index of the node.
+		Node n = Base::node(node);
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto trace(Code code, Ray ray, Predicate const& predicate, BinaryFun binary_f,
-	// 	           bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(code), ray, predicate, binary_f, only_exists);
-	// 	}
+		auto fun_only_exists = [this, n, &pred, hit_f](Ray3 const& ray) {
+			auto [t0, t1, a] = traceInit(n, ray);
+			return trace<true>(n, t0, t1, a, ray, pred, hit_f);
+		};
 
-	// 	template <class InputIt, class OutputIt, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	OutputIt trace(Code code, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(code), first, last, d_first, predicate,
-	// only_exists);
-	// 	}
+		auto fun_maybe_do_not_exists = [this, n, &pred, hit_f](Ray3 const& ray) {
+			auto [t0, t1, a] = traceInit(n, ray);
+			return trace<false>(n, t0, t1, a, ray, pred, hit_f);
+		};
 
-	// 	template <class InputIt, class OutputIt, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	OutputIt trace(Code code, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, BinaryFun binary_f,
-	// 	               bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(code), first, last, d_first, predicate, binary_f,
-	// 		             only_exists);
-	// 	}
+		if (only_exists) {
+			return std::transform(first, last, d_first, fun_only_exists);
+		} else {
+			return std::transform(first, last, d_first, fun_maybe_do_not_exists);
+		}
+	}
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Node trace(Key key, Ray ray, Predicate const& predicate, bool only_exists =
-	// true) const
-	// 	{
-	// 		return trace(Base::operator()(key), ray, predicate, only_exists);
-	// 	}
+	template <class NodeType, class InputIt, class Pred,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	auto trace(NodeType node, InputIt first, InputIt last, Pred const& pred,
+	           bool only_exists = true) const
+	{
+		return trace(node, first, last, pred, [](Node, Ray3) -> void {}, only_exists);
+	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto trace(Key key, Ray ray, Predicate const& predicate, BinaryFun binary_f,
-	// 	           bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(key), ray, predicate, binary_f, only_exists);
-	// 	}
+	template <class NodeType, class InputIt, class Pred, class HitFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	auto trace(NodeType node, InputIt first, InputIt last, Pred const& pred, HitFun hit_f,
+	           bool only_exists = true) const
+	{
+		using ret_type = std::conditional_t<
+		    is_pair_v<std::invoke_result_t<HitFun, Node, Ray3>>,
+		    std::pair<Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>,
+		    Node>;
 
-	// 	template <class InputIt, class OutputIt, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	OutputIt trace(Key key, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(key), first, last, d_first, predicate, only_exists);
-	// 	}
+		std::vector<ret_type> nodes;
+		nodes.reserve(std::distance(first, last));
+		trace(node, first, last, std::back_inserter(nodes), pred, hit_f, only_exists);
+		return nodes;
+	}
 
-	// 	template <class InputIt, class OutputIt, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	OutputIt trace(Key key, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, BinaryFun binary_f,
-	// 	               bool only_exists = true) const
-	// 	{
-	// 		return trace(Base::operator()(key), first, last, d_first, predicate, binary_f,
-	// 		             only_exists);
-	// 	}
+	//
+	//
+	//
+	//
+	// Parallel starts
+	//
+	//
+	//
+	//
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Node trace(Coord coord, Ray ray, Predicate const& predicate, bool only_exists
-	// = true, 	           depth_t depth = 0) const
-	// 	{
-	// 		return trace(Base::operator()(coord, depth), ray, predicate, only_exists);
-	// 	}
+	template <
+	    class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class Pred,
+	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	ForwardIt2 trace(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1 last,
+	                 ForwardIt2 d_first, Pred const& pred, bool only_exists = true) const
+	{
+		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last,
+		             d_first, pred, only_exists);
+	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto trace(Coord coord, Ray ray, Predicate const& predicate, BinaryFun
-	// binary_f, 	           bool only_exists = true, depth_t depth = 0) const
-	// 	{
-	// 		return trace(Base::operator()(coord, depth), ray, predicate, binary_f,
-	// only_exists);
-	// 	}
+	template <
+	    class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class Pred, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 = true,
+	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	ForwardIt2 trace(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1 last,
+	                 ForwardIt2 d_first, Pred const& pred, HitFun hit_f,
+	                 bool only_exists = true) const
+	{
+		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last,
+		             d_first, pred, hit_f, only_exists);
+	}
 
-	// 	template <class InputIt, class OutputIt, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	OutputIt trace(Coord coord, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, bool only_exists = true,
-	// 	               depth_t depth = 0) const
-	// 	{
-	// 		return trace(Base::operator()(coord, depth), first, last, d_first, predicate,
-	// 		             only_exists);
-	// 	}
+	template <
+	    class ExecutionPolicy, class ForwardIt1, class Pred,
+	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	auto trace(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1 last,
+	           Pred const& pred, bool only_exists = true) const
+	{
+		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last, pred,
+		             only_exists);
+	}
 
-	// 	template <class InputIt, class OutputIt, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	OutputIt trace(Coord coord, InputIt first, InputIt last, OutputIt d_first,
-	// 	               Predicate const& predicate, BinaryFun binary_f, bool only_exists =
-	// true, 	               depth_t depth = 0) const
-	// 	{
-	// 		return trace(Base::operator()(coord, depth), first, last, d_first, predicate,
-	// 		             binary_f, only_exists);
-	// 	}
+	template <
+	    class ExecutionPolicy, class ForwardIt1, class Pred, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 = true,
+	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	auto trace(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1 last,
+	           Pred const& pred, HitFun hit_f, bool only_exists = true) const
+	{
+		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last, pred,
+		             hit_f, only_exists);
+	}
 
-	// #ifdef UFO_TBB
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree,
-	// Node>, bool> = true,
-	// std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1 last,
-	// 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// 	                 bool only_exists = true) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last,
-	// 		             d_first, predicate, only_exists);
-	// 	}
+	template <
+	    class ExecutionPolicy, class NodeType, class ForwardIt1, class ForwardIt2,
+	    class Pred, std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool> = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	ForwardIt2 trace(ExecutionPolicy&& policy, NodeType node, ForwardIt1 first,
+	                 ForwardIt1 last, ForwardIt2 d_first, Pred const& pred,
+	                 bool only_exists = true) const
+	{
+		return trace(
+		    std::forward<ExecutionPolicy>(policy), node, first, last, d_first, pred,
+		    [](Node, Ray3) -> void {}, only_exists);
+	}
 
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          class BinaryFun,
-	// std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> = true,
-	// std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool>     = true,
-	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
+	template <
+	    class ExecutionPolicy, class NodeType, class ForwardIt1, class ForwardIt2,
+	    class Pred, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 = true,
+	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	ForwardIt2 trace(ExecutionPolicy&& policy, NodeType node, ForwardIt1 first,
+	                 ForwardIt1 last, ForwardIt2 d_first, Pred const& pred, HitFun hit_f,
+	                 bool only_exists = true) const
+	{
+		if constexpr (std::is_same_v<execution::sequenced_policy,
+		                             std::decay_t<ExecutionPolicy>>) {
+			return trace(node, first, last, d_first, pred, hit_f, only_exists);
+		}
+
+#if !defined(UFO_TBB) && !defined(UFO_OMP)
+		return trace(node, first, last, d_first, pred, hit_f, only_exists);
+#endif
+
+		pred::Init<Pred>::apply(pred, *this);
+
+		// Ensure that the index-part points to the node of the code-part or the closest
+		// ancestor. This is so the predicates can just use the index of the node.
+		Node n = Base::node(node);
+
+		auto fun_only_exists = [this, n, &pred, hit_f](Ray3 const& ray) {
+			auto [t0, t1, a] = traceInit(n, ray);
+			return trace<true>(n, t0, t1, a, ray, pred, hit_f);
+		};
+
+		auto fun_maybe_do_not_exists = [this, n, &pred, hit_f](Ray3 const& ray) {
+			auto [t0, t1, a] = traceInit(n, ray);
+			return trace<false>(n, t0, t1, a, ray, pred, hit_f);
+		};
+
+#if defined(UFO_TBB)
+		if (only_exists) {
+			return std::transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
+			                      fun_only_exists);
+		} else {
+			return std::transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
+			                      fun_maybe_do_not_exists);
+		}
+#elif defined(UFO_OMP)
+		if (only_exists) {
+#pragma omp parallel for
+			for (; first != last; ++d_first, ++first) {
+				*d_first = fun_only_exists(*first);
+			}
+		} else {
+#pragma omp parallel for
+			for (; first != last; ++d_first, ++first) {
+				*d_first = fun_maybe_do_not_exists(*first);
+			}
+		}
+
+		return d_first;
+#else
+		return trace(node, first, last, d_first, pred, hit_f, only_exists);
+#endif
+	}
+
+	template <
+	    class ExecutionPolicy, class NodeType, class ForwardIt1, class Pred,
+	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	auto trace(ExecutionPolicy&& policy, NodeType node, ForwardIt1 first, ForwardIt1 last,
+	           Pred const& pred, bool only_exists = true) const
+	{
+		return trace(
+		    std::forward<ExecutionPolicy>(policy), node, first, last, pred,
+		    [](Node, Ray3) -> void {}, only_exists);
+	}
+
+	template <
+	    class ExecutionPolicy, class NodeType, class ForwardIt1, class Pred, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 = true,
+	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	auto trace(ExecutionPolicy&& policy, NodeType node, ForwardIt1 first, ForwardIt1 last,
+	           Pred const& pred, HitFun hit_f, bool only_exists = true) const
+	{
+		using ret_type = std::conditional_t<
+		    is_pair_v<std::invoke_result_t<HitFun, Node, Ray3>>,
+		    std::pair<Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>,
+		    Node>;
+		std::vector<ret_type> nodes(std::distance(first, last));
+		trace(std::forward<ExecutionPolicy>(policy), node, first, last, nodes.begin(), pred,
+		      hit_f, only_exists);
+		return nodes;
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                     Trace index                                     |
+	|                                                                                     |
+	**************************************************************************************/
+
+	// template <class InnerHitFun, class RetHitFun,
+	//           std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray3>,
+	//                            bool>                                              = true,
+	//           std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray3>, bool> = true>
+	// auto traceIndex(Ray3 ray, InnerHitFun inner_f, RetHitFun ret_f) const
+	// {
+	// 	return traceIndex(Base::node(), ray, inner_f, ret_f);
+	// }
+
+	// 	template <class InputIt, class OutputIt, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1 last,
-	// 	                 ForwardIt2 d_first, Predicate const& predicate, BinaryFun binary_f,
-	// 	                 bool only_exists = true) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last,
-	// 		             d_first, predicate, binary_f, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree,
-	// Node>, bool> = true,
-	// std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Node node, ForwardIt1 first,
-	// ForwardIt1 last, 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// bool only_exists = true) const
-	// 	{
-	// 		return trace(
-	// 		    std::forward<ExecutionPolicy>(policy), node, first, last, d_first, predicate,
-	// 		    [](Node, Ray) -> void {}, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          class BinaryFun,
-	// std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> = true,
-	// std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool>     = true,
-	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
-	// 	                           bool>                                                =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Node node, ForwardIt1 first,
-	// ForwardIt1 last, 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// BinaryFun binary_f, 	                 bool only_exists = true) const
-	// 	{
-	// 		pred::Init<Predicate>::apply(predicate, *this);
-
-	// 		return std::transform(
-	// 		    std::forward<ExecutionPolicy>(policy), first, last, d_first,
-	// 		    [this, node, &predicate, binary_f, only_exists](auto ray) {
-	// 			    auto [t0, t1, a] = traceInit(node, ray);
-
-	// 			    if constexpr (pred::contains_spatial_predicate_v<std::decay_t<Predicate>>) {
-	// 				    if (only_exists) {
-	// 					    return trace<true>(Base::toNodeBV(node), t0, t1, a, ray, predicate,
-	// 					                       binary_f);
-	// 				    } else {
-	// 					    return trace<false>(Base::toNodeBV(node), t0, t1, a, ray, predicate,
-	// 					                        binary_f);
-	// 				    }
-	// 			    } else {
-	// 				    if (only_exists) {
-	// 					    return trace<true>(node, t0, t1, a, ray, predicate, binary_f);
-	// 				    } else {
-	// 					    return trace<false>(node, t0, t1, a, ray, predicate, binary_f);
-	// 				    }
-	// 			    }
-	// 		    });
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree,
-	// Node>, bool> = true,
-	// std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Code code, ForwardIt1 first,
-	// ForwardIt1 last, 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// bool only_exists = true) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::operator()(code), first,
-	// 		             last, d_first, predicate, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          class BinaryFun,
-	// std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> = true,
-	// std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool>     = true,
-	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
-	// 	                           bool>                                                =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Code code, ForwardIt1 first,
-	// ForwardIt1 last, 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// BinaryFun binary_f, 	                 bool only_exists = true) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::operator()(code), first,
-	// 		             last, d_first, predicate, binary_f, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree,
-	// Node>, bool> = true,
-	// std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Key key, ForwardIt1 first,
-	// ForwardIt1 last, 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// bool only_exists = true) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::operator()(key), first,
-	// 		             last, d_first, predicate, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          class BinaryFun,
-	// std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> = true,
-	// std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool>     = true,
-	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
-	// 	                           bool>                                                =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Key key, ForwardIt1 first,
-	// ForwardIt1 last, 	                 ForwardIt2 d_first, Predicate const& predicate,
-	// BinaryFun binary_f, 	                 bool only_exists = true) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::operator()(key), first,
-	// 		             last, d_first, predicate, binary_f, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree,
-	// Node>, bool> = true,
-	// std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Coord coord, ForwardIt1 first,
-	// 	                 ForwardIt1 last, ForwardIt2 d_first, Predicate const& predicate,
-	// 	                 bool only_exists = true, depth_t depth = 0) const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::operator()(coord,
-	// depth), 		             first, last, d_first, predicate, only_exists);
-	// 	}
-
-	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2, class
-	// Predicate, 	          class BinaryFun,
-	// std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> = true,
-	// std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool>     = true,
-	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
-	// 	                           bool>                                                =
-	// true> 	ForwardIt2 trace(ExecutionPolicy&& policy, Coord coord, ForwardIt1 first,
-	// 	                 ForwardIt1 last, ForwardIt2 d_first, Predicate const& predicate,
-	// 	                 BinaryFun binary_f, bool only_exists = true, depth_t depth = 0)
-	// const
-	// 	{
-	// 		return trace(std::forward<ExecutionPolicy>(policy), Base::operator()(coord,
-	// depth), 		             first, last, d_first, predicate, binary_f, only_exists);
-	// 	}
-	// #endif
-
-	// 	/**************************************************************************************
-	// 	| | 	|                                     Trace index | 	| |
-	// 	**************************************************************************************/
-
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
-	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto traceIndex(Ray ray, InnerBinaryFun inner_f, RetBinaryFun ret_f)
-	// const
-	// 	{
-	// 		return traceIndex(Base::node(), ray, inner_f, ret_f);
-	// 	}
-
-	// 	template <class InputIt, class OutputIt, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
-	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true> 	OutputIt traceIndex(InputIt first, InputIt last, OutputIt d_first,
-	// 	                    InnerBinaryFun inner_f, RetBinaryFun ret_f) const
+	// 	                    InnerHitFun inner_f, RetHitFun ret_f) const
 	// 	{
 	// 		return traceIndex(Base::node(), first, last, d_first, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto traceIndex(Node node, Ray ray, InnerBinaryFun inner_f,
-	// RetBinaryFun ret_f) const
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto traceIndex(Node node, Ray3 ray, InnerHitFun inner_f,
+	// RetHitFun ret_f) const
 	// 	{
 	// 		// TODO: Do we need to check node first?
 
@@ -498,114 +433,114 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 		return traceIndex(node.index(), t0, t1, a, ray, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InputIt, class OutputIt, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InputIt, class OutputIt, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true> 	OutputIt traceIndex(Node node, InputIt first, InputIt last, OutputIt
-	// d_first, 	                    InnerBinaryFun inner_f, RetBinaryFun ret_f) const
+	// d_first, 	                    InnerHitFun inner_f, RetHitFun ret_f) const
 	// 	{
 	// 		// TODO: Do we need to check node first?
 
 	// 		for (; first != last; ++first) {
-	// 			Ray ray          = *first;
+	// 			Ray3 ray          = *first;
 	// 			auto [t0, t1, a] = traceInit(node, ray);
 	// 			*d_first++       = traceIndex(node.index(), t0, t1, a, ray, inner_f, ret_f);
 	// 		}
 	// 		return d_first;
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto traceIndex(Code code, Ray ray, InnerBinaryFun inner_f,
-	// RetBinaryFun ret_f) const
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto traceIndex(Code code, Ray3 ray, InnerHitFun inner_f,
+	// RetHitFun ret_f) const
 	// 	{
-	// 		return traceIndex(Base::operator()(code), ray, inner_f, ret_f);
+	// 		return traceIndex(Base::node(code), ray, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InputIt, class OutputIt, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InputIt, class OutputIt, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true> 	OutputIt traceIndex(Code code, InputIt first, InputIt last, OutputIt
-	// d_first, 	                    InnerBinaryFun inner_f, RetBinaryFun ret_f) const
+	// d_first, 	                    InnerHitFun inner_f, RetHitFun ret_f) const
 	// 	{
-	// 		return traceIndex(Base::operator()(code), first, last, d_first, inner_f, ret_f);
+	// 		return traceIndex(Base::node(code), first, last, d_first, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto traceIndex(Key key, Ray ray, InnerBinaryFun inner_f, RetBinaryFun
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto traceIndex(Key key, Ray3 ray, InnerHitFun inner_f, RetHitFun
 	// ret_f) const
 	// 	{
-	// 		return traceIndex(Base::operator()(key), ray, inner_f, ret_f);
+	// 		return traceIndex(Base::node(key), ray, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InputIt, class OutputIt, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InputIt, class OutputIt, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true> 	OutputIt traceIndex(Key key, InputIt first, InputIt last, OutputIt
-	// d_first, 	                    InnerBinaryFun inner_f, RetBinaryFun ret_f) const
+	// d_first, 	                    InnerHitFun inner_f, RetHitFun ret_f) const
 	// 	{
-	// 		return traceIndex(Base::operator()(key), first, last, d_first, inner_f, ret_f);
+	// 		return traceIndex(Base::node(key), first, last, d_first, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto traceIndex(Coord coord, Ray ray, InnerBinaryFun inner_f,
-	// RetBinaryFun ret_f, 	                depth_t depth = 0) const
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto traceIndex(Coord coord, Ray3 ray, InnerHitFun inner_f,
+	// RetHitFun ret_f, 	                depth_t depth = 0) const
 	// 	{
-	// 		return traceIndex(Base::operator()(coord, depth), ray, inner_f, ret_f);
+	// 		return traceIndex(Base::node(coord, depth), ray, inner_f, ret_f);
 	// 	}
 
-	// 	template <class InputIt, class OutputIt, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InputIt, class OutputIt, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true> 	OutputIt traceIndex(Coord coord, InputIt first, InputIt last, OutputIt
-	// d_first, 	                    InnerBinaryFun inner_f, RetBinaryFun ret_f, depth_t
+	// d_first, 	                    InnerHitFun inner_f, RetHitFun ret_f, depth_t
 	// depth = 0) const
 	// 	{
-	// 		return traceIndex(Base::operator()(coord, depth), first, last, d_first, inner_f,
+	// 		return traceIndex(Base::node(coord, depth), first, last, d_first, inner_f,
 	// 		                  ret_f);
 	// 	}
 
 	// #ifdef UFO_TBB
 
 	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-	// 	          class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	          class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
 	// true> 	ForwardIt2 traceIndex(ExecutionPolicy&& policy, ForwardIt1 first, ForwardIt1
-	// last, 	                      ForwardIt2 d_first, InnerBinaryFun inner_f,
-	// RetBinaryFun ret_f) const
+	// last, 	                      ForwardIt2 d_first, InnerHitFun inner_f,
+	// RetHitFun ret_f) const
 	// 	{
 	// 		return traceIndex(std::forward<ExecutionPolicy>(policy), Base::node(), first,
 	// last, 		                  d_first, inner_f, ret_f);
 	// 	}
 
 	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-	// 	          class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	          class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
 	// true> 	ForwardIt2 traceIndex(ExecutionPolicy&& policy, Node node, ForwardIt1 first,
-	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerBinaryFun inner_f,
-	// 	                      RetBinaryFun ret_f) const
+	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerHitFun inner_f,
+	// 	                      RetHitFun ret_f) const
 	// 	{
 	// 		// TODO: Do we need to check node first?
 
@@ -618,51 +553,51 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	}
 
 	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-	// 	          class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	          class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
 	// true> 	ForwardIt2 traceIndex(ExecutionPolicy&& policy, Code code, ForwardIt1 first,
-	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerBinaryFun inner_f,
-	// 	                      RetBinaryFun ret_f) const
+	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerHitFun inner_f,
+	// 	                      RetHitFun ret_f) const
 	// 	{
-	// 		return traceIndex(std::forward<ExecutionPolicy>(policy), Base::operator()(code),
+	// 		return traceIndex(std::forward<ExecutionPolicy>(policy), Base::node(code),
 	// 		                  first, last, d_first, inner_f, ret_f);
 	// 	}
 
 	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-	// 	          class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	          class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
 	// true> 	ForwardIt2 traceIndex(ExecutionPolicy&& policy, Key key, ForwardIt1 first,
-	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerBinaryFun inner_f,
-	// 	                      RetBinaryFun ret_f) const
+	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerHitFun inner_f,
+	// 	                      RetHitFun ret_f) const
 	// 	{
-	// 		return traceIndex(std::forward<ExecutionPolicy>(policy), Base::operator()(key),
+	// 		return traceIndex(std::forward<ExecutionPolicy>(policy), Base::node(key),
 	// first, 		                  last, d_first, inner_f, ret_f);
 	// 	}
 
 	// 	template <class ExecutionPolicy, class ForwardIt1, class ForwardIt2,
-	// 	          class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	          class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
 	// true> 	ForwardIt2 traceIndex(ExecutionPolicy&& policy, Coord coord, ForwardIt1 first,
-	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerBinaryFun inner_f,
-	// 	                      RetBinaryFun ret_f, depth_t depth = 0) const
+	// 	                      ForwardIt1 last, ForwardIt2 d_first, InnerHitFun inner_f,
+	// 	                      RetHitFun ret_f, depth_t depth = 0) const
 	// 	{
 	// 		return traceIndex(std::forward<ExecutionPolicy>(policy),
-	// 		                  Base::operator()(coord, depth), first, last, d_first, inner_f,
+	// 		                  Base::node(coord, depth), first, last, d_first, inner_f,
 	// 		                  ret_f);
 	// 	}
 	// #endif
@@ -671,46 +606,46 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	| | 	|                                        Image | 	| |
 	// 	**************************************************************************************/
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Image<Node> image(Predicate const& predicate, Pose6f const& pose, std::size_t
+	// 	template <class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true> 	Image<Node> image(Pred const& pred, Pose6f const& pose, std::size_t
 	// rows, 	                  std::size_t cols, float vertical_fov, float near_clip, float
 	// far_clip, 	                  Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0}, Vec3f
 	// forward = {1, 0, 0}, bool only_exists = true) const
 	// 	{
-	// 		return image(Base::node(), predicate, pose, rows, cols, vertical_fov, near_clip,
+	// 		return image(Base::node(), pred, pose, rows, cols, vertical_fov, near_clip,
 	// 		             far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto image(Predicate const& predicate, BinaryFun binary_f, Pose6f const& pose,
-	// 	           std::size_t rows, std::size_t cols, float vertical_fov, float near_clip,
-	// 	           float far_clip, Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0},
-	// 	           Vec3f forward = {1, 0, 0}, bool only_exists = true) const
-	// 	{
-	// 		return image(Base::node(), predicate, binary_f, pose, rows, cols, vertical_fov,
-	// 		             near_clip, far_clip, up, right, forward, only_exists);
-	// 	}
+	// template <class Pred, class HitFun,
+	//           std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	//           std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	// auto image(Pred const& pred, HitFun hit_f, Pose6f const& pose, std::size_t rows,
+	//            std::size_t cols, float vertical_fov, float near_clip, float far_clip,
+	//            Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0},
+	//            bool only_exists = true) const
+	// {
+	// 	return image(Base::node(), pred, hit_f, pose, rows, cols, vertical_fov, near_clip,
+	// 	             far_clip, up, right, forward, only_exists);
+	// }
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Image<Node> image(Node node, Predicate const& predicate, Pose6f const& pose,
+	// 	template <class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true> 	Image<Node> image(Node node, Pred const& pred, Pose6f const& pose,
 	// 	                  std::size_t rows, std::size_t cols, float vertical_fov,
 	// 	                  float near_clip, float far_clip, Vec3f up = {0, 0, 1},
 	// 	                  Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0},
 	// 	                  bool only_exists = true) const
 	// 	{
 	// 		return image(
-	// 		    node, predicate, [](Node, Ray) -> void {}, pose, rows, cols, vertical_fov,
+	// 		    node, pred, [](Node, Ray3) -> void {}, pose, rows, cols, vertical_fov,
 	// 		    near_clip, far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto image(Node node, Predicate const& predicate, BinaryFun binary_f, Pose6f
+	// 	template <class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
+	// true> 	auto image(Node node, Pred const& pred, HitFun hit_f, Pose6f
 	// const& pose, std::size_t rows, std::size_t cols, float vertical_fov,
 	// float near_clip, float far_clip, Vec3f up = {0, 0, 1}, 	           Vec3f right = {0,
 	// -1, 0}, Vec3f forward = {1, 0, 0}, 	           bool only_exists = true) const
@@ -742,154 +677,154 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			}
 	// 		};
 
-	// 		if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 		              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>, bool>) {
+	// 		if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 		              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
 	// 			Image<Node> image(rows, cols);
 
-	// 			trace(node, std::cbegin(rays), std::cend(rays), std::begin(image), predicate,
-	// 			      binary_f, only_exists);
+	// 			trace(node, std::cbegin(rays), std::cend(rays), std::begin(image), pred,
+	// 			      hit_f, only_exists);
 
 	// 			return image;
 	// 		} else {
 	// 			Image<std::pair<Node,
-	// 			                typename std::invoke_result_t<BinaryFun, Node,
+	// 			                typename std::invoke_result_t<HitFun, Node,
 	// Ray>::second_type>> 			    image(rows, cols);
 
-	// 			trace(node, std::cbegin(rays), std::cend(rays), std::begin(image), predicate,
-	// 			      binary_f, only_exists);
+	// 			trace(node, std::cbegin(rays), std::cend(rays), std::begin(image), pred,
+	// 			      hit_f, only_exists);
 
 	// 			return image;
 	// 		}
 	// 	}
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Image<Node> image(Code code, Predicate const& predicate, Pose6f const& pose,
+	// 	template <class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true> 	Image<Node> image(Code code, Pred const& pred, Pose6f const& pose,
 	// 	                  std::size_t rows, std::size_t cols, float vertical_fov,
 	// 	                  float near_clip, float far_clip, Vec3f up = {0, 0, 1},
 	// 	                  Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0},
 	// 	                  bool only_exists = true) const
 	// 	{
-	// 		return image(Base::operator()(code), predicate, pose, rows, cols, vertical_fov,
+	// 		return image(Base::node(code), pred, pose, rows, cols, vertical_fov,
 	// 		             near_clip, far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto image(Code code, Predicate const& predicate, BinaryFun binary_f, Pose6f
+	// 	template <class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
+	// true> 	auto image(Code code, Pred const& pred, HitFun hit_f, Pose6f
 	// const& pose, std::size_t rows, std::size_t cols, float vertical_fov,
 	// float near_clip, float far_clip, Vec3f up = {0, 0, 1}, 	           Vec3f right = {0,
 	// -1, 0}, Vec3f forward = {1, 0, 0}, 	           bool only_exists = true) const
 	// 	{
-	// 		return image(Base::operator()(code), predicate, binary_f, pose, rows, cols,
+	// 		return image(Base::node(code), pred, hit_f, pose, rows, cols,
 	// 		             vertical_fov, near_clip, far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Image<Node> image(Key key, Predicate const& predicate, Pose6f const& pose,
+	// 	template <class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true> 	Image<Node> image(Key key, Pred const& pred, Pose6f const& pose,
 	// 	                  std::size_t rows, std::size_t cols, float vertical_fov,
 	// 	                  float near_clip, float far_clip, Vec3f up = {0, 0, 1},
 	// 	                  Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0},
 	// 	                  bool only_exists = true) const
 	// 	{
-	// 		return image(Base::operator()(key), predicate, pose, rows, cols, vertical_fov,
+	// 		return image(Base::node(key), pred, pose, rows, cols, vertical_fov,
 	// 		             near_clip, far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto image(Key key, Predicate const& predicate, BinaryFun binary_f, Pose6f
+	// 	template <class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
+	// true> 	auto image(Key key, Pred const& pred, HitFun hit_f, Pose6f
 	// const& pose, 	           std::size_t rows, std::size_t cols, float vertical_fov,
 	// float near_clip, 	           float far_clip, Vec3f up = {0, 0, 1}, Vec3f right = {0,
 	// -1, 0}, 	           Vec3f forward = {1, 0, 0}, bool only_exists = true) const
 	// 	{
-	// 		return image(Base::operator()(key), predicate, binary_f, pose, rows, cols,
+	// 		return image(Base::node(key), pred, hit_f, pose, rows, cols,
 	// 		             vertical_fov, near_clip, far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true> 	Image<Node> image(Coord coord, Predicate const& predicate, Pose6f const& pose,
+	// 	template <class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true> 	Image<Node> image(Coord coord, Pred const& pred, Pose6f const& pose,
 	// 	                  std::size_t rows, std::size_t cols, float vertical_fov,
 	// 	                  float near_clip, float far_clip, Vec3f up = {0, 0, 1},
 	// 	                  Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0},
 	// 	                  bool only_exists = true, depth_t depth = 0) const
 	// 	{
-	// 		return image(Base::operator()(coord, depth), predicate, pose, rows, cols,
+	// 		return image(Base::node(coord, depth), pred, pose, rows, cols,
 	// 		             vertical_fov, near_clip, far_clip, up, right, forward, only_exists);
 	// 	}
 
-	// 	template <class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto image(Coord coord, Predicate const& predicate, BinaryFun binary_f,
+	// 	template <class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
+	// true> 	auto image(Coord coord, Pred const& pred, HitFun hit_f,
 	// Pose6f const& pose, std::size_t rows, std::size_t cols, float vertical_fov, float
 	// near_clip, float far_clip, Vec3f up = {0, 0, 1}, 	           Vec3f right = {0, -1,
 	// 0}, Vec3f forward = {1, 0, 0}, bool only_exists = true, 	           depth_t depth =
 	// 0) const
 	// 	{
-	// 		return image(Base::operator()(coord, depth), predicate, binary_f, pose, rows,
+	// 		return image(Base::node(coord, depth), pred, hit_f, pose, rows,
 	// cols, 		             vertical_fov, near_clip, far_clip, up, right, forward,
 	// only_exists);
 	// 	}
 
 	// #ifdef UFO_TBB
-	// 	template <class ExecutionPolicy, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
+	// 	template <class ExecutionPolicy, class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	Image<Node> image(ExecutionPolicy&& policy, Predicate const& predicate,
+	// true> 	Image<Node> image(ExecutionPolicy&& policy, Pred const& pred,
 	// Pose6f const& pose, std::size_t rows, std::size_t cols, 	                  float
 	// vertical_fov, float near_clip, float far_clip, 	                  Vec3f up = {0, 0,
 	// 1}, Vec3f right = {0, -1, 0}, 	                  Vec3f forward = {1, 0, 0}, bool
 	// only_exists = true) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(), predicate, pose,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(), pred, pose,
 	// 		             rows, cols, vertical_fov, near_clip, far_clip, up, right, forward,
 	// 		             only_exists);
 	// 	}
-	// 	template <class ExecutionPolicy, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
+	// 	template <class ExecutionPolicy, class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto image(ExecutionPolicy&& policy, Predicate const& predicate, BinaryFun
-	// binary_f, 	           Pose6f const& pose, std::size_t rows, std::size_t cols, float
+	// true> 	auto image(ExecutionPolicy&& policy, Pred const& pred, HitFun
+	// hit_f, 	           Pose6f const& pose, std::size_t rows, std::size_t cols, float
 	// vertical_fov, 	           float near_clip, float far_clip, Vec3f up = {0, 0, 1},
 	// Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0}, 	           bool only_exists =
 	// true) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(), predicate,
-	// binary_f, 		             pose, rows, cols, vertical_fov, near_clip, far_clip, up,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(), pred,
+	// hit_f, 		             pose, rows, cols, vertical_fov, near_clip, far_clip, up,
 	// right, forward, 		             only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
+	// 	template <class ExecutionPolicy, class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	Image<Node> image(ExecutionPolicy&& policy, Node node, Predicate const&
-	// predicate, 	                  Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	Image<Node> image(ExecutionPolicy&& policy, Node node, Pred const&
+	// pred, 	                  Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	                  float vertical_fov, float near_clip, float far_clip, Vec3f
 	// up = {0, 0, 1}, Vec3f right = {0, -1, 0}, 	                  Vec3f forward = {1, 0,
 	// 0}, bool only_exists = true) const
 	// 	{
 	// 		return image(
-	// 		    std::forward<ExecutionPolicy>(policy), node, predicate, [](Node, Ray) -> void
+	// 		    std::forward<ExecutionPolicy>(policy), node, pred, [](Node, Ray3) -> void
 	// {}, 		    pose, rows, cols, vertical_fov, near_clip, far_clip, up, right, forward,
 	// 		    only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
+	// 	template <class ExecutionPolicy, class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto image(ExecutionPolicy&& policy, Node node, Predicate const& predicate,
-	// 	           BinaryFun binary_f, Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	auto image(ExecutionPolicy&& policy, Node node, Pred const& pred,
+	// 	           HitFun hit_f, Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	           float vertical_fov, float near_clip, float far_clip, Vec3f up = {0,
 	// 0, 1}, 	           Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0}, bool
 	// only_exists = true) const
@@ -928,116 +863,116 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			              }
 	// 		              });
 
-	// 		if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 		              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>, bool>) {
+	// 		if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 		              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
 	// 			Image<Node> image(rows, cols);
 
 	// 			trace(std::forward<ExecutionPolicy>(policy), node, std::cbegin(rays),
-	// 			      std::cend(rays), std::begin(image), predicate, binary_f, only_exists);
+	// 			      std::cend(rays), std::begin(image), pred, hit_f, only_exists);
 
 	// 			return image;
 	// 		} else {
 	// 			Image<std::pair<Node,
-	// 			                typename std::invoke_result_t<BinaryFun, Node,
+	// 			                typename std::invoke_result_t<HitFun, Node,
 	// Ray>::second_type>> 			    image(rows, cols);
 
 	// 			trace(std::forward<ExecutionPolicy>(policy), node, std::cbegin(rays),
-	// 			      std::cend(rays), std::begin(image), predicate, binary_f, only_exists);
+	// 			      std::cend(rays), std::begin(image), pred, hit_f, only_exists);
 
 	// 			return image;
 	// 		}
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
+	// 	template <class ExecutionPolicy, class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	Image<Node> image(ExecutionPolicy&& policy, Code code, Predicate const&
-	// predicate, 	                  Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	Image<Node> image(ExecutionPolicy&& policy, Code code, Pred const&
+	// pred, 	                  Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	                  float vertical_fov, float near_clip, float far_clip, Vec3f
 	// up = {0, 0, 1}, Vec3f right = {0, -1, 0}, 	                  Vec3f forward = {1, 0,
 	// 0}, bool only_exists = true) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::operator()(code),
-	// predicate, 		             pose, rows, cols, vertical_fov, near_clip, far_clip, up,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(code),
+	// pred, 		             pose, rows, cols, vertical_fov, near_clip, far_clip, up,
 	// right, forward, 		             only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
+	// 	template <class ExecutionPolicy, class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto image(ExecutionPolicy&& policy, Code code, Predicate const& predicate,
-	// 	           BinaryFun binary_f, Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	auto image(ExecutionPolicy&& policy, Code code, Pred const& pred,
+	// 	           HitFun hit_f, Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	           float vertical_fov, float near_clip, float far_clip, Vec3f up = {0,
 	// 0, 1}, 	           Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0}, bool
 	// only_exists = true) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::operator()(code),
-	// predicate, 		             binary_f, pose, rows, cols, vertical_fov, near_clip,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(code),
+	// pred, 		             hit_f, pose, rows, cols, vertical_fov, near_clip,
 	// far_clip, up, right, 		             forward, only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
+	// 	template <class ExecutionPolicy, class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	Image<Node> image(ExecutionPolicy&& policy, Key key, Predicate const&
-	// predicate, 	                  Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	Image<Node> image(ExecutionPolicy&& policy, Key key, Pred const&
+	// pred, 	                  Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	                  float vertical_fov, float near_clip, float far_clip, Vec3f
 	// up = {0, 0, 1}, Vec3f right = {0, -1, 0}, 	                  Vec3f forward = {1, 0,
 	// 0}, bool only_exists = true) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::operator()(key),
-	// predicate, 		             pose, rows, cols, vertical_fov, near_clip, far_clip, up,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(key),
+	// pred, 		             pose, rows, cols, vertical_fov, near_clip, far_clip, up,
 	// right, forward, 		             only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
+	// 	template <class ExecutionPolicy, class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto image(ExecutionPolicy&& policy, Key key, Predicate const& predicate,
-	// 	           BinaryFun binary_f, Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	auto image(ExecutionPolicy&& policy, Key key, Pred const& pred,
+	// 	           HitFun hit_f, Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	           float vertical_fov, float near_clip, float far_clip, Vec3f up = {0,
 	// 0, 1}, 	           Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0}, bool
 	// only_exists = true) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::operator()(key),
-	// predicate, 		             binary_f, pose, rows, cols, vertical_fov, near_clip,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(key),
+	// pred, 		             hit_f, pose, rows, cols, vertical_fov, near_clip,
 	// far_clip, up, right, 		             forward, only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
+	// 	template <class ExecutionPolicy, class Pred,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	Image<Node> image(ExecutionPolicy&& policy, Coord coord, Predicate const&
-	// predicate, 	                  Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	Image<Node> image(ExecutionPolicy&& policy, Coord coord, Pred const&
+	// pred, 	                  Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	                  float vertical_fov, float near_clip, float far_clip, Vec3f
 	// up = {0, 0, 1}, Vec3f right = {0, -1, 0}, 	                  Vec3f forward = {1, 0,
 	// 0}, bool only_exists = true, 	                  depth_t depth = 0) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::operator()(coord,
-	// depth), 		             predicate, pose, rows, cols, vertical_fov, near_clip,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(coord,
+	// depth), 		             pred, pose, rows, cols, vertical_fov, near_clip,
 	// far_clip, up, 		             right, forward, only_exists);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
+	// 	template <class ExecutionPolicy, class Pred, class HitFun,
+	// 	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> =
+	// true, 	          std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> =
 	// true, std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto image(ExecutionPolicy&& policy, Coord coord, Predicate const& predicate,
-	// 	           BinaryFun binary_f, Pose6f const& pose, std::size_t rows, std::size_t
+	// true> 	auto image(ExecutionPolicy&& policy, Coord coord, Pred const& pred,
+	// 	           HitFun hit_f, Pose6f const& pose, std::size_t rows, std::size_t
 	// cols, 	           float vertical_fov, float near_clip, float far_clip, Vec3f up = {0,
 	// 0, 1}, 	           Vec3f right = {0, -1, 0}, Vec3f forward = {1, 0, 0}, bool
 	// only_exists = true, depth_t depth = 0) const
 	// 	{
-	// 		return image(std::forward<ExecutionPolicy>(policy), Base::operator()(coord,
-	// depth), 		             predicate, binary_f, pose, rows, cols, vertical_fov,
+	// 		return image(std::forward<ExecutionPolicy>(policy), Base::node(coord,
+	// depth), 		             pred, hit_f, pose, rows, cols, vertical_fov,
 	// near_clip, far_clip, 		             up, right, forward, only_exists);
 	// 	}
 	// #endif
@@ -1046,11 +981,11 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	| | 	|                                     Image index | 	| |
 	// 	**************************************************************************************/
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto imageIndex(InnerBinaryFun inner_f, RetBinaryFun ret_f, Pose6f
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto imageIndex(InnerHitFun inner_f, RetHitFun ret_f, Pose6f
 	// const& pose, 	                std::size_t rows, std::size_t cols, float
 	// vertical_fov, float near_clip, float far_clip, Vec3f up = {0, 0, 1}, Vec3f right =
 	// {0, -1, 0}, Vec3f forward = {1, 0, 0}) const
@@ -1059,11 +994,11 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 		                  near_clip, far_clip, up, right, forward);
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto imageIndex(Node node, InnerBinaryFun inner_f, RetBinaryFun ret_f,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto imageIndex(Node node, InnerHitFun inner_f, RetHitFun ret_f,
 	// 	                Pose6f const& pose, std::size_t rows, std::size_t cols,
 	// 	                float vertical_fov, float near_clip, float far_clip,
 	// 	                Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0},
@@ -1096,7 +1031,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			}
 	// 		};
 
-	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// bool>) { 			Image<Index> image(rows, cols);
 
 	// 			traceIndex(node, std::cbegin(rays), std::cend(rays), std::begin(image), inner_f,
@@ -1105,7 +1040,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			return image;
 	// 		} else {
 	// 			Image<std::pair<
-	// 			    Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 			    Index, typename std::invoke_result_t<RetHitFun, Index,
 	// Ray>::second_type>> 			    image(rows, cols);
 
 	// 			traceIndex(node, std::cbegin(rays), std::cend(rays), std::begin(image), inner_f,
@@ -1115,56 +1050,56 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 		}
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto imageIndex(Code code, InnerBinaryFun inner_f, RetBinaryFun ret_f,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto imageIndex(Code code, InnerHitFun inner_f, RetHitFun ret_f,
 	// 	                Pose6f const& pose, std::size_t rows, std::size_t cols,
 	// 	                float vertical_fov, float near_clip, float far_clip,
 	// 	                Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0},
 	// 	                Vec3f forward = {1, 0, 0}) const
 	// 	{
-	// 		return imageIndex(Base::operator()(code), inner_f, ret_f, pose, rows, cols,
+	// 		return imageIndex(Base::node(code), inner_f, ret_f, pose, rows, cols,
 	// 		                  vertical_fov, near_clip, far_clip, up, right, forward);
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto imageIndex(Key key, InnerBinaryFun inner_f, RetBinaryFun ret_f,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto imageIndex(Key key, InnerHitFun inner_f, RetHitFun ret_f,
 	// Pose6f const& pose, 	                std::size_t rows, std::size_t cols, float
 	// vertical_fov, float near_clip, 	                float far_clip, Vec3f up = {0, 0,
 	// 1}, Vec3f right = {0, -1, 0}, 	                Vec3f forward = {1, 0, 0}) const
 	// 	{
-	// 		return imageIndex(Base::operator()(key), inner_f, ret_f, pose, rows, cols,
+	// 		return imageIndex(Base::node(key), inner_f, ret_f, pose, rows, cols,
 	// 		                  vertical_fov, near_clip, far_clip, up, right, forward);
 	// 	}
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
-	// bool> = true> 	auto imageIndex(Coord coord, InnerBinaryFun inner_f, RetBinaryFun
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
+	// bool> = true> 	auto imageIndex(Coord coord, InnerHitFun inner_f, RetHitFun
 	// ret_f, 	                Pose6f const& pose, std::size_t rows, std::size_t cols,
 	// float vertical_fov, float near_clip, float far_clip, 	                Vec3f up = {0,
 	// 0, 1}, Vec3f right = {0, -1, 0}, 	                Vec3f forward = {1, 0, 0}, depth_t
 	// depth = 0) const
 	// 	{
-	// 		return imageIndex(Base::operator()(coord, depth), inner_f, ret_f, pose, rows,
+	// 		return imageIndex(Base::node(coord, depth), inner_f, ret_f, pose, rows,
 	// cols, 		                  vertical_fov, near_clip, far_clip, up, right, forward);
 	// 	}
 
 	// #ifdef UFO_TBB
-	// 	template <class ExecutionPolicy, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class ExecutionPolicy, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto imageIndex(ExecutionPolicy&& policy, InnerBinaryFun inner_f, RetBinaryFun
+	// true> 	auto imageIndex(ExecutionPolicy&& policy, InnerHitFun inner_f, RetHitFun
 	// ret_f, 	                Pose6f const& pose, std::size_t rows, std::size_t cols,
 	// float vertical_fov, float near_clip, float far_clip, 	                Vec3f up = {0,
 	// 0, 1}, Vec3f right = {0, -1, 0}, 	                Vec3f forward = {1, 0, 0}) const
@@ -1174,15 +1109,15 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// right, 		                  forward);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class ExecutionPolicy, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto imageIndex(ExecutionPolicy&& policy, Node node, InnerBinaryFun inner_f,
-	// 	                RetBinaryFun ret_f, Pose6f const& pose, std::size_t rows,
+	// true> 	auto imageIndex(ExecutionPolicy&& policy, Node node, InnerHitFun inner_f,
+	// 	                RetHitFun ret_f, Pose6f const& pose, std::size_t rows,
 	// 	                std::size_t cols, float vertical_fov, float near_clip, float
 	// far_clip, 	                Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0}, Vec3f
 	// forward = {1, 0, 0}) const
@@ -1221,7 +1156,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			              }
 	// 		              });
 
-	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// bool>) { 			Image<Index> image(rows, cols);
 
 	// 			traceIndex(std::forward<ExecutionPolicy>(policy), node, std::cbegin(rays),
@@ -1230,7 +1165,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			return image;
 	// 		} else {
 	// 			Image<std::pair<
-	// 			    Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 			    Index, typename std::invoke_result_t<RetHitFun, Index,
 	// Ray>::second_type>> 			    image(rows, cols);
 
 	// 			trace(std::forward<ExecutionPolicy>(policy), node, std::cbegin(rays),
@@ -1240,57 +1175,57 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 		}
 	// 	}
 
-	// 	template <class ExecutionPolicy, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class ExecutionPolicy, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto imageIndex(ExecutionPolicy&& policy, Code code, InnerBinaryFun inner_f,
-	// 	                RetBinaryFun ret_f, Pose6f const& pose, std::size_t rows,
+	// true> 	auto imageIndex(ExecutionPolicy&& policy, Code code, InnerHitFun inner_f,
+	// 	                RetHitFun ret_f, Pose6f const& pose, std::size_t rows,
 	// 	                std::size_t cols, float vertical_fov, float near_clip, float
 	// far_clip, 	                Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0}, Vec3f
 	// forward = {1, 0, 0}) const
 	// 	{
-	// 		return imageIndex(std::forward<ExecutionPolicy>(policy), Base::operator()(code),
+	// 		return imageIndex(std::forward<ExecutionPolicy>(policy), Base::node(code),
 	// 		                  inner_f, ret_f, pose, rows, cols, vertical_fov, near_clip,
 	// far_clip, 		                  up, right, forward);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class ExecutionPolicy, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto imageIndex(ExecutionPolicy&& policy, Key key, InnerBinaryFun inner_f,
-	// 	                RetBinaryFun ret_f, Pose6f const& pose, std::size_t rows,
+	// true> 	auto imageIndex(ExecutionPolicy&& policy, Key key, InnerHitFun inner_f,
+	// 	                RetHitFun ret_f, Pose6f const& pose, std::size_t rows,
 	// 	                std::size_t cols, float vertical_fov, float near_clip, float
 	// far_clip, 	                Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0}, Vec3f
 	// forward = {1, 0, 0}) const
 	// 	{
-	// 		return imageIndex(std::forward<ExecutionPolicy>(policy), Base::operator()(key),
+	// 		return imageIndex(std::forward<ExecutionPolicy>(policy), Base::node(key),
 	// 		                  inner_f, ret_f, pose, rows, cols, vertical_fov, near_clip,
 	// far_clip, 		                  up, right, forward);
 	// 	}
 
-	// 	template <class ExecutionPolicy, class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class ExecutionPolicy, class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true,
 	// 	          std::enable_if_t<std::is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
 	// 	                           bool>                                                =
-	// true> 	auto imageIndex(ExecutionPolicy&& policy, Coord coord, InnerBinaryFun inner_f,
-	// 	                RetBinaryFun ret_f, Pose6f const& pose, std::size_t rows,
+	// true> 	auto imageIndex(ExecutionPolicy&& policy, Coord coord, InnerHitFun inner_f,
+	// 	                RetHitFun ret_f, Pose6f const& pose, std::size_t rows,
 	// 	                std::size_t cols, float vertical_fov, float near_clip, float
 	// far_clip, 	                Vec3f up = {0, 0, 1}, Vec3f right = {0, -1, 0}, Vec3f
 	// forward = {1, 0, 0}, depth_t depth = 0) const
 	// 	{
 	// 		return imageIndex(std::forward<ExecutionPolicy>(policy),
-	// 		                  Base::operator()(coord, depth), inner_f, ret_f, pose, rows,
+	// 		                  Base::node(coord, depth), inner_f, ret_f, pose, rows,
 	// cols, 		                  vertical_fov, near_clip, far_clip, up, right, forward);
 	// 	}
 	// #endif
@@ -1472,215 +1407,221 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	| | 	|                                        Trace | 	| |
 	// 	**************************************************************************************/
 
-	// 	[[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Index node, Ray ray)
+	// [[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Index node, Ray3 ray)
 	// const
-	// 	{
-	// 		return traceInit(ray, Base::center(node), Base::halfSize(node));
+	// {
+	// 	return traceInit(ray, Base::center(node), Base::halfSize(node));
+	// }
+
+	// [[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Node node, Ray3 ray) const
+	// {
+	// 	return traceInit(ray, Base::center(node), Base::halfSize(node));
+	// }
+
+	// [[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Ray3 ray, Vec3f center,
+	//                                                            float half_size) const
+	// {
+	// 	offset_t a = offset_t(0 > ray.direction[0]) | (offset_t(0 > ray.direction[1]) << 1)
+	// | 	             (offset_t(0 > ray.direction[2]) << 2);
+
+	// 	Vec3f origin(0 > ray.direction[0] ? center[0] * 2 - ray.origin[0] : ray.origin[0],
+	// 	             0 > ray.direction[1] ? center[1] * 2 - ray.origin[1] : ray.origin[1],
+	// 	             0 > ray.direction[2] ? center[2] * 2 - ray.origin[2] : ray.origin[2]);
+
+	// 	Vec3f direction = Vec3f::abs(ray.direction);
+
+	// 	Vec3f t0;
+	// 	Vec3f t1;
+
+	// 	for (std::size_t i{}; direction.size() > i; ++i) {
+	// 		auto a = center[i] - half_size - origin[i];
+	// 		auto b = center[i] + half_size - origin[i];
+	// 		// TODO: Look at
+	// 		t0[i] = 0 == direction[i] ? 1e+25f * a : a / direction[i];
+	// 		t1[i] = 0 == direction[i] ? 1e+25f * b : b / direction[i];
 	// 	}
 
-	// 	[[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Node node, Ray ray) const
-	// 	{
-	// 		return traceInit(ray, Base::center(node), Base::halfSize(node));
-	// 	}
+	// 	return {t0, t1, a};
+	// }
 
-	// 	[[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Ray ray, Vec3f center,
-	// 	                                                           float half_size) const
-	// 	{
-	// 		offset_t a = offset_t(0 > ray.direction[0]) | (offset_t(0 > ray.direction[1]) <<
-	// 1) | 		             (offset_t(0 > ray.direction[2]) << 2);
+	// template <bool Exists, class NodeT, class Pred, class HitFun,
+	//           std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>    = true,
+	//           std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true>
+	// auto trace(NodeT node, Vec3f t0, Vec3f t1, offset_t const a, Ray3 ray, Pred const&
+	// pred,
+	//            HitFun hit_f) const
+	// {
+	// 	auto firstNode = [](Vec3f t0, Vec3f tm) -> offset_t {
+	// 		// constexpr std::array<std::size_t, 3> lut_a{1, 0, 0};
+	// 		// constexpr std::array<std::size_t, 3> lut_b{2, 2, 1};
 
-	// 		Vec3f origin(0 > ray.direction[0] ? center[0] * 2 - ray.origin[0] : ray.origin[0],
-	// 		             0 > ray.direction[1] ? center[1] * 2 - ray.origin[1] : ray.origin[1],
-	// 		             0 > ray.direction[2] ? center[2] * 2 - ray.origin[2] :
-	// ray.origin[2]);
+	// 		auto max_comp = t0.maxElementIndex();
 
-	// 		Vec3f direction = Vec3f::abs(ray.direction);
+	// 		// auto a = lut_a[max_comp];
+	// 		// auto b = lut_b[max_comp];
 
-	// 		Vec3f t0;
-	// 		Vec3f t1;
+	// 		std::size_t a = 0 == max_comp;
+	// 		std::size_t b = 2 - (2 == max_comp);
 
-	// 		for (std::size_t i{}; direction.size() > i; ++i) {
-	// 			auto a = center[i] - half_size - origin[i];
-	// 			auto b = center[i] + half_size - origin[i];
-	// 			// TODO: Look at
-	// 			t0[i] = 0 == direction[i] ? 1e+25f * a : a / direction[i];
-	// 			t1[i] = 0 == direction[i] ? 1e+25f * b : b / direction[i];
+	// 		return (static_cast<offset_t>(tm[a] < t0[max_comp]) << a) |
+	// 		       (static_cast<offset_t>(tm[b] < t0[max_comp]) << b);
+	// 	};
+
+	// 	constexpr std::array new_node_lut{
+	// 	    std::array<offset_t, 3>{1, 2, 4}, std::array<offset_t, 3>{8, 3, 5},
+	// 	    std::array<offset_t, 3>{3, 8, 6}, std::array<offset_t, 3>{8, 8, 7},
+	// 	    std::array<offset_t, 3>{5, 6, 8}, std::array<offset_t, 3>{8, 7, 8},
+	// 	    std::array<offset_t, 3>{7, 8, 8}, std::array<offset_t, 3>{8, 8, 8}};
+
+	// 	if (0 > t1.min() || t0.max() >= t1.min()) {
+	// 		if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 		              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
+	// 			return Node{};
+	// 		} else {
+	// 			return std::pair<
+	// 			    Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>{};
 	// 		}
-
-	// 		return {t0, t1, a};
 	// 	}
 
-	// 	template <bool Exists, class NodeT, class Predicate, class BinaryFun,
-	// 	          std::enable_if_t<pred::is_predicate_v<Predicate, Octree, Node>, bool> =
-	// true, 	          std::enable_if_t<std::is_invocable_v<BinaryFun, Node, Ray>, bool> =
-	// true> 	auto trace(NodeT node, Vec3f t0, Vec3f t1, offset_t const a, Ray ray,
-	// Predicate const& predicate, BinaryFun binary_f) const
-	// 	{
-	// 		auto firstNode = [](Vec3f t0, Vec3f tm) -> offset_t {
-	// 			// constexpr std::array<std::size_t, 3> lut_a{1, 0, 0};
-	// 			// constexpr std::array<std::size_t, 3> lut_b{2, 2, 1};
+	// 	if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>>) {
+	// 		if (pred::ValueCheck<Pred>::apply(pred, *this, node)) {
+	// 			return node;
+	// 		}
+	// 	} else if constexpr (std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>)
+	// { 		if (pred::ValueCheck<Pred>::apply(pred, *this, node) && hit_f(node, ray)) {
+	// return node;
+	// 		}
+	// 	} else {
+	// 		if (std::invoke_result_t<HitFun, Node, Ray3> res;
+	// 		    pred::ValueCheck<Pred>::apply(pred, *this, node) &&
+	// 		    (res = hit_f(node, ray)).first) {
+	// 			return std::pair<Node,
+	// 			                 typename std::invoke_result_t<HitFun, Node,
+	// Ray3>::second_type>{ 			    node, res.second};
+	// 		}
+	// 	}
 
-	// 			auto max_comp = t0.maxElementIndex();
-
-	// 			// auto a = lut_a[max_comp];
-	// 			// auto b = lut_b[max_comp];
-
-	// 			std::size_t a = 0 == max_comp;
-	// 			std::size_t b = 2 - (2 == max_comp);
-
-	// 			return (static_cast<offset_t>(tm[a] < t0[max_comp]) << a) |
-	// 			       (static_cast<offset_t>(tm[b] < t0[max_comp]) << b);
-	// 		};
-
-	// 		constexpr std::array new_node_lut{
-	// 		    std::array<offset_t, 3>{1, 2, 4}, std::array<offset_t, 3>{8, 3, 5},
-	// 		    std::array<offset_t, 3>{3, 8, 6}, std::array<offset_t, 3>{8, 8, 7},
-	// 		    std::array<offset_t, 3>{5, 6, 8}, std::array<offset_t, 3>{8, 7, 8},
-	// 		    std::array<offset_t, 3>{7, 8, 8}, std::array<offset_t, 3>{8, 8, 8}};
-
-	// 		if (0 > t1.min() || t0.max() >= t1.min()) {
-	// 			if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 			              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>, bool>)
-	// { 				return Node{}; 			} else { 				return std::pair< 				    Node,
-	// typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{};
+	// 	if constexpr (Exists) {
+	// 		if (Base::isLeaf(node.index()) ||
+	// 		    !pred::InnerCheck<Pred>::apply(pred, *this, node)) {
+	// 			if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 			              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
+	// 				return Node{};
+	// 			} else {
+	// 				return std::pair<
+	// 				    Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>{};
 	// 			}
 	// 		}
+	// 	} else {
+	// 		if (!pred::InnerCheck<Pred>::apply(pred, *this, node)) {
+	// 			if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 			              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
+	// 				return Node{};
+	// 			} else {
+	// 				return std::pair<
+	// 				    Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>{};
+	// 			}
+	// 		}
+	// 	}
 
-	// 		if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>>) {
-	// 			if (pred::ValueCheck<Predicate>::apply(predicate, *this, node)) {
+	// 	Vec3f tm = (t0 + t1) / 2;
+
+	// 	offset_t cur_node = firstNode(t0, tm);
+
+	// 	if (8 <= cur_node) {
+	// 		if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 		              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
+	// 			return Node{};
+	// 		} else {
+	// 			return std::pair<
+	// 			    Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>{};
+	// 		}
+	// 	}
+
+	// 	std::array<std::tuple<NodeT, offset_t, Vec3f, Vec3f, Vec3f>, Base::maxDepthLevels()>
+	// 	    stack;
+	// 	stack[0] = {node, cur_node, t0, t1, tm};
+
+	// 	for (int index{}; 0 <= index;) {
+	// 		std::tie(node, cur_node, t0, t1, tm) = stack[index];
+
+	// 		if constexpr (Exists) {
+	// 			node = Base::childUnsafe(node, cur_node ^ a);
+	// 		} else {
+	// 			node = Base::child(node, cur_node ^ a);
+	// 		}
+
+	// 		std::array mask{cur_node & offset_t(1), cur_node & offset_t(2),
+	// 		                cur_node & offset_t(4)};
+
+	// 		t0 = {mask[0] ? tm[0] : t0[0], mask[1] ? tm[1] : t0[1], mask[2] ? tm[2] : t0[2]};
+	// 		t1 = {mask[0] ? t1[0] : tm[0], mask[1] ? t1[1] : tm[1], mask[2] ? t1[2] : tm[2]};
+
+	// 		std::get<1>(stack[index]) = new_node_lut[cur_node][t1.minElementIndex()];
+	// 		index -= 8 <= std::get<1>(stack[index]);
+
+	// 		if (0 > t1.min()) {
+	// 			continue;
+	// 		}
+
+	// 		if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>>) {
+	// 			if (pred::ValueCheck<Pred>::apply(pred, *this, node)) {
 	// 				return node;
 	// 			}
-	// 		} else if constexpr (std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>,
+	// 		} else if constexpr (std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>,
 	// 		                                    bool>) {
-	// 			if (pred::ValueCheck<Predicate>::apply(predicate, *this, node) &&
-	// 			    binary_f(node, ray)) {
+	// 			if (pred::ValueCheck<Pred>::apply(pred, *this, node) && hit_f(node, ray)) {
 	// 				return node;
 	// 			}
 	// 		} else {
-	// 			if (std::invoke_result_t<BinaryFun, Node, Ray> res;
-	// 			    pred::ValueCheck<Predicate>::apply(predicate, *this, node) &&
-	// 			    (res = binary_f(node, ray)).first) {
+	// 			if (std::invoke_result_t<HitFun, Node, Ray3> res;
+	// 			    pred::ValueCheck<Pred>::apply(pred, *this, node) &&
+	// 			    (res = hit_f(node, ray)).first) {
 	// 				return std::pair<
-	// 				    Node, typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{
+	// 				    Node, typename std::invoke_result_t<HitFun, Node, Ray3>::second_type>{
 	// 				    node, res.second};
 	// 			}
 	// 		}
 
 	// 		if constexpr (Exists) {
 	// 			if (Base::isLeaf(node.index()) ||
-	// 			    !pred::InnerCheck<Predicate>::apply(predicate, *this, node)) {
-	// 				if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 				              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>,
-	// bool>) { 					return Node{}; 				} else { 					return std::pair<
-	// Node, typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{};
-	// 				}
-	// 			}
-	// 		} else {
-	// 			if (!pred::InnerCheck<Predicate>::apply(predicate, *this, node)) {
-	// 				if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 				              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>,
-	// bool>) { 					return Node{}; 				} else { 					return std::pair<
-	// Node, typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{};
-	// 				}
-	// 			}
-	// 		}
-
-	// 		Vec3f tm = (t0 + t1) / 2;
-
-	// 		offset_t cur_node = firstNode(t0, tm);
-
-	// 		if (8 <= cur_node) {
-	// 			if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 			              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>, bool>)
-	// { 				return Node{}; 			} else { 				return std::pair< 				    Node,
-	// typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{};
-	// 			}
-	// 		}
-
-	// 		std::array<std::tuple<NodeT, offset_t, Vec3f, Vec3f, Vec3f>,
-	// Base::maxDepthLevels()> 		    stack; 		stack[0] = {node, cur_node, t0, t1, tm};
-
-	// 		for (int index{}; 0 <= index;) {
-	// 			std::tie(node, cur_node, t0, t1, tm) = stack[index];
-
-	// 			if constexpr (Exists) {
-	// 				node = Base::childUnsafe(node, cur_node ^ a);
-	// 			} else {
-	// 				node = Base::child(node, cur_node ^ a);
-	// 			}
-
-	// 			std::array mask{cur_node & offset_t(1), cur_node & offset_t(2),
-	// 			                cur_node & offset_t(4)};
-
-	// 			t0 = {mask[0] ? tm[0] : t0[0], mask[1] ? tm[1] : t0[1], mask[2] ? tm[2] :
-	// t0[2]}; 			t1 = {mask[0] ? t1[0] : tm[0], mask[1] ? t1[1] : tm[1], mask[2] ? t1[2]
-	// : tm[2]};
-
-	// 			std::get<1>(stack[index]) = new_node_lut[cur_node][t1.minElementIndex()];
-	// 			index -= 8 <= std::get<1>(stack[index]);
-
-	// 			if (0 > t1.min()) {
+	// 			    !pred::InnerCheck<Pred>::apply(pred, *this, node)) {
 	// 				continue;
 	// 			}
-
-	// 			if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>>) {
-	// 				if (pred::ValueCheck<Predicate>::apply(predicate, *this, node)) {
-	// 					return node;
-	// 				}
-	// 			} else if constexpr (std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>,
-	// 			                                    bool>) {
-	// 				if (pred::ValueCheck<Predicate>::apply(predicate, *this, node) &&
-	// 				    binary_f(node, ray)) {
-	// 					return node;
-	// 				}
-	// 			} else {
-	// 				if (std::invoke_result_t<BinaryFun, Node, Ray> res;
-	// 				    pred::ValueCheck<Predicate>::apply(predicate, *this, node) &&
-	// 				    (res = binary_f(node, ray)).first) {
-	// 					return std::pair<
-	// 					    Node, typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{
-	// 					    node, res.second};
-	// 				}
-	// 			}
-
-	// 			if constexpr (Exists) {
-	// 				if (Base::isLeaf(node.index()) ||
-	// 				    !pred::InnerCheck<Predicate>::apply(predicate, *this, node)) {
-	// 					continue;
-	// 				}
-	// 			} else {
-	// 				if (!pred::InnerCheck<Predicate>::apply(predicate, *this, node)) {
-	// 					continue;
-	// 				}
-	// 			}
-
-	// 			tm = (t0 + t1) / 2;
-
-	// 			cur_node = firstNode(t0, tm);
-
-	// 			stack[index + 1] = {node, cur_node, t0, t1, tm};
-	// 			index += 8 > cur_node;
-	// 		}
-
-	// 		if constexpr (std::is_void_v<std::invoke_result_t<BinaryFun, Node, Ray>> ||
-	// 		              std::is_same_v<std::invoke_result_t<BinaryFun, Node, Ray>, bool>) {
-	// 			return Node{};
 	// 		} else {
-	// 			return std::pair<
-	// 			    Node, typename std::invoke_result_t<BinaryFun, Node, Ray>::second_type>{};
+	// 			if (!pred::InnerCheck<Pred>::apply(pred, *this, node)) {
+	// 				continue;
+	// 			}
 	// 		}
+
+	// 		tm = (t0 + t1) / 2;
+
+	// 		cur_node = firstNode(t0, tm);
+
+	// 		stack[index + 1] = {node, cur_node, t0, t1, tm};
+	// 		index += 8 > cur_node;
 	// 	}
+
+	// 	if constexpr (std::is_void_v<std::invoke_result_t<HitFun, Node, Ray3>> ||
+	// 	              std::is_same_v<std::invoke_result_t<HitFun, Node, Ray3>, bool>) {
+	// 		return Node{};
+	// 	} else {
+	// 		return std::pair<Node,
+	// 		                 typename std::invoke_result_t<HitFun, Node,
+	// Ray3>::second_type>{};
+	// 	}
+	// }
 
 	// 	/**************************************************************************************
 	// 	| | 	|                                      Trace index | 	| |
 	// 	**************************************************************************************/
 
-	// 	template <class InnerBinaryFun, class RetBinaryFun,
-	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerBinaryFun, Index, Ray>,
+	// 	template <class InnerHitFun, class RetHitFun,
+	// 	          std::enable_if_t<std::is_invocable_r_v<bool, InnerHitFun, Index, Ray>,
 	// 	                           bool>                                                =
-	// true, 	          std::enable_if_t<std::is_invocable_v<RetBinaryFun, Index, Ray>,
+	// true, 	          std::enable_if_t<std::is_invocable_v<RetHitFun, Index, Ray>,
 	// bool> = true> 	auto traceIndex(Index node, Vec3f t0, Vec3f t1, offset_t const a, Ray
-	// ray, 	                InnerBinaryFun inner_f, RetBinaryFun ret_f) const
+	// ray, 	                InnerHitFun inner_f, RetHitFun ret_f) const
 	// 	{
 	// 		auto firstNode = [](Vec3f t0, Vec3f tm) -> offset_t {
 	// 			// constexpr std::array<std::size_t, 3> lut_a{1, 0, 0};
@@ -1705,33 +1646,33 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 		    std::array<offset_t, 3>{7, 8, 8}, std::array<offset_t, 3>{8, 8, 8}};
 
 	// 		if (0 > t1.min() || t0.max() >= t1.min()) {
-	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// 			                             bool>) {
 	// 				return Index{};
 	// 			} else {
-	// 				return std::pair<Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 				return std::pair<Index, typename std::invoke_result_t<RetHitFun, Index,
 	// 				                                                      Ray>::second_type>{};
 	// 			}
 	// 		}
 
-	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// bool>) { 			if (ret_f(node, ray)) { 				return node;
 	// 			}
 	// 		} else {
-	// 			if (std::invoke_result_t<RetBinaryFun, Index, Ray> res;
+	// 			if (std::invoke_result_t<RetHitFun, Index, Ray> res;
 	// 			    (res = ret_f(node, ray)).first) {
 	// 				return std::pair<
-	// 				    Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 				    Index, typename std::invoke_result_t<RetHitFun, Index,
 	// Ray>::second_type>{ 				    node, res.second};
 	// 			}
 	// 		}
 
 	// 		if (Base::isLeaf(node) || !inner_f(node, ray)) {
-	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// 			                             bool>) {
 	// 				return Index{};
 	// 			} else {
-	// 				return std::pair<Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 				return std::pair<Index, typename std::invoke_result_t<RetHitFun, Index,
 	// 				                                                      Ray>::second_type>{};
 	// 			}
 	// 		}
@@ -1741,11 +1682,11 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 		offset_t cur_node = firstNode(t0, tm);
 
 	// 		if (8 <= cur_node) {
-	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// 			                             bool>) {
 	// 				return Index{};
 	// 			} else {
-	// 				return std::pair<Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 				return std::pair<Index, typename std::invoke_result_t<RetHitFun, Index,
 	// 				                                                      Ray>::second_type>{};
 	// 			}
 	// 		}
@@ -1772,15 +1713,15 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 				continue;
 	// 			}
 
-	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 			if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// 			                             bool>) {
 	// 				if (ret_f(node, ray)) {
 	// 					return node;
 	// 				}
 	// 			} else {
-	// 				if (std::invoke_result_t<RetBinaryFun, Index, Ray> res;
+	// 				if (std::invoke_result_t<RetHitFun, Index, Ray> res;
 	// 				    (res = ret_f(node, ray)).first) {
-	// 					return std::pair<Index, typename std::invoke_result_t<RetBinaryFun, Index,
+	// 					return std::pair<Index, typename std::invoke_result_t<RetHitFun, Index,
 	// 					                                                      Ray>::second_type>{
 	// 					    node, res.second};
 	// 				}
@@ -1798,9 +1739,9 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 			index += 8 > cur_node;
 	// 		}
 
-	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetBinaryFun, Index, Ray>,
+	// 		if constexpr (std::is_same_v<std::invoke_result_t<RetHitFun, Index, Ray>,
 	// bool>) { 			return Index{}; 		} else { 			return std::pair< 			    Index,
-	// typename std::invoke_result_t<RetBinaryFun, Index, Ray>::second_type>{};
+	// typename std::invoke_result_t<RetHitFun, Index, Ray>::second_type>{};
 	// 		}
 	// 	}
 };
