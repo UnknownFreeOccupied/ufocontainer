@@ -86,7 +86,6 @@
 
 namespace ufo
 {
-
 enum class NearestSearchAlgorithm { DEPTH_FIRST, A_STAR };
 
 /*!
@@ -922,6 +921,9 @@ class Tree
 	 */
 	[[nodiscard]] Index index() const { return Index(block(), 0); }
 
+	// TODO: Make all the passthrough static and constexpr
+	[[nodiscard]] static constexpr Index index(Index index) { return index; }
+
 	/*!
 	 * @brief Returns the index of `node`.
 	 *
@@ -930,6 +932,8 @@ class Tree
 	 */
 	[[nodiscard]] Index index(Node node) const
 	{
+		// TODO: Benchmark if this is actually faster than going down the tree
+
 		if (!valid(node.index()) || depth(node.index()) < depth(node) ||
 		    !Code::equalAtDepth(code(node.index()), node.code(), depth(node.index()))) {
 			return index(node.code());
@@ -1097,6 +1101,8 @@ class Tree
 
 	[[nodiscard]] Code code(Node node) const { return node.code(); }
 
+	[[nodiscard]] Code code(Code code) const { return code; }
+
 	[[nodiscard]] Code code(Key node) const { return Code(node); }
 
 	[[nodiscard]] Code code(Coord node) const { return code(key(node)); }
@@ -1120,6 +1126,8 @@ class Tree
 	[[nodiscard]] Key key(Node node) const { return Key(node.code()); }
 
 	[[nodiscard]] Key key(Code node) const { return Key(node); }
+
+	[[nodiscard]] Key key(Key key) const { return key; }
 
 	[[nodiscard]] Key key(Coord node) const
 	{
@@ -1268,6 +1276,30 @@ class Tree
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
 		return Index(createChildren(node), child_index);
+	}
+
+	//
+	// Create trail
+	//
+
+	std::array<Index, maxNumDepthLevels()> createTrail(Node node)
+	{
+		return createTrail(code(node), index(node));
+	}
+
+	std::array<Index, maxNumDepthLevels()> createTrail(Code node)
+	{
+		return createTrail(node, index());
+	}
+
+	std::array<Index, maxNumDepthLevels()> createTrail(Key node)
+	{
+		return createTrail(code(node));
+	}
+
+	std::array<Index, maxNumDepthLevels()> createTrail(Coord node)
+	{
+		return createTrail(code(node));
 	}
 
 	//
@@ -2776,21 +2808,85 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
+	template <class NodeFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, StopFun stop_f)
+	{
+		assert(valid(node));
+
+		if (isLeaf(node)) {
+			node_f(node);
+		} else if (!stop_f(node)) {
+			auto c = children(node);
+			for (std::size_t i{}; BF > i; ++i) {
+				recursLeaves(Index(c, i), node_f, stop_f);
+			}
+		}
+	}
+
+	template <class NodeFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f)
+	{
+		recursLeaves(node, node_f, [](auto) { return false; });
+	}
+
+	template <class NodeFun, class BlockFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f) const
+	{
+		assert(valid(node));
+
+		auto c = children(node);
+		if (isLeaf(node)) {
+			node_f(node);
+		} else if (stop_f(node)) {
+			return;
+		} else if (allLeaf(c)) {
+			block_f(c);
+		} else {
+			for (std::size_t i{}; BF > i; ++i) {
+				recursLeaves(Index(c, i), node_f, block_f, stop_f);
+			}
+		}
+	}
+
+	template <class NodeFun, class BlockFun,
+	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f) const
+	{
+		recursLeaves(node, node_f, block_f, [](auto) { return false; });
+	}
+
 	template <class LeafFun, class ParentFun, class StopFun,
 	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
 	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recurs(Index node, LeafFun leaf_f, ParentFun parent_f, StopFun stop_f)
+	void recursChildrenFirst(Index node, LeafFun leaf_f, ParentFun parent_f, StopFun stop_f)
 	{
-		// TODO: Implement
+		assert(valid(node));
+
+		if (isLeaf(node)) {
+			leaf_f(node);
+		} else if (!stop_f(node)) {
+			auto c = children(node);
+			for (std::size_t i{}; BF > i; ++i) {
+				recursChildrenFirst(Index(c, i), leaf_f, parent_f, stop_f);
+			}
+			parent_f(node, c);
+		}
 	}
 
 	template <class LeafFun, class ParentFun,
 	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
 	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true>
-	void recurs(Index node, LeafFun leaf_f, ParentFun parent_f)
+	void recursChildrenFirst(Index node, LeafFun leaf_f, ParentFun parent_f)
 	{
-		recurs(node, leaf_f, parent_f, [](auto) { return false; });
+		recursChildrenFirst(node, leaf_f, parent_f, [](auto) { return false; });
 	}
 
 	template <class LeafFun, class LeafBlockFun, class ParentFun, class StopFun,
@@ -2798,98 +2894,38 @@ class Tree
 	          std::enable_if_t<std::is_invocable_v<LeafBlockFun, pos_t>, bool>     = true,
 	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recurs(Index node, LeafFun leaf_f, LeafBlockFun leaf_block_f, ParentFun parent_f,
-	            StopFun stop_f)
-	{
-		// TODO: Implement
-	}
-
-	template <class LeafFun, class LeafBlockFun, class ParentFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
-	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recurs(Index node, LeafFun leaf_f, LeafBlockFun leaf_block_f, ParentFun parent_f)
-	{
-		recurs(node, leaf_f, leaf_block_f, parent_f, [](auto) { return false; });
-	}
-
-	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f, StopFun stop_f)
+	void recursChildrenFirst(Index node, LeafFun leaf_f, LeafBlockFun leaf_block_f,
+	                         ParentFun parent_f, StopFun stop_f)
 	{
 		assert(valid(node));
 
-		node_f(node);
-
-		if (isLeaf(node) || stop_f(node)) {
+		if (isLeaf(node)) {
+			leaf_f(node);
+			return;
+		} else if (stop_f(node)) {
 			return;
 		}
 
 		auto c = children(node);
-		for (std::size_t i{}; BF > i; ++i) {
-			recursParentFirst(Index(c, i), node_f, stop_f);
-		}
-	}
-
-	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f)
-	{
-		recursParentFirst(node, node_f, [](auto) { return false; });
-	}
-
-	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
-	{
-		assert(valid(node));
-
-		node_f(node);
-
-		if (isLeaf(node) || stop_f(node)) {
-			return;
-		}
-
-		recurs(children(node), block_f, stop_f);
-	}
-
-	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f)
-	{
-		recursParentFirst(node, node_f, block_f, [](auto) { return false; });
-	}
-
-	template <class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursParentFirst(pos_t block, BlockFun block_f, StopFun stop_f)
-	{
-		assert(valid(block));
-
-		block_f(block);
-
-		if (allLeaf(block)) {
-			return;
-		}
-
-		for (std::size_t i{}; BF > i; ++i) {
-			Index node(block, i);
-			if (isParent(node) && !stop_f(node)) {
-				recursParentFirst(children(node), block_f, stop_f);
+		if (allLeaf(c)) {
+			leaf_block_f(c);
+		} else {
+			for (std::size_t i{}; BF > i; ++i) {
+				recursChildrenFirst(Index(c, i), leaf_f, leaf_block_f, parent_f, stop_f);
 			}
 		}
+
+		parent_f(node, c);
 	}
 
-	template <class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
-	void recursParentFirst(pos_t block, BlockFun block_f)
+	template <class LeafFun, class LeafBlockFun, class ParentFun,
+	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
+	          std::enable_if_t<std::is_invocable_v<LeafBlockFun, pos_t>, bool>     = true,
+	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true>
+	void recursChildrenFirst(Index node, LeafFun leaf_f, LeafBlockFun leaf_block_f,
+	                         ParentFun parent_f)
 	{
-		recursParentFirst(block, block_f, [](auto) { return false; });
+		recursChildrenFirst(node, leaf_f, leaf_block_f, parent_f, [](auto) { return false; });
 	}
 
 	template <class NodeFun, class StopFun,
@@ -2966,55 +3002,80 @@ class Tree
 	template <class NodeFun, class StopFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, StopFun stop_f)
+	void recursParentFirst(Index node, NodeFun node_f, StopFun stop_f)
 	{
 		assert(valid(node));
 
-		if (isLeaf(node)) {
-			node_f(node);
-		} else if (!stop_f(node)) {
-			auto c = children(node);
-			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(c, i), node_f, stop_f);
-			}
+		node_f(node);
+
+		if (isLeaf(node) || stop_f(node)) {
+			return;
+		}
+
+		auto c = children(node);
+		for (std::size_t i{}; BF > i; ++i) {
+			recursParentFirst(Index(c, i), node_f, stop_f);
 		}
 	}
 
 	template <class NodeFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f)
+	void recursParentFirst(Index node, NodeFun node_f)
 	{
-		recursLeaves(node, node_f, [](auto) { return false; });
+		recursParentFirst(node, node_f, [](auto) { return false; });
 	}
 
 	template <class NodeFun, class BlockFun, class StopFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
 	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f) const
+	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
 	{
 		assert(valid(node));
 
-		auto c = children(node);
-		if (isLeaf(node)) {
-			node_f(node);
-		} else if (stop_f(node)) {
+		node_f(node);
+
+		if (isLeaf(node) || stop_f(node)) {
 			return;
-		} else if (allLeaf(c)) {
-			block_f(c);
-		} else {
-			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(c, i), node_f, block_f, stop_f);
-			}
 		}
+
+		recursParentFirst(children(node), block_f, stop_f);
 	}
 
 	template <class NodeFun, class BlockFun,
 	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
 	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f) const
+	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f)
 	{
-		recursLeaves(node, node_f, block_f, [](auto) { return false; });
+		recursParentFirst(node, node_f, block_f, [](auto) { return false; });
+	}
+
+	template <class BlockFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recursParentFirst(pos_t block, BlockFun block_f, StopFun stop_f)
+	{
+		assert(valid(block));
+
+		block_f(block);
+
+		if (allLeaf(block)) {
+			return;
+		}
+
+		for (std::size_t i{}; BF > i; ++i) {
+			Index node(block, i);
+			if (isParent(node) && !stop_f(node)) {
+				recursParentFirst(children(node), block_f, stop_f);
+			}
+		}
+	}
+
+	template <class BlockFun,
+	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	void recursParentFirst(pos_t block, BlockFun block_f)
+	{
+		recursParentFirst(block, block_f, [](auto) { return false; });
 	}
 
 	/**************************************************************************************
@@ -3288,6 +3349,19 @@ class Tree
 			cur_node = createChild(cur_node, code.offset(--cur_depth));
 		}
 		return cur_node;
+	}
+
+	std::array<Index, maxNumDepthLevels()> createTrail(Code code, Index cur_node)
+	{
+		std::array<Index, maxNumDepthLevels()> trail{};
+		auto                                   wanted_depth = depth(code);
+		auto                                   cur_depth    = depth(cur_node);
+		trail[cur_depth]                                    = cur_node;
+		while (wanted_depth < cur_depth) {
+			cur_node         = createChild(cur_node, code.offset(--cur_depth));
+			trail[cur_depth] = cur_node;
+		}
+		return trail;
 	}
 
 	pos_t createChildrenThreadSafe(Index node)
