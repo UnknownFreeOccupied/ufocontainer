@@ -426,19 +426,21 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 			                      fun_maybe_do_not_exists);
 		}
 #elif defined(UFO_OMP)
+		std::size_t size = std::distance(first, last);
+
 		if (only_exists) {
 #pragma omp parallel for
-			for (; first != last; ++d_first, ++first) {
-				*d_first = fun_only_exists(*first);
+			for (std::size_t i = 0; i != size; ++i) {
+				d_first[i] = fun_only_exists(first[i]);
 			}
 		} else {
 #pragma omp parallel for
-			for (; first != last; ++d_first, ++first) {
-				*d_first = fun_maybe_do_not_exists(*first);
+			for (std::size_t i = 0; i != size; ++i) {
+				d_first[i] = fun_maybe_do_not_exists(first[i]);
 			}
 		}
 
-		return d_first;
+		return std::next(d_first, size);
 #endif
 	}
 
@@ -719,12 +721,16 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 			                      return trace(n, t0, t1, a, ray, inner_f, hit_f);
 		                      });
 #elif defined(UFO_OMP)
+		std::size_t size = std::distance(first, last);
+
 #pragma omp parallel for
-		for (; first != last; ++d_first, ++first) {
-			Ray3 const& ray  = *first;
+		for (std::size_t i = 0; i != size; ++i) {
+			Ray3 const& ray  = first[i];
 			auto [t0, t1, a] = traceInit(ray, center, half_length);
-			*d_first         = trace(n, t0, t1, a, ray, inner_f, hit_f);
+			d_first[i]       = trace(n, t0, t1, a, ray, inner_f, hit_f);
 		}
+
+		return std::next(d_first, size);
 #endif
 	}
 
@@ -960,7 +966,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		              });
 #elif defined(UFO_OMP)
 #pragma omp parallel for
-		for (std::size_t row{}; row < rows; ++row) {
+		for (std::size_t row = 0; row < rows; ++row) {
 			auto r = (row + 0.5f) / rows;
 			for (std::size_t col{}; col < cols; ++col) {
 				auto c                   = (col + 0.5f) / cols;
@@ -1113,6 +1119,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		Image<Ray3> rays(rows, cols, Ray3(pose.position, {}));
 
 #if defined(UFO_TBB)
+		std::cout << "Using oneTBB\n";
 		std::vector<std::size_t> indices(rows);
 		std::iota(indices.begin(), indices.end(), 0);
 
@@ -1122,20 +1129,24 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 			              for (std::size_t col{}; col < cols; ++col) {
 				              auto  c = ((col + 0.5f) / cols) * 2.0f - 1.0f;
 				              Vec4f p_nds_h(r, c, -1.0f, 1.0f);
-				              auto  dir_eye = perspective_inv * p_nds_h;
-				              dir_eye.w     = 0.0;
+				              auto  dir_eye            = perspective_inv * p_nds_h;
+				              dir_eye.w                = 0.0;
 				              auto dir_world           = normalize(Vec3f(view_inv * dir_eye));
 				              rays(row, col).direction = dir_world;
 			              }
 		              });
 #elif defined(UFO_OMP)
+		std::cout << "Using OpenMP\n";
 #pragma omp parallel for
-		for (std::size_t row{}; row < rows; ++row) {
-			auto r = (row + 0.5f) / rows;
+		for (std::size_t row = 0; row < rows; ++row) {
+			auto r = ((row + 0.5f) / rows) * 2.0f - 1.0f;
 			for (std::size_t col{}; col < cols; ++col) {
-				auto c                   = (col + 0.5f) / cols;
-				auto end                 = tl + right_dir * c + bottom_dir * r;
-				rays(row, col).direction = normalize(end - pose.position);
+				auto  c = ((col + 0.5f) / cols) * 2.0f - 1.0f;
+				Vec4f p_nds_h(r, c, -1.0f, 1.0f);
+				auto  dir_eye            = perspective_inv * p_nds_h;
+				dir_eye.w                = 0.0;
+				auto dir_world           = normalize(Vec3f(view_inv * dir_eye));
+				rays(row, col).direction = dir_world;
 			}
 		};
 #endif
