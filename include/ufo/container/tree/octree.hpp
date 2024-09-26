@@ -46,10 +46,10 @@
 #include <ufo/container/tree/predicate/spatial.hpp>
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
-#include <ufo/vision/image.hpp>
 #include <ufo/geometry/shape/ray.hpp>
 #include <ufo/math/pose3.hpp>
 #include <ufo/utility/type_traits.hpp>
+#include <ufo/vision/image.hpp>
 
 // STL
 #include <iterator>
@@ -1095,22 +1095,20 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		             far_clip, up, right, forward);
 #endif
 
-		float aspect_ratio = cols / static_cast<float>(rows);
+		float const tan_half_fovy = std::tan(vertical_fov / 2.0f);
+		float const aspect        = cols / static_cast<float>(rows);
 
-		float e = far_clip * std::tan(vertical_fov / 2);
+		Mat4x4f perspective(0);
+		perspective[0][0] = 1.0f / (aspect * tan_half_fovy);
+		perspective[1][1] = 1.0f / (tan_half_fovy);
+		perspective[2][2] = far_clip / (far_clip - near_clip);
+		perspective[2][3] = 1.0f;
+		perspective[3][2] = -(far_clip * near_clip) / (far_clip - near_clip);
 
-		up *= e;
-		right *= e * aspect_ratio;
-		forward *= far_clip;
+		auto perspective_inv = perspective;  // inverse(perspective);
 
-		Vec3f tl         = up - right + forward;
-		Vec3f tr         = up + right + forward;
-		Vec3f bl         = -up - right + forward;
-		tl               = transform(pose, tl);
-		tr               = transform(pose, tr);
-		bl               = transform(pose, bl);
-		Vec3f right_dir  = tr - tl;
-		Vec3f bottom_dir = bl - tl;
+		Mat4x4f view     = static_cast<Mat4x4f>(pose);
+		auto    view_inv = view;  // inverse(view);
 
 		Image<Ray3> rays(rows, cols, Ray3(pose.position, {}));
 
@@ -1119,13 +1117,15 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		std::iota(indices.begin(), indices.end(), 0);
 
 		std::for_each(policy, indices.begin(), indices.end(),
-		              [tl, right_dir, bottom_dir, rows, cols, &rays](auto row) {
-			              auto r = (row + 0.5f) / rows;
-			              auto a = tl + bottom_dir * r;
+		              [perspective_inv, view_inv, rows, cols, &rays](auto row) {
+			              auto r = ((row + 0.5f) / rows) * 2.0f - 1.0f;
 			              for (std::size_t col{}; col < cols; ++col) {
-				              auto c                   = (col + 0.5f) / cols;
-				              auto end                 = tl + right_dir * c + bottom_dir * r;
-				              rays(row, col).direction = normalize(end - rays(row, col).origin);
+				              auto  c = ((col + 0.5f) / cols) * 2.0f - 1.0f;
+				              Vec4f p_nds_h(r, c, -1.0f, 1.0f);
+				              auto  dir_eye = perspective_inv * p_nds_h;
+				              dir_eye.w     = 0.0;
+				              auto dir_world           = normalize(Vec3f(view_inv * dir_eye));
+				              rays(row, col).direction = dir_world;
 			              }
 		              });
 #elif defined(UFO_OMP)
