@@ -142,6 +142,16 @@ class Tree
 	using Query        = IteratorWrapper<const_query_iterator>;
 	using QueryNearest = IteratorWrapper<const_nearest_query_iterator>;
 
+	template <class T>
+	struct is_node_type
+	    : is_one_of<std::decay_t<T>, Index, Node, Code, Key, Coord, Point,
+	                // We also add the double versions of Coord and Point
+	                TreeCoord<Dim, double>, Vec<Dim, double>> {
+	};
+
+	template <class T>
+	static inline constexpr bool is_node_type_v = is_node_type<T>::value;
+
  public:
 	/**************************************************************************************
 	|                                                                                     |
