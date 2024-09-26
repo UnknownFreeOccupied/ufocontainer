@@ -46,7 +46,7 @@
 #include <ufo/container/tree/predicate/spatial.hpp>
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
-#include <ufo/core/image.hpp>
+#include <ufo/vision/image.hpp>
 #include <ufo/geometry/shape/ray.hpp>
 #include <ufo/math/pose3.hpp>
 #include <ufo/utility/type_traits.hpp>
