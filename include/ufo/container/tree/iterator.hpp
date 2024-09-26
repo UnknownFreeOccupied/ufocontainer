@@ -160,7 +160,7 @@ class TreeIterator
 	template <class Predicate>
 	constexpr void initPredicate(Predicate const& predicate) const
 	{
-		pred::init(predicate, *tree_);
+		pred::Init<Predicate>::apply(predicate, *tree_);
 	}
 
 	template <bool OnlyExists, class TNode, class Predicate>

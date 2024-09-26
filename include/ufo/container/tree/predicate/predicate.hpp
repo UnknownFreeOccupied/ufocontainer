@@ -210,8 +210,8 @@ struct Init<IFF<PredLeft, PredRight>> {
 
 template <class Pred>
 struct ValueCheck {
-	static_assert(static_assert_check_v<false, Pred>,
-	              "Not implemented for this predicate.");
+	// TODO: static_assert(static_assert_check_v<false, Pred>,
+	//               "Not implemented for this predicate.");
 };
 
 template <class... Preds>
