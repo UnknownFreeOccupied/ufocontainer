@@ -61,10 +61,10 @@
 namespace ufo
 {
 struct TreeFileHeader {
-	using node_size_t = double;
-	using depth_t     = std::uint32_t;
+	using length_t = double;
+	using depth_t  = std::uint32_t;
 
-	static constexpr std::string_view const FILE_HEADER   = "# UFO tree file";
+	static constexpr std::string_view const FILE_HEADER   = "# UFO file";
 	static constexpr std::uint8_t const     CURRENT_MAJOR = 1;
 	static constexpr std::uint8_t const     CURRENT_MINOR = 0;
 	static constexpr std::uint8_t const     CURRENT_PATCH = 0;
@@ -78,37 +78,36 @@ struct TreeFileHeader {
 
 	TreeType tree_type;
 	bool     compressed;
-	double   leaf_size;
-	depth_t  depth_levels;
+	length_t leaf_length;
+	depth_t  depth;
 
 	TreeFileHeader() = default;
 
-	TreeFileHeader(TreeType tree_type, bool compressed, node_size_t leaf_size,
-	               depth_t depth_levels)
+	TreeFileHeader(TreeType tree_type, bool compressed, length_t leaf_length, depth_t depth)
 	    : major(CURRENT_MAJOR)
 	    , minor(CURRENT_MINOR)
 	    , patch(CURRENT_PATCH)
 	    , tree_type(tree_type)
 	    , compressed(compressed)
-	    , leaf_size(leaf_size)
-	    , depth_levels(depth_levels)
+	    , leaf_length(leaf_length)
+	    , depth(depth)
 	{
 	}
 
-	TreeFileHeader(std::filesystem::path const& filename) { read(filename); }
+	TreeFileHeader(std::filesystem::path const& file) { read(file); }
 
 	TreeFileHeader(std::istream& in) { read(in); }
 
 	TreeFileHeader(ReadBuffer& in) { read(in); }
 
-	[[nodiscard]] bool correct(std::filesystem::path const& filename,
+	[[nodiscard]] bool correct(std::filesystem::path const& file,
 	                           bool                         consume = false) const
 	{
-		std::ifstream file;
-		file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-		file.imbue(std::locale());
-		file.open(filename, std::ios::in | std::ios::binary);
-		return correct(file, consume);
+		std::ifstream f;
+		f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		f.imbue(std::locale());
+		f.open(file, std::ios::in | std::ios::binary);
+		return correct(f, consume);
 	}
 
 	[[nodiscard]] bool correct(std::istream& in, bool consume = false) const
@@ -138,13 +137,13 @@ struct TreeFileHeader {
 		return FILE_HEADER == line;
 	}
 
-	void read(std::filesystem::path const& filename)
+	void read(std::filesystem::path const& file)
 	{
-		std::ifstream file;
-		file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-		file.imbue(std::locale());
-		file.open(filename, std::ios::in | std::ios::binary);
-		read(file);
+		std::ifstream f;
+		f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		f.imbue(std::locale());
+		f.open(file, std::ios::in | std::ios::binary);
+		read(f);
 	}
 
 	std::istream& read(std::istream& in)
@@ -197,13 +196,13 @@ struct TreeFileHeader {
 		return in;
 	}
 
-	void write(std::filesystem::path const& filename) const
+	void write(std::filesystem::path const& file) const
 	{
-		std::ofstream file;
-		file.exceptions(std::ifstream::failbit | std::ifstream::badbit);
-		file.imbue(std::locale());
-		file.open(filename, std::ios::out | std::ios::binary);
-		write(file);
+		std::ofstream f;
+		f.exceptions(std::ifstream::failbit | std::ifstream::badbit);
+		f.imbue(std::locale());
+		f.open(file, std::ios::out | std::ios::binary);
+		write(f);
 	}
 
 	std::ostream& write(std::ostream& out) const

@@ -111,7 +111,8 @@ class TreeIterator
 	{
 		if constexpr (OnlyExists) {
 			// TODO: Should be tree_->child(node, child_index);
-			return tree_->childUnsafe(node, child_index);
+			// return tree_->childUnsafe(node, child_index);
+			return tree_->child(node, child_index);
 		} else {
 			// TODO: Should check isParent to get correct index
 			return tree_->child(node, child_index);
@@ -127,7 +128,8 @@ class TreeIterator
 	[[nodiscard]] TNode sibling(TNode const& node, offset_t sibling_index) const
 	{
 		if constexpr (OnlyExists) {
-			return tree_->siblingUnsafe(node, sibling_index);
+			// return tree_->siblingUnsafe(node, sibling_index);
+			return tree_->sibling(node, sibling_index);
 		} else {
 			return tree_->sibling(node, sibling_index);
 		}
@@ -158,7 +160,7 @@ class TreeIterator
 	[[nodiscard]] bool exists(TreeIndex node) const { return tree_->exists(node); }
 
 	template <class Predicate>
-	constexpr void initPredicate(Predicate const& predicate) const
+	constexpr void initPredicate(Predicate& predicate) const
 	{
 		pred::Init<Predicate>::apply(predicate, *tree_);
 	}
@@ -167,9 +169,11 @@ class TreeIterator
 	[[nodiscard]] bool validInner(TNode const& node, Predicate const& predicate) const
 	{
 		if constexpr (OnlyExists) {
-			return isParent(node) && pred::innerCheck(predicate, *tree_, node);
+			return isParent(node) &&
+			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
 		} else {
-			return !isPureLeaf(node) && pred::innerCheck(predicate, *tree_, node);
+			return !isPureLeaf(node) &&
+			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
 		}
 	}
 
@@ -182,7 +186,7 @@ class TreeIterator
 	template <class TNode, class Predicate>
 	[[nodiscard]] bool validReturn(TNode const& node, Predicate const& predicate) const
 	{
-		return pred::valueCheck(predicate, *tree_, node);
+		return pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
 	}
 
 	template <class Predicate>
@@ -203,11 +207,11 @@ class TreeIteratorWrapper
 
  public:
 	// Tags
-	using typename TI::difference_type;
-	using typename TI::iterator_category;
-	using typename TI::pointer;
-	using typename TI::reference;
-	using typename TI::value_type;
+	using difference_type   = typename TI::difference_type;
+	using iterator_category = typename TI::iterator_category;
+	using pointer           = typename TI::pointer;
+	using reference         = typename TI::reference;
+	using value_type        = typename TI::value_type;
 
 	TreeIteratorWrapper(TI* tree_iterator) : tree_iterator_(tree_iterator) {}
 
@@ -251,7 +255,7 @@ template <class Tree, class Node, class Predicate, bool OnlyExists, bool EarlySt
 class TreeForwardIterator final : public TreeIterator<Tree, Node>
 {
  private:
-	using TI = TreeIterator<Tree, TreeNodeNearest<Node>>;
+	using TI = TreeIterator<Tree, Node>;
 
 	static constexpr bool const OnlyLeavesOrFixedDepth =
 	    pred::contains_always_pred_v<pred::PureLeaf, Predicate> ||
@@ -261,11 +265,11 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 	using offset_t = typename Tree::offset_t;
 
 	// Tags
-	using typename TI::difference_type;
-	using typename TI::iterator_category;
-	using typename TI::pointer;
-	using typename TI::reference;
-	using typename TI::value_type;
+	using difference_type   = typename TI::difference_type;
+	using iterator_category = typename TI::iterator_category;
+	using pointer           = typename TI::pointer;
+	using reference         = typename TI::reference;
+	using value_type        = typename TI::value_type;
 
 	TreeForwardIterator(Tree const* tree) : TI(tree) {}
 
@@ -354,9 +358,9 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 	Predicate const predicate_{};
 
 	// To be processed inner nodes
-	std::array<Node, Tree::childrenPerParent() * Tree::maxDepthLevels()> inner_nodes_;
+	std::array<Node, Tree::branchingFactor() * Tree::maxNumDepthLevels()> inner_nodes_;
 	// To be processed return nodes
-	std::array<Node, Tree::childrenPerParent()> return_nodes_;
+	std::array<Node, Tree::branchingFactor()> return_nodes_;
 
 	int inner_index_{};
 	int return_index_{};

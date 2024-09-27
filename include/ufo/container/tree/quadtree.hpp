@@ -80,6 +80,21 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	using Coord       = typename Base::Coord;
 	using Bounds      = typename Base::Bounds;
 
+ public:
+	/**************************************************************************************
+	|                                                                                     |
+	|                                        Trace                                        |
+	|                                                                                     |
+	**************************************************************************************/
+
+	Node trace(Ray2 ray) {
+
+	}
+
+	Node trace(Ray3 ray, pos_t z = 0.0) {
+		
+	}
+
  protected:
 	/**************************************************************************************
 	|                                                                                     |

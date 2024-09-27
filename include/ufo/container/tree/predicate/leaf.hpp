@@ -52,17 +52,23 @@ namespace ufo::pred
 struct Leaf {
 };
 
-template <class Tree>
-[[nodiscard]] constexpr bool valueCheck(Leaf, Tree const& t, TreeIndex n)
-{
-	return t.isLeaf(n);
-}
+template <>
+struct ValueCheck<Leaf> {
+	template <class Tree>
+	[[nodiscard]] static constexpr bool apply(Leaf, Tree const& t, TreeIndex n)
+	{
+		return t.isLeaf(n);
+	}
+};
 
-template <class Tree, class Node>
-[[nodiscard]] constexpr bool innerCheck(Leaf, Tree const& t, Node n)
-{
-	return true;
-}
+template <>
+struct InnerCheck<Leaf> {
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool apply(Leaf, Tree const& t, Node n)
+	{
+		return true;
+	}
+};
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_LEAF_HPP

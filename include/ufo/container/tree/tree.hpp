@@ -790,7 +790,9 @@ class Tree
 	 * @param node the node
 	 * @return The center of the node.
 	 */
-	[[nodiscard]] Coord center(Node node) const { return code(node); }
+	[[nodiscard]] Coord center(Node node) const { 
+		// TODO: Not working, only returns root or something???
+		return center(key(node)); }
 
 	/*!
 	 * @brief Returns the center of `node`.
@@ -1648,6 +1650,14 @@ class Tree
 	|                                        Exist                                        |
 	|                                                                                     |
 	**************************************************************************************/
+
+	/*!
+	 * @brief Checks if a node exists.
+	 *
+	 * @param node the node to check
+	 * @return `true` if the node exists, `false` otherwise.
+	 */
+	[[nodiscard]] bool exists(Index node) const { return valid(node); }
 
 	/*!
 	 * @brief Checks if a node exists.

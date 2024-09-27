@@ -1119,7 +1119,6 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		Image<Ray3> rays(rows, cols, Ray3(pose.position, {}));
 
 #if defined(UFO_TBB)
-		std::cout << "Using oneTBB\n";
 		std::vector<std::size_t> indices(rows);
 		std::iota(indices.begin(), indices.end(), 0);
 
@@ -1133,10 +1132,10 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 				              dir_eye.w                = 0.0;
 				              auto dir_world           = normalize(Vec3f(view_inv * dir_eye));
 				              rays(row, col).direction = dir_world;
+				              rays(row, col).origin    = Vec3f(view_inv * Vec4f(Vec3f(0.0), 1.0));
 			              }
 		              });
 #elif defined(UFO_OMP)
-		std::cout << "Using OpenMP\n";
 #pragma omp parallel for
 		for (std::size_t row = 0; row < rows; ++row) {
 			auto r = ((row + 0.5f) / rows) * 2.0f - 1.0f;
