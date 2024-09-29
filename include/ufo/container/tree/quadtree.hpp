@@ -87,13 +87,13 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	Node trace(Ray2 ray) {
+	// Node trace(Ray2 ray) {
 
-	}
+	// }
 
-	Node trace(Ray3 ray, pos_t z = 0.0) {
+	// Node trace(Ray3 ray, pos_t z = 0.0) {
 		
-	}
+	// }
 
  protected:
 	/**************************************************************************************
