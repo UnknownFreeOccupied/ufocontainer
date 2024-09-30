@@ -63,6 +63,7 @@ namespace ufo
 template <class Derived, template <TreeType> class Block>
 class Octree : public Tree<Derived, Block<TreeType::OCT>>
 {
+ protected:
 	using Base = Tree<Derived, Block<TreeType::OCT>>;
 
 	//
@@ -548,8 +549,8 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 		Index n = Base::index(node);
 
-		auto [t0, t1, a] = traceInit(n, ray);
-		return trace(n, t0, t1, a, ray, inner_f, hit_f, miss);
+		auto params = traceInit(n, ray);
+		return trace(n, params, ray, inner_f, hit_f, miss);
 	}
 
 	template <class NodeType, class InputIt, class OutputIt, class InnerFun, class HitFun,
@@ -571,8 +572,8 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		auto half_length = Base::halfLength(n);
 
 		return std::transform(first, last, d_first, [&](Ray3 const& ray) {
-			auto [t0, t1, a] = traceInit(ray, center, half_length);
-			return trace(n, t0, t1, a, ray, inner_f, hit_f, miss);
+			auto params = traceInit(ray, center, half_length);
+			return trace(n, params, ray, inner_f, hit_f, miss);
 		});
 	}
 
@@ -626,7 +627,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
 			// Unless NodeType is Index, we need to check that the node actually exists
 			if (!Base::exists(node)) {
-				return {};
+				return miss;
 			}
 		}
 
@@ -638,17 +639,17 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 #if defined(UFO_TBB)
 		return std::transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
 		                      [&](Ray3 const& ray) {
-			                      auto [t0, t1, a] = traceInit(ray, center, half_length);
-			                      return trace(n, t0, t1, a, ray, inner_f, hit_f, miss);
+			                      auto params = traceInit(ray, center, half_length);
+			                      return trace(n, params, ray, inner_f, hit_f, miss);
 		                      });
 #elif defined(UFO_OMP)
 		std::size_t size = std::distance(first, last);
 
 #pragma omp parallel for
 		for (std::size_t i = 0; i != size; ++i) {
-			Ray3 const& ray  = first[i];
-			auto [t0, t1, a] = traceInit(ray, center, half_length);
-			d_first[i]       = trace(n, t0, t1, a, ray, inner_f, hit_f, miss);
+			Ray3 const& ray    = first[i];
+			auto        params = traceInit(ray, center, half_length);
+			d_first[i]         = trace(n, params, ray, inner_f, hit_f, miss);
 		}
 
 		return std::next(d_first, size);
@@ -890,6 +891,13 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	**************************************************************************************/
 
 	template <class InnerFun, class HitFun, class T>
+	void render(Camera const& camera, Image<T>& image, InnerFun inner_f, HitFun hit_f,
+	            T const& miss) const
+	{
+		render(Base::index(), camera, image, inner_f, hit_f, miss);
+	}
+
+	template <class InnerFun, class HitFun, class T>
 	[[nodiscard]] Image<T> render(Camera const& camera, std::size_t rows, std::size_t cols,
 	                              InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
@@ -898,14 +906,32 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 	template <class NodeType, class InnerFun, class HitFun, class T,
 	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
+	void render(NodeType node, Camera const& camera, Image<T>& image, InnerFun inner_f,
+	            HitFun hit_f, T const& miss) const
+	{
+		Image<Ray3> rays = camera.rays(image.rows(), image.cols());
+		trace(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
+	}
+
+	template <class NodeType, class InnerFun, class HitFun, class T,
+	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] Image<T> render(NodeType node, Camera const& camera, std::size_t rows,
 	                              std::size_t cols, InnerFun inner_f, HitFun hit_f,
 	                              T const& miss) const
 	{
-		Image<Ray3> rays = camera.rays(rows, cols);
-		Image<T>    image(rows, cols);
-		trace(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
+		Image<T> image(rows, cols);
+		render(node, camera, image, inner_f, hit_f, miss);
 		return image;
+	}
+
+	template <
+	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
+	            InnerFun inner_f, HitFun hit_f, T const& miss) const
+	{
+		render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, image, inner_f,
+		       hit_f, miss);
 	}
 
 	template <
@@ -920,14 +946,138 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	}
 
 	template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
+	void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
+	            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss) const
+	{
+		auto rows = image.rows();
+		auto cols = image.cols();
+
+		Image<Ray3> rays = camera.rays(policy, rows, cols);
+
+		constexpr std::size_t const step_size = 2;
+
+		if constexpr (1 == step_size) {
+			trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
+			      image.begin(), inner_f, hit_f, miss);
+		} else {
+			Image<std::pair<TreeIndex, float>> iter_image(
+			    rows, cols, std::make_pair(TreeIndex{}, std::numeric_limits<float>::max()));
+
+			Index n = Base::index(node);
+
+			auto center      = Base::center(n);
+			auto half_length = Base::halfLength(n);
+
+			std::vector<std::size_t> row_idx(rows);
+			std::iota(row_idx.begin(), row_idx.end(), 0);
+			// std::generate(row_idx.begin(), row_idx.end(), [n = 0]() mutable {
+			// 	auto v = n;
+			// 	n += 2;
+			// 	return v;
+			// });
+
+			struct IterElement {
+				Index node;
+				float distance;
+				T     value;
+
+				IterElement() = default;
+
+				IterElement(Index node, float distance, T value)
+				    : node(node), distance(distance), value(value)
+				{
+				}
+			};
+
+			auto tmp_f = [hit_f](auto node, auto const& ray, auto distance) {
+				auto [hit, value] = hit_f(node, ray, distance);
+				return std::make_pair(hit, IterElement(node, distance, value));
+			};
+
+			auto tmp_miss = IterElement(TreeIndex{}, std::numeric_limits<float>::max(), miss);
+
+			std::for_each(policy, row_idx.begin(), row_idx.end(), [&](std::size_t row) {
+				std::size_t offset = row % step_size;
+
+				for (std::size_t col = offset; cols > col; col += step_size) {
+					auto ray             = rays(row, col);
+					auto params          = traceInit(ray, center, half_length);
+					auto ie              = trace(n, params, ray, inner_f, tmp_f, tmp_miss);
+					image(row, col)      = ie.value;
+					iter_image(row, col) = {ie.node, ie.distance};
+				}
+			});
+
+			if constexpr (2 == step_size) {
+				std::for_each(
+				    policy, row_idx.begin() + 1, row_idx.end() - 1, [&](std::size_t row) {
+					    std::size_t const offset = 1 - (row % step_size);
+
+					    for (std::size_t col = step_size - offset; cols - 1 > col;
+					         col += step_size) {
+						    auto idx = minIndex(Vec4f(
+						        iter_image(row - 1, col).second, iter_image(row + 1, col).second,
+						        iter_image(row, col - 1).second, iter_image(row, col + 1).second));
+
+						    std::size_t min_row = 0 == idx ? row - 1 : (1 == idx ? row + 1 : row);
+						    std::size_t min_col = 2 == idx ? col - 1 : (3 == idx ? col + 1 : col);
+
+						    auto const& [node, distance] = iter_image(min_row, min_col);
+						    if (Base::valid(node)) {
+							    auto ray = rays(row, col);
+							    // float dist = distance(ray.origin, min(bounds));
+							    if (auto [hit, value] = hit_f(node, ray, distance); hit) {
+								    image(row, col) = value;
+							    } else {
+								    image(row, col) = miss;
+							    }
+						    } else {
+							    image(row, col) = miss;
+						    }
+					    }
+				    });
+			} else {
+				std::for_each(
+				    policy, row_idx.begin() + 1, row_idx.end() - 1, [&](std::size_t row) {
+					    std::size_t const offset = row % step_size;
+
+					    for (std::size_t col = 1; cols - 1 > col; ++col) {
+						    if (offset == (col % step_size)) {
+							    continue;
+						    }
+
+						    auto idx = minIndex(Vec4f(
+						        iter_image(row - 1, col).second, iter_image(row + 1, col).second,
+						        iter_image(row, col - 1).second, iter_image(row, col + 1).second));
+
+						    std::size_t min_row = 0 == idx ? row - 1 : (1 == idx ? row + 1 : row);
+						    std::size_t min_col = 2 == idx ? col - 1 : (3 == idx ? col + 1 : col);
+
+						    auto const& [node, distance] = iter_image(min_row, min_col);
+						    if (Base::valid(node)) {
+							    auto ray = rays(row, col);
+							    // float dist = distance(ray.origin, min(bounds));
+							    if (auto [hit, value] = hit_f(node, ray, distance); hit) {
+								    image(row, col) = value;
+							    } else {
+								    image(row, col) = miss;
+							    }
+						    } else {
+							    image(row, col) = miss;
+						    }
+					    }
+				    });
+			}
+		}
+	}
+
+	template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, NodeType node,
 	                              Camera const& camera, std::size_t rows, std::size_t cols,
 	                              InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
-		Image<Ray3> rays = camera.rays(policy, rows, cols);
-		Image<T>    image(rows, cols);
-		trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
-		      image.begin(), inner_f, hit_f, miss);
+		Image<T> image(rows, cols);
+		render(policy, node, camera, image, inner_f, hit_f, miss);
 		return image;
 	}
 
@@ -1006,44 +1156,49 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Index       node,
-	                                                           Ray3 const& ray) const
+	struct TraceParams {
+		Vec3f    t0;
+		Vec3f    t1;
+		unsigned a;
+	};
+
+	[[nodiscard]] TraceParams traceInit(Index node, Ray3 const& ray) const
 	{
 		return traceInit(ray, Base::center(node), Base::halfLength(node));
 	}
 
-	[[nodiscard]] std::tuple<Vec3f, Vec3f, offset_t> traceInit(Node        node,
-	                                                           Ray3 const& ray) const
+	[[nodiscard]] TraceParams traceInit(Node node, Ray3 const& ray) const
 	{
 		return traceInit(ray, Base::center(node), Base::halfLength(node));
 	}
 
-	[[nodiscard]] static constexpr inline std::tuple<Vec3f, Vec3f, offset_t> traceInit(
-	    Ray3 const& ray, Vec3f center, float half_length) noexcept
+	[[nodiscard]] static constexpr inline TraceParams traceInit(Ray3 const& ray,
+	                                                            Vec3f       center,
+	                                                            float half_length) noexcept
 	{
+		TraceParams params;
+
 		Vec3f origin(0 > ray.direction[0] ? center[0] * 2 - ray.origin[0] : ray.origin[0],
 		             0 > ray.direction[1] ? center[1] * 2 - ray.origin[1] : ray.origin[1],
 		             0 > ray.direction[2] ? center[2] * 2 - ray.origin[2] : ray.origin[2]);
 
-		auto direction = 1.0f / abs(ray.direction);
+		auto direction_reciprocal = 1.0f / abs(ray.direction);
 
-		Vec3f t0;
-		Vec3f t1;
-
-		for (std::size_t i{}; direction.size() > i; ++i) {
+		for (std::size_t i{}; direction_reciprocal.size() > i; ++i) {
 			auto a = center[i] - half_length - origin[i];
 			auto b = center[i] + half_length - origin[i];
 			// TODO: Look at
 			// t0[i] = 0 == direction[i] ? 1e+25 * a : a / direction[i];
 			// t1[i] = 0 == direction[i] ? 1e+25 * b : b / direction[i];
-			t0[i] = a * direction[i];
-			t1[i] = b * direction[i];
+			params.t0[i] = a * direction_reciprocal[i];
+			params.t1[i] = b * direction_reciprocal[i];
 		}
 
-		offset_t a = offset_t(0 > ray.direction[0]) | (offset_t(0 > ray.direction[1]) << 1) |
-		             (offset_t(0 > ray.direction[2]) << 2);
+		params.a = (unsigned(0 > ray.direction[0]) << 0) |
+		           (unsigned(0 > ray.direction[1]) << 1) |
+		           (unsigned(0 > ray.direction[2]) << 2);
 
-		return {t0, t1, a};
+		return params;
 	}
 
 	[[nodiscard]] static constexpr inline unsigned firstNode(Vec3f t0, Vec3f tm) noexcept
@@ -1283,7 +1438,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	**************************************************************************************/
 
 	template <class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Index node, Vec3f t0, Vec3f t1, unsigned a, Ray3 const& ray,
+	[[nodiscard]] T trace(Index node, TraceParams const& params, Ray3 const& ray,
 	                      InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
 		constexpr std::array new_node_lut{
@@ -1291,6 +1446,10 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		    std::array<unsigned, 3>{3, 8, 6}, std::array<unsigned, 3>{8, 8, 7},
 		    std::array<unsigned, 3>{5, 6, 8}, std::array<unsigned, 3>{8, 7, 8},
 		    std::array<unsigned, 3>{7, 8, 8}, std::array<unsigned, 3>{8, 8, 8}};
+
+		auto t0 = params.t0;
+		auto t1 = params.t1;
+		auto a  = params.a;
 
 		if (max(t0) >= min(t1)) {
 			return miss;
@@ -1353,7 +1512,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 			// distance = max(min(t0, t1));
 			// Also: min(max(t0, t1))
 			// distance = std::max(0.0f, max(min(t0, t1)));
-			distance = std::max(0.0f, max(t0));
+			distance = UFO_MAX(0.0f, max(t0));
 
 			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
 			idx -= 8 <= stack[idx].cur_node;
