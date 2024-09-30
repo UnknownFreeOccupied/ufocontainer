@@ -886,7 +886,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 	/**************************************************************************************
 	|                                                                                     |
-	|                                    Render index                                     |
+	|                                       Render                                        |
 	|                                                                                     |
 	**************************************************************************************/
 
@@ -954,7 +954,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 		Image<Ray3> rays = camera.rays(policy, rows, cols);
 
-		constexpr std::size_t const step_size = 2;
+		constexpr std::size_t const step_size = 3;
 
 		if constexpr (1 == step_size) {
 			trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
@@ -1213,26 +1213,8 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	[[nodiscard]] static constexpr inline unsigned newNode(unsigned cur,
 	                                                       unsigned dim) noexcept
 	{
-		// constexpr std::array new_node_lut{
-		//     std::array<unsigned, 3>{1, 2, 4}, std::array<unsigned, 3>{8, 3, 5},
-		//     std::array<unsigned, 3>{3, 8, 6}, std::array<unsigned, 3>{8, 8, 7},
-		//     std::array<unsigned, 3>{5, 6, 8}, std::array<unsigned, 3>{8, 7, 8},
-		//     std::array<unsigned, 3>{7, 8, 8}, std::array<unsigned, 3>{8, 8, 8}};
-
 		return std::array<unsigned, 8 * 3>{1, 2, 4, 8, 3, 5, 3, 8, 6, 8, 8, 7,
 		                                   5, 6, 8, 8, 7, 8, 7, 8, 8, 8, 8, 8}[3 * cur + dim];
-
-		// unsigned x = 1u << dim;
-		// return (((cur & x) << 3) | cur | x);
-
-		// 0 (000) -> 1 (0001), 2 (0010), 4 (0100)
-		// 1 (001) -> 8 (1000), 3 (0011), 5 (0101)
-		// 2 (010) -> 3 (0011), 8 (1000), 6 (0110)
-		// 3 (011) -> 8 (1000), 8 (1000), 7 (0111)
-		// 4 (100) -> 5 (0101), 6 (0110), 8 (1000)
-		// 5 (101) -> 8 (1000), 7 (0111), 8 (1000)
-		// 6 (110) -> 7 (0111), 8 (1000), 8 (1000)
-		// 7 (111) -> 8 (1000), 8 (1000), 8 (1000)
 	};
 
 	// [[nodiscard]] static constexpr inline std::tuple<Vec3f, Vec3f, offset_t>
@@ -1459,7 +1441,6 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 			return miss;
 		}
 
-		// TODO: Update distance somewhere
 		float distance{};
 
 		if (auto const& [hit, value] = hit_f(node, ray, distance); hit) {
@@ -1473,10 +1454,6 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		auto tm = 0.5f * (t0 + t1);
 
 		unsigned cur_node = firstNode(t0, tm);
-
-		// if (8 <= cur_node) {
-		// 	return miss;
-		// }
 
 		struct StackElement {
 			Vec3f    t0;
@@ -1509,9 +1486,6 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 			t0 = {mask[0] ? tm[0] : t0[0], mask[1] ? tm[1] : t0[1], mask[2] ? tm[2] : t0[2]};
 			t1 = {mask[0] ? t1[0] : tm[0], mask[1] ? t1[1] : tm[1], mask[2] ? t1[2] : tm[2]};
 
-			// distance = max(min(t0, t1));
-			// Also: min(max(t0, t1))
-			// distance = std::max(0.0f, max(min(t0, t1)));
 			distance = UFO_MAX(0.0f, max(t0));
 
 			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
@@ -1533,8 +1507,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 			cur_node = firstNode(t0, tm);
 
-			stack[idx + 1] = {node, cur_node, t0, t1, tm};
-			idx += 8 > cur_node;
+			stack[++idx] = {node, cur_node, t0, t1, tm};
 		}
 
 		return miss;
