@@ -47,7 +47,7 @@
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
 #include <ufo/geometry/shape/ray.hpp>
-#include <ufo/math/pose3.hpp>
+#include <ufo/math/trans3.hpp>
 #include <ufo/utility/type_traits.hpp>
 #include <ufo/vision/camera.hpp>
 #include <ufo/vision/image.hpp>
@@ -954,7 +954,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 		Image<Ray3> rays = camera.rays(policy, rows, cols);
 
-		constexpr std::size_t const step_size = 3;
+		constexpr std::size_t const step_size = 1;
 
 		if constexpr (1 == step_size) {
 			trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
@@ -1182,16 +1182,16 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 		             0 > ray.direction[1] ? center[1] * 2 - ray.origin[1] : ray.origin[1],
 		             0 > ray.direction[2] ? center[2] * 2 - ray.origin[2] : ray.origin[2]);
 
-		auto direction_reciprocal = 1.0f / abs(ray.direction);
+		auto direction = abs(ray.direction);
 
-		for (std::size_t i{}; direction_reciprocal.size() > i; ++i) {
+		for (std::size_t i{}; direction.size() > i; ++i) {
 			auto a = center[i] - half_length - origin[i];
 			auto b = center[i] + half_length - origin[i];
 			// TODO: Look at
-			// t0[i] = 0 == direction[i] ? 1e+25 * a : a / direction[i];
-			// t1[i] = 0 == direction[i] ? 1e+25 * b : b / direction[i];
-			params.t0[i] = a * direction_reciprocal[i];
-			params.t1[i] = b * direction_reciprocal[i];
+			params.t0[i] = 0 == direction[i] ? 1e+25 * a : a / direction[i];
+			params.t1[i] = 0 == direction[i] ? 1e+25 * b : b / direction[i];
+			// params.t0[i] = a * direction_reciprocal[i];
+			// params.t1[i] = b * direction_reciprocal[i];
 		}
 
 		params.a = (unsigned(0 > ray.direction[0]) << 0) |
