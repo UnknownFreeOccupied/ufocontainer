@@ -44,7 +44,7 @@
 
 // UFO
 #include <ufo/container/tree/key.hpp>
-#include <ufo/math/utility.hpp>
+#include <ufo/math/math.hpp>
 #include <ufo/morton/morton.hpp>
 
 // STL
