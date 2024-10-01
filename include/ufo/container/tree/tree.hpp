@@ -56,7 +56,7 @@
 #include <ufo/container/tree/predicate.hpp>
 #include <ufo/container/tree/type.hpp>
 #include <ufo/geometry/shape/aabb.hpp>
-#include <ufo/math/utility.hpp>
+#include <ufo/math/math.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/bit_set.hpp>
 #include <ufo/utility/execution.hpp>
@@ -790,9 +790,11 @@ class Tree
 	 * @param node the node
 	 * @return The center of the node.
 	 */
-	[[nodiscard]] Coord center(Node node) const { 
+	[[nodiscard]] Coord center(Node node) const
+	{
 		// TODO: Not working, only returns root or something???
-		return center(key(node)); }
+		return center(key(node));
+	}
 
 	/*!
 	 * @brief Returns the center of `node`.
