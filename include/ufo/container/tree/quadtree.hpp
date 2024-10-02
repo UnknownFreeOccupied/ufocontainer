@@ -45,6 +45,8 @@
 // UFO
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
+#include <ufo/vision/camera.hpp>
+#include <ufo/vision/image.hpp>
 
 namespace ufo
 {
@@ -83,236 +85,11 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
  public:
 	/**************************************************************************************
 	|                                                                                     |
-	|                                        Trace                                        |
+	|                                       Render                                        |
 	|                                                                                     |
 	**************************************************************************************/
 
 	// TODO: Implement the predicate once as well
-
-	template <std::size_t Dim, class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Ray<Dim, float> const& ray, InnerFun inner_f, HitFun hit_f,
-	                      T const& miss) const
-	{
-		return trace(Base::index(), ray, inner_f, hit_f, miss);
-	}
-
-	template <class InputIt, class OutputIt, class InnerFun, class HitFun, class T>
-	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, InnerFun inner_f,
-	               HitFun hit_f, T const& miss) const
-	{
-		return trace(Base::index(), first, last, d_first, inner_f, hit_f, miss);
-	}
-
-	template <class InputIt, class InnerFun, class HitFun, class T>
-	[[nodiscard]] std::vector<T> trace(InputIt first, InputIt last, InnerFun inner_f,
-	                                   HitFun hit_f, T const& miss) const
-	{
-		return trace(Base::index(), first, last, inner_f, hit_f, miss);
-	}
-
-	template <class NodeType, std::size_t Dim, class InnerFun, class HitFun, class T,
-	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] T trace(NodeType node, Ray<Dim, float> const& ray, InnerFun inner_f,
-	                      HitFun hit_f, T const& miss) const
-	{
-		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
-			// Unless NodeType is Index, we need to check that the node actually exists
-			if (!Base::exists(node)) {
-				return miss;
-			}
-		}
-
-		Index n = Base::index(node);
-
-		auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-			return inner_f(node, ray, distance);
-		};
-
-		auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-			return hit_f(node, ray, distance);
-		};
-
-		if constexpr (2 == Dim) {
-			auto params = traceInit(n, ray);
-			return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
-		} else if constexpr (3 == Dim) {
-			return trace3D(n, Base::center(n), Base::halfLength(n), ray, inner_f, hit_f, miss);
-		} else {
-			// TODO: Error
-			return miss;
-		}
-	}
-
-	template <class NodeType, class InputIt, class OutputIt, class InnerFun, class HitFun,
-	          class T,
-	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
-	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
-	               InnerFun inner_f, HitFun hit_f, T const& miss) const
-	{
-		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
-			// Unless NodeType is Index, we need to check that the node actually exists
-			if (!Base::exists(node)) {
-				return miss;
-			}
-		}
-
-		Index n = Base::index(node);
-
-		auto center      = Base::center(n);
-		auto half_length = Base::halfLength(n);
-
-		return std::transform(first, last, d_first, [&](auto const& ray) {
-			auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-				return inner_f(node, ray, distance);
-			};
-
-			auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-				return hit_f(node, ray, distance);
-			};
-
-			using R = std::decay_t<decltype(ray)>;
-			if constexpr (std::is_same_v<Ray2, R> || std::is_same_v<Ray2d, R>) {
-				auto params = traceInit(ray, center, half_length);
-				return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
-			} else if constexpr (std::is_same_v<Ray3, R> || std::is_same_v<Ray3d, R>) {
-				return trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
-			} else {
-				// TODO: Error
-				return miss;
-			}
-		});
-	}
-
-	template <class NodeType, class InputIt, class InnerFun, class HitFun, class T,
-	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] std::vector<T> trace(NodeType node, InputIt first, InputIt last,
-	                                   InnerFun inner_f, HitFun hit_f, T const& miss) const
-	{
-		std::vector<T> nodes(std::distance(first, last));
-		trace(node, first, last, nodes.begin(), inner_f, hit_f, miss);
-		return nodes;
-	}
-
-	template <
-	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class InnerFun,
-	    class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
-	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1 last,
-	                RandomIt2 d_first, InnerFun inner_f, HitFun hit_f, T const& miss) const
-	{
-		return trace(std::forward<ExecutionPolicy>(policy), Base::node(), first, last,
-		             d_first, inner_f, hit_f, miss);
-	}
-
-	template <
-	    class ExecutionPolicy, class RandomIt, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
-	[[nodiscard]] std::vector<T> trace(ExecutionPolicy&& policy, RandomIt first,
-	                                   RandomIt last, InnerFun inner_f, HitFun hit_f,
-	                                   T const& miss) const
-	{
-		return trace(std::forward<ExecutionPolicy>(policy), Base::index(), first, last,
-		             inner_f, hit_f, miss);
-	}
-
-	template <class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
-	          class InnerFun, class HitFun, class T>
-	RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
-	                RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
-	                T const& miss) const
-	{
-		if constexpr (std::is_same_v<execution::sequenced_policy,
-		                             std::decay_t<ExecutionPolicy>>) {
-			return trace(node, first, last, d_first, inner_f, hit_f, miss);
-		}
-
-#if !defined(UFO_TBB) && !defined(UFO_OMP)
-		return trace(node, first, last, d_first, inner_f, hit_f, miss);
-#endif
-
-		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
-			// Unless NodeType is Index, we need to check that the node actually exists
-			if (!Base::exists(node)) {
-				return miss;
-			}
-		}
-
-		Index n = Base::index(node);
-
-		auto center      = Base::center(n);
-		auto half_length = Base::halfLength(n);
-
-#if defined(UFO_TBB)
-		return std::transform(
-		    std::forward<ExecutionPolicy>(policy), first, last, d_first,
-		    [&](auto const& ray) {
-			    auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-				    return inner_f(node, ray, distance);
-			    };
-
-			    auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-				    return hit_f(node, ray, distance);
-			    };
-
-			    using R = std::decay_t<decltype(ray)>;
-			    if constexpr (std::is_same_v<Ray2, R> || std::is_same_v<Ray2d, R>) {
-				    auto params = traceInit(ray, center, half_length);
-				    return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
-			    } else if constexpr (std::is_same_v<Ray3, R> || std::is_same_v<Ray3d, R>) {
-				    return trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
-			    } else {
-				    // TODO: Error
-				    return miss;
-			    }
-		    });
-#elif defined(UFO_OMP)
-		std::size_t size = std::distance(first, last);
-
-#pragma omp parallel for
-		for (std::size_t i = 0; i != size; ++i) {
-			auto const& ray = first[i];
-
-			auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-				return inner_f(node, ray, distance);
-			};
-
-			auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-				return hit_f(node, ray, distance);
-			};
-
-			using R = std::decay_t<decltype(ray)>;
-			if constexpr (std::is_same_v<Ray2, R> || std::is_same_v<Ray2d, R>) {
-				auto params = traceInit(ray, center, half_length);
-				d_first[i]  = trace(n, params, ray, wrapped_inner_f, wrapped_hit_f, miss);
-			} else if constexpr (std::is_same_v<Ray3, R> || std::is_same_v<Ray3d, R>) {
-				d_first[i] = trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
-			} else {
-				// TODO: Error
-				d_first[i] = miss;
-			}
-		}
-
-		return std::next(d_first, size);
-#endif
-	}
-
-	template <class ExecutionPolicy, class NodeType, class RandomIt, class InnerFun,
-	          class HitFun, class T>
-	[[nodiscard]] std::vector<T> trace(ExecutionPolicy&& policy, NodeType node,
-	                                   RandomIt first, RandomIt last, InnerFun inner_f,
-	                                   HitFun hit_f, T const& miss) const
-	{
-		std::vector<T> nodes(std::distance(first, last));
-		trace(std::forward<ExecutionPolicy>(policy), node, first, last, nodes.begin(),
-		      inner_f, hit_f, miss);
-		return nodes;
-	}
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                       Render                                        |
-	|                                                                                     |
-	**************************************************************************************/
 
 	template <class InnerFun, class HitFun, class T>
 	void render(Camera const& camera, Image<T>& image, InnerFun inner_f, HitFun hit_f,
@@ -334,7 +111,7 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	            HitFun hit_f, T const& miss) const
 	{
 		Image<Ray3> rays = camera.rays(image.rows(), image.cols());
-		trace(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
+		trace3D(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
 	}
 
 	template <class NodeType, class InnerFun, class HitFun, class T,
@@ -378,8 +155,8 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 		Image<Ray3> rays = camera.rays(policy, rows, cols);
 
-		trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
-		      image.begin(), inner_f, hit_f, miss);
+		trace3D(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
+		        image.begin(), inner_f, hit_f, miss);
 	}
 
 	template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
@@ -467,152 +244,73 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	struct TraceParams {
-		Vec2f    t0;
-		Vec2f    t1;
-		unsigned a;
-	};
-
-	[[nodiscard]] TraceParams traceInit(Index node, Ray2 const& ray) const
+	template <class NodeType, class InputIt, class OutputIt, class InnerFun, class HitFun,
+	          class T,
+	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
+	OutputIt trace3D(NodeType node, InputIt first, InputIt last, OutputIt d_first,
+	                 InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
-		return traceInit(ray, Base::center(node), Base::halfLength(node));
+		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
+			// Unless NodeType is Index, we need to check that the node actually exists
+			if (!Base::exists(node)) {
+				return miss;
+			}
+		}
+
+		Index n = Base::index(node);
+
+		auto center      = Base::center(n);
+		auto half_length = Base::halfLength(n);
+
+		return std::transform(first, last, d_first, [&](auto const& ray) {
+			return trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
+		});
 	}
 
-	[[nodiscard]] TraceParams traceInit(Node node, Ray2 const& ray) const
+	template <class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
+	          class InnerFun, class HitFun, class T>
+	RandomIt2 trace3D(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
+	                  RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
+	                  T const& miss) const
 	{
-		return traceInit(ray, Base::center(node), Base::halfLength(node));
-	}
-
-	[[nodiscard]] static constexpr inline TraceParams traceInit(Ray2 const& ray,
-	                                                            Vec2f       center,
-	                                                            float half_length) noexcept
-	{
-		TraceParams params;
-
-		Vec2f origin(0 > ray.direction[0] ? center[0] * 2 - ray.origin[0] : ray.origin[0],
-		             0 > ray.direction[1] ? center[1] * 2 - ray.origin[1] : ray.origin[1]);
-
-		auto direction = abs(ray.direction);
-
-		for (std::size_t i{}; direction.size() > i; ++i) {
-			auto a = center[i] - half_length - origin[i];
-			auto b = center[i] + half_length - origin[i];
-			// TODO: Look at
-			params.t0[i] = 0 == direction[i] ? 1e+25 * a : a / direction[i];
-			params.t1[i] = 0 == direction[i] ? 1e+25 * b : b / direction[i];
-			// params.t0[i] = a * direction_reciprocal[i];
-			// params.t1[i] = b * direction_reciprocal[i];
+		if constexpr (std::is_same_v<execution::sequenced_policy,
+		                             std::decay_t<ExecutionPolicy>>) {
+			return trace3D(node, first, last, d_first, inner_f, hit_f, miss);
 		}
 
-		params.a =
-		    (unsigned(0 > ray.direction[0]) << 0) | (unsigned(0 > ray.direction[1]) << 1);
+#if !defined(UFO_TBB) && !defined(UFO_OMP)
+		return trace3D(node, first, last, d_first, inner_f, hit_f, miss);
+#endif
 
-		return params;
-	}
-
-	[[nodiscard]] static constexpr inline unsigned firstNode(Vec2f t0, Vec2f tm) noexcept
-	{
-		auto        max_comp = maxIndex(t0);
-		std::size_t a        = 1 - max_comp;
-		return static_cast<unsigned>(tm[a] < t0[max_comp]) << a;
-	}
-
-	[[nodiscard]] static constexpr inline unsigned newNode(unsigned cur,
-	                                                       unsigned dim) noexcept
-	{
-		return std::array<unsigned, 4 * 2>{1, 2, 4, 3, 3, 4, 4, 4}[2 * cur + dim];
-	};
-
-	template <class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Index node, TraceParams const& params, InnerFun inner_f,
-	                      HitFun hit_f, T const& miss) const
-	{
-		constexpr std::array new_node_lut{
-		    std::array<unsigned, 2>{1, 2}, std::array<unsigned, 2>{4, 3},
-		    std::array<unsigned, 2>{3, 4}, std::array<unsigned, 2>{4, 4}};
-
-		auto t0 = params.t0;
-		auto t1 = params.t1;
-		auto a  = params.a;
-
-		if (max(t0) >= min(t1)) {
-			return miss;
-		}
-
-		if (0.0f > t1[0] || 0.0f > t1[1]) {
-			return miss;
-		}
-
-		float distance{};
-
-		if (auto const& [hit, value] = hit_f(node, distance); hit) {
-			return value;
-		}
-
-		if (Base::isLeaf(node) || !inner_f(node, distance)) {
-			return miss;
-		}
-
-		auto tm = 0.5f * (t0 + t1);
-
-		unsigned cur_node = firstNode(t0, tm);
-
-		struct StackElement {
-			Vec2f    t0;
-			Vec2f    t1;
-			Vec2f    tm;
-			unsigned cur_node;
-			Index    node;
-
-			StackElement() = default;
-
-			StackElement(Index node, unsigned cur_node, Vec2f t0, Vec2f t1, Vec2f tm)
-			    : node(node), cur_node(cur_node), t0(t0), t1(t1), tm(tm)
-			{
+		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
+			// Unless NodeType is Index, we need to check that the node actually exists
+			if (!Base::exists(node)) {
+				return miss;
 			}
-		};
-
-		std::array<StackElement, Base::maxNumDepthLevels()> stack;
-		stack[0] = {node, cur_node, t0, t1, tm};
-
-		for (int idx{}; 0 <= idx;) {
-			node     = stack[idx].node;
-			cur_node = stack[idx].cur_node;
-			t0       = stack[idx].t0;
-			t1       = stack[idx].t1;
-			tm       = stack[idx].tm;
-
-			node = Base::child(node, cur_node ^ a);
-
-			std::bitset<2> mask(cur_node);
-			t0 = {mask[0] ? tm[0] : t0[0], mask[1] ? tm[1] : t0[1]};
-			t1 = {mask[0] ? t1[0] : tm[0], mask[1] ? t1[1] : tm[1]};
-
-			distance = UFO_MAX(0.0f, max(t0));
-
-			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
-			idx -= 4 <= stack[idx].cur_node;
-
-			if (0.0f > t1[0] || 0.0f > t1[1]) {
-				continue;
-			}
-
-			if (auto [hit, value] = hit_f(node, distance); hit) {
-				return value;
-			}
-
-			if (Base::isLeaf(node) || !inner_f(node, distance)) {
-				continue;
-			}
-
-			tm = 0.5f * (t0 + t1);
-
-			cur_node = firstNode(t0, tm);
-
-			stack[++idx] = {node, cur_node, t0, t1, tm};
 		}
 
-		return miss;
+		Index n = Base::index(node);
+
+		auto center      = Base::center(n);
+		auto half_length = Base::halfLength(n);
+
+#if defined(UFO_TBB)
+		return std::transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
+		                      [&](auto const& ray) {
+			                      return trace3D(n, center, half_length, ray, inner_f, hit_f,
+			                                     miss);
+		                      });
+#elif defined(UFO_OMP)
+		std::size_t size = std::distance(first, last);
+
+#pragma omp parallel for
+		for (std::size_t i = 0; i != size; ++i) {
+			auto const& ray = first[i];
+			d_first[i]      = trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
+		}
+
+		return std::next(d_first, size);
+#endif
 	}
 
 	template <class InnerFun, class HitFun, class T>
@@ -631,8 +329,8 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 		if (0.0f == ray.origin.z && 0.0f == ray.direction.z) {
 			// 2D case
 			Ray2 ray2(Vec2f(ray.origin), Vec2f(ray.direction));
-			auto params = traceInit(ray2, center, half_length);
-			return trace(node, params, wrapped_inner_f, wrapped_hit_f, miss);
+			auto params = Base::traceInit(ray2, center, half_length);
+			return Base::trace(node, params, wrapped_inner_f, wrapped_hit_f, miss);
 		} else if (0.0f == ray.direction.z || sign(ray.origin.z) == sign(ray.direction.z)) {
 			// Ray never intersects the 2D XY plane at Z=0
 			return miss;
