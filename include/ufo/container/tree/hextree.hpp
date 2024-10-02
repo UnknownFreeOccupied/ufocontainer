@@ -453,9 +453,9 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 	**************************************************************************************/
 
 	struct TraceParams {
-		Vec4f    t0;
-		Vec4f    t1;
-		unsigned a;
+		Point    t0;
+		Point    t1;
+		unsigned a{};
 	};
 
 	[[nodiscard]] TraceParams traceInit(Index node, Ray4 const& ray) const
@@ -468,99 +468,99 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 		return traceInit(ray, Base::center(node), Base::halfLength(node));
 	}
 
-	[[nodiscard]] static constexpr inline TraceParams traceInit(Ray4 const& ray,
-	                                                            Vec4f       center,
+	[[nodiscard]] static constexpr inline TraceParams traceInit(Ray4 const&  ray,
+	                                                            Point const& center,
 	                                                            float half_length) noexcept
 	{
 		TraceParams params;
 
-		Vec4f origin(0 > ray.direction[0] ? center[0] * 2 - ray.origin[0] : ray.origin[0],
-		             0 > ray.direction[1] ? center[1] * 2 - ray.origin[1] : ray.origin[1],
-		             0 > ray.direction[2] ? center[2] * 2 - ray.origin[2] : ray.origin[2],
-		             0 > ray.direction[3] ? center[3] * 2 - ray.origin[3] : ray.origin[3]);
+		for (std::size_t i{}; Base::Dim > i; ++i) {
+			float origin = 0 > ray.direction[i] ? center[i] * 2 - ray.origin[i] : ray.origin[i];
 
-		auto direction = abs(ray.direction);
+			auto a = center[i] - half_length - origin;
+			auto b = center[i] + half_length - origin;
 
-		for (std::size_t i{}; direction.size() > i; ++i) {
-			auto a = center[i] - half_length - origin[i];
-			auto b = center[i] + half_length - origin[i];
 			// TODO: Look at
-			params.t0[i] = 0 == direction[i] ? 1e+25 * a : a / direction[i];
-			params.t1[i] = 0 == direction[i] ? 1e+25 * b : b / direction[i];
-			// params.t0[i] = a * direction_reciprocal[i];
-			// params.t1[i] = b * direction_reciprocal[i];
-		}
+			params.t0[i] = 0 == ray.direction[i] ? 1e+25 * a : a / std::abs(ray.direction[i]);
+			params.t1[i] = 0 == ray.direction[i] ? 1e+25 * b : b / std::abs(ray.direction[i]);
 
-		params.a =
-		    (unsigned(0 > ray.direction[0]) << 0) | (unsigned(0 > ray.direction[1]) << 1) |
-		    (unsigned(0 > ray.direction[2]) << 2) | (unsigned(0 > ray.direction[3]) << 3);
+			params.a |= unsigned(0 > ray.direction[i]) << i;
+		}
 
 		return params;
 	}
 
-	[[nodiscard]] static constexpr inline unsigned firstNode(Vec4f t0, Vec4f tm) noexcept
+	[[nodiscard]] static constexpr inline unsigned firstNode(Point const& t0,
+	                                                         Point const& tm) noexcept
 	{
-		auto        max_comp = maxIndex(t0);
-		std::size_t a        = 1 - (1 == max_comp);
-		std::size_t b        = 2 - (2 == max_comp);
-		std::size_t c        = 3 - (3 == max_comp);
-		return (static_cast<unsigned>(tm[a] < t0[max_comp]) << a) |
-		       (static_cast<unsigned>(tm[b] < t0[max_comp]) << b) |
-		       (static_cast<unsigned>(tm[c] < t0[max_comp]) << c);
+		unsigned max_comp = maxIndex(t0);
+		unsigned node{};
+		for (unsigned i = 1; Base::Dim > i; ++i) {
+			unsigned a = i - (i == max_comp);
+			node |= static_cast<unsigned>(tm[a] < t0[max_comp]) << a;
+		}
+		return node;
+	}
+
+	[[nodiscard]] static constexpr inline unsigned newNode(unsigned cur,
+	                                                       unsigned dim) noexcept
+	{
+		unsigned x = 1u << dim;
+		return ((cur & x) << Base::Dim) | cur | x;
 	}
 
 	template <class InnerFun, class HitFun, class T>
 	[[nodiscard]] T trace(Index node, TraceParams const& params, InnerFun inner_f,
 	                      HitFun hit_f, T const& miss) const
 	{
-		constexpr std::array new_node_lut{// -w, -z, -y, -x
-		                                  // 0000
-		                                  std::array<unsigned, 4>{1, 2, 4, 8},
-		                                  // -w, -z, -y, +x
-		                                  // 0001
-		                                  std::array<unsigned, 4>{16, 3, 5, 9},
-		                                  // -w, -z, +y, -x
-		                                  // 0010
-		                                  std::array<unsigned, 4>{3, 16, 6, 10},
-		                                  // -w, -z, +y, +x
-		                                  // 0011
-		                                  std::array<unsigned, 4>{16, 16, 7, 11},
-		                                  // -w, +z, -y, -x
-		                                  // 0100
-		                                  std::array<unsigned, 4>{5, 6, 16, 12},
-		                                  // -w, +z, -y, +x
-		                                  // 0101
-		                                  std::array<unsigned, 4>{16, 7, 16, 13},
-		                                  // -w, +z, +y, -x
-		                                  // 0110
-		                                  std::array<unsigned, 4>{7, 16, 16, 14},
-		                                  // -w, +z, +y, +x
-		                                  // 0111
-		                                  std::array<unsigned, 4>{16, 16, 16, 15},
-		                                  // +w, -z, -y, -x
-		                                  // 1000
-		                                  std::array<unsigned, 4>{9, 10, 12, 16},
-		                                  // +w, -z, -y, +x
-		                                  // 1001
-		                                  std::array<unsigned, 4>{16, 11, 13, 16},
-		                                  // +w, -z, +y, -x
-		                                  // 1010
-		                                  std::array<unsigned, 4>{11, 16, 14, 16},
-		                                  // +w, -z, +y, +x
-		                                  // 1011
-		                                  std::array<unsigned, 4>{16, 16, 15, 16},
-		                                  // +w, +z, -y, -x
-		                                  // 1100
-		                                  std::array<unsigned, 4>{13, 14, 16, 16},
-		                                  // +w, +z, -y, +x
-		                                  // 1101
-		                                  std::array<unsigned, 4>{16, 15, 16, 16},
-		                                  // +w, +z, +y, -x
-		                                  // 1110
-		                                  std::array<unsigned, 4>{15, 16, 16, 16},
-		                                  // +w, +z, +y, +x
-		                                  // 1111
-		                                  std::array<unsigned, 4>{16, 16, 16, 16}};
+		// constexpr std::array new_node_lut{// -w, -z, -y, -x
+		//                                   // 0000
+		//                                   std::array<unsigned, 4>{1, 2, 4, 8},
+		//                                   // -w, -z, -y, +x
+		//                                   // 0001
+		//                                   std::array<unsigned, 4>{16, 3, 5, 9},
+		//                                   // -w, -z, +y, -x
+		//                                   // 0010
+		//                                   std::array<unsigned, 4>{3, 16, 6, 10},
+		//                                   // -w, -z, +y, +x
+		//                                   // 0011
+		//                                   std::array<unsigned, 4>{16, 16, 7, 11},
+		//                                   // -w, +z, -y, -x
+		//                                   // 0100
+		//                                   std::array<unsigned, 4>{5, 6, 16, 12},
+		//                                   // -w, +z, -y, +x
+		//                                   // 0101
+		//                                   std::array<unsigned, 4>{16, 7, 16, 13},
+		//                                   // -w, +z, +y, -x
+		//                                   // 0110
+		//                                   std::array<unsigned, 4>{7, 16, 16, 14},
+		//                                   // -w, +z, +y, +x
+		//                                   // 0111
+		//                                   std::array<unsigned, 4>{16, 16, 16, 15},
+		//                                   // +w, -z, -y, -x
+		//                                   // 1000
+		//                                   std::array<unsigned, 4>{9, 10, 12, 16},
+		//                                   // +w, -z, -y, +x
+		//                                   // 1001
+		//                                   std::array<unsigned, 4>{16, 11, 13, 16},
+		//                                   // +w, -z, +y, -x
+		//                                   // 1010
+		//                                   std::array<unsigned, 4>{11, 16, 14, 16},
+		//                                   // +w, -z, +y, +x
+		//                                   // 1011
+		//                                   std::array<unsigned, 4>{16, 16, 15, 16},
+		//                                   // +w, +z, -y, -x
+		//                                   // 1100
+		//                                   std::array<unsigned, 4>{13, 14, 16, 16},
+		//                                   // +w, +z, -y, +x
+		//                                   // 1101
+		//                                   std::array<unsigned, 4>{16, 15, 16, 16},
+		//                                   // +w, +z, +y, -x
+		//                                   // 1110
+		//                                   std::array<unsigned, 4>{15, 16, 16, 16},
+		//                                   // +w, +z, +y, +x
+		//                                   // 1111
+		//                                   std::array<unsigned, 4>{16, 16, 16, 16}};
 
 		auto t0 = params.t0;
 		auto t1 = params.t1;
@@ -589,15 +589,16 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 		unsigned cur_node = firstNode(t0, tm);
 
 		struct StackElement {
-			Vec4f    t0;
-			Vec4f    t1;
-			Vec4f    tm;
+			Point    t0;
+			Point    t1;
+			Point    tm;
 			unsigned cur_node;
 			Index    node;
 
 			StackElement() = default;
 
-			StackElement(Index node, unsigned cur_node, Vec4f t0, Vec4f t1, Vec4f tm)
+			StackElement(Index node, unsigned cur_node, Point const& t0, Point const& t1,
+			             Point const& tm)
 			    : node(node), cur_node(cur_node), t0(t0), t1(t1), tm(tm)
 			{
 			}
@@ -615,16 +616,15 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 
 			node = Base::child(node, cur_node ^ a);
 
-			std::bitset<4> mask(cur_node);
-			t0 = {mask[0] ? tm[0] : t0[0], mask[1] ? tm[1] : t0[1], mask[2] ? tm[2] : t0[2],
-			      mask[3] ? tm[3] : t0[3]};
-			t1 = {mask[0] ? t1[0] : tm[0], mask[1] ? t1[1] : tm[1], mask[2] ? t1[2] : tm[2],
-			      mask[3] ? t1[3] : tm[3]};
+			for (unsigned i{}; Base::Dim > i; ++i) {
+				t0[i] = (cur_node & (1u << i)) ? tm[i] : t0[i];
+				t1[i] = (cur_node & (1u << i)) ? t1[i] : tm[i];
+			}
 
 			distance = UFO_MAX(0.0f, max(t0));
 
-			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
-			idx -= 16 <= stack[idx].cur_node;
+			stack[idx].cur_node = newNode(cur_node, minIndex(t1));
+			idx -= Base::BF <= stack[idx].cur_node;
 
 			if (0.0f > min(t1)) {
 				continue;
