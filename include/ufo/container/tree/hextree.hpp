@@ -505,6 +505,7 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 	[[nodiscard]] static constexpr inline unsigned newNode(unsigned cur,
 	                                                       unsigned dim) noexcept
 	{
+		// You are at cur, you want to move along dim in positive direction
 		unsigned x = 1u << dim;
 		return ((cur & x) << Base::Dim) | cur | x;
 	}
@@ -513,54 +514,16 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 	[[nodiscard]] T trace(Index node, TraceParams const& params, InnerFun inner_f,
 	                      HitFun hit_f, T const& miss) const
 	{
-		// constexpr std::array new_node_lut{// -w, -z, -y, -x
-		//                                   // 0000
-		//                                   std::array<unsigned, 4>{1, 2, 4, 8},
-		//                                   // -w, -z, -y, +x
-		//                                   // 0001
-		//                                   std::array<unsigned, 4>{16, 3, 5, 9},
-		//                                   // -w, -z, +y, -x
-		//                                   // 0010
-		//                                   std::array<unsigned, 4>{3, 16, 6, 10},
-		//                                   // -w, -z, +y, +x
-		//                                   // 0011
-		//                                   std::array<unsigned, 4>{16, 16, 7, 11},
-		//                                   // -w, +z, -y, -x
-		//                                   // 0100
-		//                                   std::array<unsigned, 4>{5, 6, 16, 12},
-		//                                   // -w, +z, -y, +x
-		//                                   // 0101
-		//                                   std::array<unsigned, 4>{16, 7, 16, 13},
-		//                                   // -w, +z, +y, -x
-		//                                   // 0110
-		//                                   std::array<unsigned, 4>{7, 16, 16, 14},
-		//                                   // -w, +z, +y, +x
-		//                                   // 0111
-		//                                   std::array<unsigned, 4>{16, 16, 16, 15},
-		//                                   // +w, -z, -y, -x
-		//                                   // 1000
-		//                                   std::array<unsigned, 4>{9, 10, 12, 16},
-		//                                   // +w, -z, -y, +x
-		//                                   // 1001
-		//                                   std::array<unsigned, 4>{16, 11, 13, 16},
-		//                                   // +w, -z, +y, -x
-		//                                   // 1010
-		//                                   std::array<unsigned, 4>{11, 16, 14, 16},
-		//                                   // +w, -z, +y, +x
-		//                                   // 1011
-		//                                   std::array<unsigned, 4>{16, 16, 15, 16},
-		//                                   // +w, +z, -y, -x
-		//                                   // 1100
-		//                                   std::array<unsigned, 4>{13, 14, 16, 16},
-		//                                   // +w, +z, -y, +x
-		//                                   // 1101
-		//                                   std::array<unsigned, 4>{16, 15, 16, 16},
-		//                                   // +w, +z, +y, -x
-		//                                   // 1110
-		//                                   std::array<unsigned, 4>{15, 16, 16, 16},
-		//                                   // +w, +z, +y, +x
-		//                                   // 1111
-		//                                   std::array<unsigned, 4>{16, 16, 16, 16}};
+		constexpr auto const new_node_lut = []() {
+			std::array<std::array<unsigned, Base::Dim>, Base::BF> lut{};
+			for (unsigned cur{}; Base::BF != cur; ++cur) {
+				for (unsigned dim{}; Base::Dim != dim; ++dim) {
+					unsigned x    = 1u << dim;
+					lut[cur][dim] = ((cur & x) << Base::Dim) | cur | x;
+				}
+			}
+			return lut;
+		}();
 
 		auto t0 = params.t0;
 		auto t1 = params.t1;
@@ -623,7 +586,7 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 
 			distance = UFO_MAX(0.0f, max(t0));
 
-			stack[idx].cur_node = newNode(cur_node, minIndex(t1));
+			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
 			idx -= Base::BF <= stack[idx].cur_node;
 
 			if (0.0f > min(t1)) {
