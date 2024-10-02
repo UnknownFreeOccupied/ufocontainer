@@ -89,8 +89,8 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 	// TODO: Implement the predicate once as well
 
-	template <class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Ray2 const& ray, InnerFun inner_f, HitFun hit_f,
+	template <std::size_t Dim, class InnerFun, class HitFun, class T>
+	[[nodiscard]] T trace(Ray<Dim, float> const& ray, InnerFun inner_f, HitFun hit_f,
 	                      T const& miss) const
 	{
 		return trace(Base::index(), ray, inner_f, hit_f, miss);
@@ -110,10 +110,10 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 		return trace(Base::index(), first, last, inner_f, hit_f, miss);
 	}
 
-	template <class NodeType, class InnerFun, class HitFun, class T,
+	template <class NodeType, std::size_t Dim, class InnerFun, class HitFun, class T,
 	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] T trace(NodeType node, Ray2 const& ray, InnerFun inner_f, HitFun hit_f,
-	                      T const& miss) const
+	[[nodiscard]] T trace(NodeType node, Ray<Dim, float> const& ray, InnerFun inner_f,
+	                      HitFun hit_f, T const& miss) const
 	{
 		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
 			// Unless NodeType is Index, we need to check that the node actually exists
@@ -124,8 +124,23 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 		Index n = Base::index(node);
 
-		auto params = traceInit(n, ray);
-		return trace(n, params, ray, inner_f, hit_f, miss);
+		auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+			return inner_f(node, ray, distance);
+		};
+
+		auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+			return hit_f(node, ray, distance);
+		};
+
+		if constexpr (2 == Dim) {
+			auto params = traceInit(n, ray);
+			return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
+		} else if constexpr (3 == Dim) {
+			return trace3D(n, Base::center(n), Base::halfLength(n), ray, inner_f, hit_f, miss);
+		} else {
+			// TODO: Error
+			return miss;
+		}
 	}
 
 	template <class NodeType, class InputIt, class OutputIt, class InnerFun, class HitFun,
@@ -146,9 +161,25 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 		auto center      = Base::center(n);
 		auto half_length = Base::halfLength(n);
 
-		return std::transform(first, last, d_first, [&](Ray2 const& ray) {
-			auto params = traceInit(ray, center, half_length);
-			return trace(n, params, ray, inner_f, hit_f, miss);
+		return std::transform(first, last, d_first, [&](auto const& ray) {
+			auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+				return inner_f(node, ray, distance);
+			};
+
+			auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+				return hit_f(node, ray, distance);
+			};
+
+			using R = std::decay_t<decltype(ray)>;
+			if constexpr (std::is_same_v<Ray2, R> || std::is_same_v<Ray2d, R>) {
+				auto params = traceInit(ray, center, half_length);
+				return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
+			} else if constexpr (std::is_same_v<Ray3, R> || std::is_same_v<Ray3d, R>) {
+				return trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
+			} else {
+				// TODO: Error
+				return miss;
+			}
 		});
 	}
 
@@ -212,19 +243,53 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 		auto half_length = Base::halfLength(n);
 
 #if defined(UFO_TBB)
-		return std::transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
-		                      [&](Ray2 const& ray) {
-			                      auto params = traceInit(ray, center, half_length);
-			                      return trace(n, params, ray, inner_f, hit_f, miss);
-		                      });
+		return std::transform(
+		    std::forward<ExecutionPolicy>(policy), first, last, d_first,
+		    [&](auto const& ray) {
+			    auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+				    return inner_f(node, ray, distance);
+			    };
+
+			    auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+				    return hit_f(node, ray, distance);
+			    };
+
+			    using R = std::decay_t<decltype(ray)>;
+			    if constexpr (std::is_same_v<Ray2, R> || std::is_same_v<Ray2d, R>) {
+				    auto params = traceInit(ray, center, half_length);
+				    return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
+			    } else if constexpr (std::is_same_v<Ray3, R> || std::is_same_v<Ray3d, R>) {
+				    return trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
+			    } else {
+				    // TODO: Error
+				    return miss;
+			    }
+		    });
 #elif defined(UFO_OMP)
 		std::size_t size = std::distance(first, last);
 
 #pragma omp parallel for
 		for (std::size_t i = 0; i != size; ++i) {
-			Ray2 const& ray    = first[i];
-			auto        params = traceInit(ray, center, half_length);
-			d_first[i]         = trace(n, params, ray, inner_f, hit_f, miss);
+			auto const& ray = first[i];
+
+			auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+				return inner_f(node, ray, distance);
+			};
+
+			auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+				return hit_f(node, ray, distance);
+			};
+
+			using R = std::decay_t<decltype(ray)>;
+			if constexpr (std::is_same_v<Ray2, R> || std::is_same_v<Ray2d, R>) {
+				auto params = traceInit(ray, center, half_length);
+				d_first[i]  = trace(n, params, ray, wrapped_inner_f, wrapped_hit_f, miss);
+			} else if constexpr (std::is_same_v<Ray3, R> || std::is_same_v<Ray3d, R>) {
+				d_first[i] = trace3D(n, center, half_length, ray, inner_f, hit_f, miss);
+			} else {
+				// TODO: Error
+				d_first[i] = miss;
+			}
 		}
 
 		return std::next(d_first, size);
@@ -241,6 +306,90 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 		trace(std::forward<ExecutionPolicy>(policy), node, first, last, nodes.begin(),
 		      inner_f, hit_f, miss);
 		return nodes;
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                       Render                                        |
+	|                                                                                     |
+	**************************************************************************************/
+
+	template <class InnerFun, class HitFun, class T>
+	void render(Camera const& camera, Image<T>& image, InnerFun inner_f, HitFun hit_f,
+	            T const& miss) const
+	{
+		render(Base::index(), camera, image, inner_f, hit_f, miss);
+	}
+
+	template <class InnerFun, class HitFun, class T>
+	[[nodiscard]] Image<T> render(Camera const& camera, std::size_t rows, std::size_t cols,
+	                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+	{
+		return render(Base::index(), camera, rows, cols, inner_f, hit_f, miss);
+	}
+
+	template <class NodeType, class InnerFun, class HitFun, class T,
+	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
+	void render(NodeType node, Camera const& camera, Image<T>& image, InnerFun inner_f,
+	            HitFun hit_f, T const& miss) const
+	{
+		Image<Ray3> rays = camera.rays(image.rows(), image.cols());
+		trace(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
+	}
+
+	template <class NodeType, class InnerFun, class HitFun, class T,
+	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Image<T> render(NodeType node, Camera const& camera, std::size_t rows,
+	                              std::size_t cols, InnerFun inner_f, HitFun hit_f,
+	                              T const& miss) const
+	{
+		Image<T> image(rows, cols);
+		render(node, camera, image, inner_f, hit_f, miss);
+		return image;
+	}
+
+	template <
+	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
+	            InnerFun inner_f, HitFun hit_f, T const& miss) const
+	{
+		render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, image, inner_f,
+		       hit_f, miss);
+	}
+
+	template <
+	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
+	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, Camera const& camera,
+	                              std::size_t rows, std::size_t cols, InnerFun inner_f,
+	                              HitFun hit_f, T const& miss) const
+	{
+		return render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, rows,
+		              cols, inner_f, hit_f, miss);
+	}
+
+	template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
+	void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
+	            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss) const
+	{
+		auto rows = image.rows();
+		auto cols = image.cols();
+
+		Image<Ray3> rays = camera.rays(policy, rows, cols);
+
+		trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
+		      image.begin(), inner_f, hit_f, miss);
+	}
+
+	template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
+	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, NodeType node,
+	                              Camera const& camera, std::size_t rows, std::size_t cols,
+	                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+	{
+		Image<T> image(rows, cols);
+		render(policy, node, camera, image, inner_f, hit_f, miss);
+		return image;
 	}
 
  protected:
@@ -375,8 +524,8 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	};
 
 	template <class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Index node, TraceParams const& params, Ray2 const& ray,
-	                      InnerFun inner_f, HitFun hit_f, T const& miss) const
+	[[nodiscard]] T trace(Index node, TraceParams const& params, InnerFun inner_f,
+	                      HitFun hit_f, T const& miss) const
 	{
 		constexpr std::array new_node_lut{
 		    std::array<unsigned, 2>{1, 2}, std::array<unsigned, 2>{4, 3},
@@ -396,11 +545,11 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 		float distance{};
 
-		if (auto const& [hit, value] = hit_f(node, ray, distance); hit) {
+		if (auto const& [hit, value] = hit_f(node, distance); hit) {
 			return value;
 		}
 
-		if (Base::isLeaf(node) || !inner_f(node, ray, distance)) {
+		if (Base::isLeaf(node) || !inner_f(node, distance)) {
 			return miss;
 		}
 
@@ -448,11 +597,11 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 				continue;
 			}
 
-			if (auto [hit, value] = hit_f(node, ray, distance); hit) {
+			if (auto [hit, value] = hit_f(node, distance); hit) {
 				return value;
 			}
 
-			if (Base::isLeaf(node) || !inner_f(node, ray, distance)) {
+			if (Base::isLeaf(node) || !inner_f(node, distance)) {
 				continue;
 			}
 
@@ -461,6 +610,56 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 			cur_node = firstNode(t0, tm);
 
 			stack[++idx] = {node, cur_node, t0, t1, tm};
+		}
+
+		return miss;
+	}
+
+	template <class InnerFun, class HitFun, class T>
+	[[nodiscard]] T trace3D(Index node, Vec2f const& center, float half_length,
+	                        Ray3 const& ray, InnerFun inner_f, HitFun hit_f,
+	                        T const& miss) const
+	{
+		auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+			return inner_f(node, ray, distance);
+		};
+
+		auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+			return hit_f(node, ray, distance);
+		};
+
+		if (0.0f == ray.origin.z && 0.0f == ray.direction.z) {
+			// 2D case
+			Ray2 ray2(Vec2f(ray.origin), Vec2f(ray.direction));
+			auto params = traceInit(ray2, center, half_length);
+			return trace(node, params, wrapped_inner_f, wrapped_hit_f, miss);
+		} else if (0.0f == ray.direction.z || sign(ray.origin.z) == sign(ray.direction.z)) {
+			// Ray never intersects the 2D XY plane at Z=0
+			return miss;
+		}
+
+		// Check where 3D ray intersects with 2D XY plane at z=0
+		float t    = -ray.origin.z / ray.direction.z;
+		Vec2f v    = Vec2f(ray.origin) + t * Vec2f(ray.direction);
+		auto  code = Base::code(v);
+
+		if (Base::code(node) != code.toDepth(Base::depth(node))) {
+			// Different part of the tree, so return miss
+			return miss;
+		}
+
+		for (int depth = Base::depth(node); 0 < depth; --depth) {
+			if (auto [hit, value] = wrapped_hit_f(node, t); hit) {
+				return value;
+			} else if (Base::isLeaf(node) || !wrapped_inner_f(node, t)) {
+				return miss;
+			}
+
+			node = Base::child(node, code.offset(depth - 1));
+		}
+
+		if (auto [hit, value] = wrapped_hit_f(node, t); hit) {
+			return value;
 		}
 
 		return miss;
