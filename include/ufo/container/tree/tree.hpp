@@ -121,6 +121,7 @@ class Tree
 	using Code   = TreeCode<Dim>;
 	using Key    = TreeKey<Dim>;
 	using Point  = Vec<Dim, float>;
+	using Point2 = Vec<Dim, double>;
 	using Bounds = AABB<Dim, float>;
 
 	using Index       = TreeIndex;
@@ -128,6 +129,7 @@ class Tree
 	using NodeNearest = TreeNodeNearest<Node>;
 	using coord_t     = typename Point::value_type;
 	using Coord       = TreeCoord<Point::size(), typename Point::value_type>;
+	using Coord2      = TreeCoord<Point2::size(), typename Point2::value_type>;
 
 	using pos_t    = typename TreeIndex::pos_t;
 	using offset_t = typename TreeIndex::offset_t;
@@ -146,7 +148,7 @@ class Tree
 	struct is_node_type
 	    : is_one_of<std::decay_t<T>, Index, Node, Code, Key, Coord, Point,
 	                // We also add the double versions of Coord and Point
-	                TreeCoord<Dim, double>, Vec<Dim, double>> {
+	                Coord2, Point2> {
 	};
 
 	template <class T>
@@ -266,53 +268,27 @@ class Tree
 	 * @param node the node
 	 * @return The depth of the node.
 	 */
-	[[nodiscard]] depth_t depth(Index node) const { return depth(node.pos); }
-
-	/*!
-	 * @brief Returns the depth of the node.
-	 *
-	 * @note The tree's depth levels are `[0..depth()]`.
-	 *
-	 * @param node the node
-	 * @return The depth of the node.
-	 */
-	[[nodiscard]] static constexpr depth_t depth(Node node) noexcept
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] depth_t depth(NodeType node) const
 	{
-		return node.depth();
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return depth(node.pos);
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return node.depth();
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node.depth();
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return node.depth();
+		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+			return node.depth;
+		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+			return 0;
+		} else {
+			// FIXME: Look at
+			static_assert(is_node_type_v<NodeType>);
+		}
 	}
-
-	/*!
-	 * @brief Returns the depth of the node.
-	 *
-	 * @note The tree's depth levels are `[0..depth()]`.
-	 *
-	 * @param node the node
-	 * @return The depth of the node.
-	 */
-	[[nodiscard]] static constexpr depth_t depth(Code node) noexcept
-	{
-		return node.depth();
-	}
-
-	/*!
-	 * @brief Returns the depth of the node.
-	 *
-	 * @note The tree's depth levels are `[0..depth()]`.
-	 *
-	 * @param node the node
-	 * @return The depth of the node.
-	 */
-	[[nodiscard]] static constexpr depth_t depth(Key node) noexcept { return node.depth(); }
-
-	/*!
-	 * @brief Returns the depth of the node.
-	 *
-	 * @note The tree's depth levels are `[0..depth()]`.
-	 *
-	 * @param node the node
-	 * @return The depth of the node.
-	 */
-	[[nodiscard]] static constexpr depth_t depth(Coord node) noexcept { return node.depth; }
 
 	//
 	// Length
@@ -347,39 +323,11 @@ class Tree
 	 * @param node the node
 	 * @return The length of the node.
 	 */
-	[[nodiscard]] length_t length(Index node) const { return length(depth(node)); }
-
-	/*!
-	 * @brief Returns the length of `node`, i.e. `leaf_node_length * 2^depth(node)`.
-	 *
-	 * @param node the node
-	 * @return The length of the node.
-	 */
-	[[nodiscard]] length_t length(Node node) const { return length(depth(node)); }
-
-	/*!
-	 * @brief Returns the length of `node`, i.e. `leaf_node_length * 2^depth(node)`.
-	 *
-	 * @param node the node
-	 * @return The length of the node.
-	 */
-	[[nodiscard]] length_t length(Code node) const { return length(depth(node)); }
-
-	/*!
-	 * @brief Returns the length of `node`, i.e. `leaf_node_length * 2^depth(node)`.
-	 *
-	 * @param node the node
-	 * @return The length of the node.
-	 */
-	[[nodiscard]] length_t length(Key node) const { return length(depth(node)); }
-
-	/*!
-	 * @brief Returns the length of `node`, i.e. `leaf_node_length * 2^depth(node)`.
-	 *
-	 * @param node the node
-	 * @return The length of the node.
-	 */
-	[[nodiscard]] length_t length(Coord node) const { return length(depth(node)); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] length_t length(NodeType node) const
+	{
+		return length(depth(node));
+	}
 
 	/*!
 	 * @brief Returns the half length of the tree (/ root node), i.e. `length() / 2`.
@@ -417,51 +365,11 @@ class Tree
 	 * @param node the node
 	 * @return The half length of the node.
 	 */
-	[[nodiscard]] length_t halfLength(Index node) const { return halfLength(depth(node)); }
-
-	/*!
-	 * @brief Returns the half length of `node`, i.e. `length(node) / 2`.
-	 *
-	 * @note The half length is often used, therefore this function exists for improved
-	 * performance and precision.
-	 *
-	 * @param node the node
-	 * @return The half length of the node.
-	 */
-	[[nodiscard]] length_t halfLength(Node node) const { return halfLength(depth(node)); }
-
-	/*!
-	 * @brief Returns the half length of `node`, i.e. `length(node) / 2`.
-	 *
-	 * @note The half length is often used, therefore this function exists for improved
-	 * performance and precision.
-	 *
-	 * @param node the node
-	 * @return The half length of the node.
-	 */
-	[[nodiscard]] length_t halfLength(Code node) const { return halfLength(depth(node)); }
-
-	/*!
-	 * @brief Returns the half length of `node`, i.e. `length(node) / 2`.
-	 *
-	 * @note The half length is often used, therefore this function exists for improved
-	 * performance and precision.
-	 *
-	 * @param node the node
-	 * @return The half length of the node.
-	 */
-	[[nodiscard]] length_t halfLength(Key node) const { return halfLength(depth(node)); }
-
-	/*!
-	 * @brief Returns the half length of `node`, i.e. `length(node) / 2`.
-	 *
-	 * @note The half length is often used, therefore this function exists for improved
-	 * performance and precision.
-	 *
-	 * @param node the node
-	 * @return The half length of the node.
-	 */
-	[[nodiscard]] length_t halfLength(Coord node) const { return halfLength(depth(node)); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] length_t halfLength(NodeType node) const
+	{
+		return halfLength(depth(node));
+	}
 
 	/*!
 	 * @brief Returns the reciprocal of the length of the tree (/ root node), i.e. `1 /
@@ -501,63 +409,8 @@ class Tree
 	 * @param node the node
 	 * @return The reciprocal of the length of the node.
 	 */
-	[[nodiscard]] length_t lengthReciprocal(Index node) const
-	{
-		return lengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the length of `node`, i.e. `1 / length(node)`.
-	 *
-	 * @note The reciprocal of the length is often used, therefore this function exists for
-	 * improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the length of the node.
-	 */
-	[[nodiscard]] length_t lengthReciprocal(Node node) const
-	{
-		return lengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the length of `node`, i.e. `1 / length(node)`.
-	 *
-	 * @note The reciprocal of the length is often used, therefore this function exists for
-	 * improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the length of the node.
-	 */
-	[[nodiscard]] length_t lengthReciprocal(Code node) const
-	{
-		return lengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the length of `node`, i.e. `1 / length(node)`.
-	 *
-	 * @note The reciprocal of the length is often used, therefore this function exists for
-	 * improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the length of the node.
-	 */
-	[[nodiscard]] length_t lengthReciprocal(Key node) const
-	{
-		return lengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the length of `node`, i.e. `1 / length(node)`.
-	 *
-	 * @note The reciprocal of the length is often used, therefore this function exists for
-	 * improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the length of the node.
-	 */
-	[[nodiscard]] length_t lengthReciprocal(Coord node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] length_t lengthReciprocal(NodeType node) const
 	{
 		return lengthReciprocal(depth(node));
 	}
@@ -604,67 +457,8 @@ class Tree
 	 * @param node the node
 	 * @return The reciprocal of the half length of the node.
 	 */
-	[[nodiscard]] length_t halfLengthReciprocal(Index node) const
-	{
-		return halfLengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the half length of `node`, i.e. `1 / (length(node) /
-	 * 2) = 2 / length(node)`.
-	 *
-	 * @note The reciprocal of the half length is often used, therefore this function exists
-	 * for improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the half length of the node.
-	 */
-	[[nodiscard]] length_t halfLengthReciprocal(Node node) const
-	{
-		return halfLengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the half length of `node`, i.e. `1 / (length(node) /
-	 * 2) = 2 / length(node)`.
-	 *
-	 * @note The reciprocal of the half length is often used, therefore this function exists
-	 * for improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the half length of the node.
-	 */
-	[[nodiscard]] length_t halfLengthReciprocal(Code node) const
-	{
-		return halfLengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the half length of `node`, i.e. `1 / (length(node) /
-	 * 2) = 2 / length(node)`.
-	 *
-	 * @note The reciprocal of the half length is often used, therefore this function exists
-	 * for improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the half length of the node.
-	 */
-	[[nodiscard]] length_t halfLengthReciprocal(Key node) const
-	{
-		return halfLengthReciprocal(depth(node));
-	}
-
-	/*!
-	 * @brief Returns the reciprocal of the half length of `node`, i.e. `1 / (length(node) /
-	 * 2) = 2 / length(node)`.
-	 *
-	 * @note The reciprocal of the half length is often used, therefore this function exists
-	 * for improved performance and precision.
-	 *
-	 * @param node the node
-	 * @return The reciprocal of the half length of the node.
-	 */
-	[[nodiscard]] length_t halfLengthReciprocal(Coord node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] length_t halfLengthReciprocal(NodeType node) const
 	{
 		return halfLengthReciprocal(depth(node));
 	}
@@ -686,51 +480,8 @@ class Tree
 	 * @param node the node
 	 * @return The bounds of the node.
 	 */
-	[[nodiscard]] Bounds bounds(Index node) const
-	{
-		return Bounds(center(node), halfLength(node));
-	}
-
-	/*!
-	 * @brief Returns the bounds of `node`.
-	 *
-	 * @param node the node
-	 * @return The bounds of the node.
-	 */
-	[[nodiscard]] Bounds bounds(Node node) const
-	{
-		return Bounds(center(node), halfLength(node));
-	}
-
-	/*!
-	 * @brief Returns the bounds of `node`.
-	 *
-	 * @param node the node
-	 * @return The bounds of the node.
-	 */
-	[[nodiscard]] Bounds bounds(Code node) const
-	{
-		return Bounds(center(node), halfLength(node));
-	}
-
-	/*!
-	 * @brief Returns the bounds of `node`.
-	 *
-	 * @param node the node
-	 * @return The bounds of the node.
-	 */
-	[[nodiscard]] Bounds bounds(Key node) const
-	{
-		return Bounds(center(node), halfLength(node));
-	}
-
-	/*!
-	 * @brief Returns the bounds of `node`.
-	 *
-	 * @param node the node
-	 * @return The bounds of the node.
-	 */
-	[[nodiscard]] Bounds bounds(Coord node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Bounds bounds(NodeType node) const
 	{
 		return Bounds(center(node), halfLength(node));
 	}
@@ -779,66 +530,46 @@ class Tree
 	 * @param node the node
 	 * @return The center of the node.
 	 */
-	[[nodiscard]] Coord center(Index node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Coord center(NodeType node) const
 	{
-		return center(block_[node.pos].code(node.offset));
-	}
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return center(block_[node.pos].code(node.offset));
+		} else if constexpr (std::is_same_v<T, Node>) {
+			// TODO: Not working, only returns root or something???
+			return center(key(node));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return center(key(node));
+		} else if constexpr (std::is_same_v<T, Key>) {
+			assert(valid(node));
 
-	/*!
-	 * @brief Returns the center of `node`.
-	 *
-	 * @param node the node
-	 * @return The center of the node.
-	 */
-	[[nodiscard]] Coord center(Node node) const
-	{
-		// TODO: Not working, only returns root or something???
-		return center(key(node));
-	}
+			auto node_depth = depth(node);
 
-	/*!
-	 * @brief Returns the center of `node`.
-	 *
-	 * @param node the node
-	 * @return The center of the node.
-	 */
-	[[nodiscard]] Coord center(Code node) const { return center(key(node)); }
+			if (depth() == node_depth) {
+				return center();
+			}
 
-	/*!
-	 * @brief Returns the center of `node`.
-	 *
-	 * @param node the node
-	 * @return The center of the node.
-	 */
-	[[nodiscard]] Coord center(Key node) const
-	{
-		assert(valid(node));
+			// TODO: Check performance, might be a lot faster to have float here and in rest of
+			// method
+			length_t          l = length(node_depth);
+			std::int_fast64_t hmv =
+			    static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
 
-		auto node_depth = depth(node);
+			Point coord = cast<coord_t>((cast<length_t>(cast<std::int_fast64_t>(node) - hmv) +
+			                             static_cast<length_t>(0.5)) *
+			                            l);
 
-		if (depth() == node_depth) {
-			return center();
+			return Coord(coord, node_depth);
+		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+			return center(key(node));
+		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+			return center(Coord(node, 0));
+		} else {
+			// FIXME: Look at
+			static_assert(is_node_type_v<NodeType>);
 		}
-
-		// TODO: Check performance, might be a lot faster to have float here and in rest of
-		// method
-		length_t          l   = length(node_depth);
-		std::int_fast64_t hmv = static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
-
-		Point coord = cast<coord_t>((cast<length_t>(cast<std::int_fast64_t>(node) - hmv) +
-		                             static_cast<length_t>(0.5)) *
-		                            l);
-
-		return Coord(coord, node_depth);
 	}
-
-	/*!
-	 * @brief Returns the center of `node`.
-	 *
-	 * @param node the node
-	 * @return The center of the node.
-	 */
-	[[nodiscard]] Coord center(Coord node) const { return center(key(node)); }
 
 	/*!
 	 * @brief Returns the center of `node` if the node is valid, i.e. `valid(node)`.
@@ -846,29 +577,8 @@ class Tree
 	 * @param node the node
 	 * @return The center of the node if the node is valid, null otherwise.
 	 */
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] std::optional<Coord> centerChecked(Code node) const
-	{
-		return valid(node) ? std::optional<Coord>(center(node)) : std::nullopt;
-	}
-
-	/*!
-	 * @brief Returns the center of `node` if the node is valid, i.e. `valid(node)`.
-	 *
-	 * @param node the node
-	 * @return The center of the node if the node is valid, null otherwise.
-	 */
-	[[nodiscard]] std::optional<Coord> centerChecked(Key node) const
-	{
-		return valid(node) ? std::optional<Coord>(center(node)) : std::nullopt;
-	}
-
-	/*!
-	 * @brief Returns the center of `node` if the node is valid, i.e. `valid(node)`.
-	 *
-	 * @param node the node
-	 * @return The center of the node if the node is valid, null otherwise.
-	 */
-	[[nodiscard]] std::optional<Coord> centerChecked(Coord node) const
 	{
 		return valid(node) ? std::optional<Coord>(center(node)) : std::nullopt;
 	}
@@ -890,39 +600,16 @@ class Tree
 	 * @param node the node
 	 * @return The block position of the node.
 	 */
-	[[nodiscard]] pos_t block(Index node) const { return node.pos; }
 
-	/*!
-	 * @brief Returns the block position of `node`.
-	 *
-	 * @param node the node
-	 * @return The block position of the node.
-	 */
-	[[nodiscard]] pos_t block(Node node) const { return block(index(node)); }
-
-	/*!
-	 * @brief Returns the block position of `node`.
-	 *
-	 * @param node the node
-	 * @return The block position of the node.
-	 */
-	[[nodiscard]] pos_t block(Code node) const { return block(index(node)); }
-
-	/*!
-	 * @brief Returns the block position of `node`.
-	 *
-	 * @param node the node
-	 * @return The block position of the node.
-	 */
-	[[nodiscard]] pos_t block(Key node) const { return block(index(node)); }
-
-	/*!
-	 * @brief Returns the block position of `node`.
-	 *
-	 * @param node the node
-	 * @return The block position of the node.
-	 */
-	[[nodiscard]] pos_t block(Coord node) const { return block(index(node)); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] pos_t block(NodeType node) const
+	{
+		if constexpr (std::is_same_v<Index, std::decay_t<NodeType>>) {
+			return node.pos;
+		} else {
+			return block(index(node));
+		}
+	}
 
 	//
 	// Index
@@ -935,54 +622,31 @@ class Tree
 	 */
 	[[nodiscard]] Index index() const { return Index(block(), 0); }
 
-	// TODO: Make all the passthrough static and constexpr
-	[[nodiscard]] static constexpr Index index(Index index) { return index; }
-
-	/*!
-	 * @brief Returns the index of `node`.
-	 *
-	 * @param node the node
-	 * @return The index of the node.
-	 */
-	[[nodiscard]] Index index(Node node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr Index index(NodeType node) const
 	{
-		// TODO: Benchmark if this is actually faster than going down the tree
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return node;
+		} else if constexpr (std::is_same_v<T, Node>) {
+			// TODO: Benchmark if this is actually faster than going down the tree
 
-		if (!valid(node.index()) || depth(node.index()) < depth(node) ||
-		    !Code::equalAtDepth(code(node.index()), node.code(), depth(node.index()))) {
-			return index(node.code());
+			if (!valid(node.index()) || depth(node.index()) < depth(node) ||
+			    !Code::equalAtDepth(code(node.index()), node.code(), depth(node.index()))) {
+				return index(node.code());
+			}
+
+			if (code(node.index()) == node.code() || isLeaf(node.index())) {
+				return node.index();
+			}
+
+			return index(node.code(), node.index(), depth(node.index()));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return index(node, index(), depth());
+		} else {
+			return index(code(node));
 		}
-
-		if (code(node.index()) == node.code() || isLeaf(node.index())) {
-			return node.index();
-		}
-
-		return index(node.code(), node.index(), depth(node.index()));
 	}
-
-	/*!
-	 * @brief Returns the index of `node`.
-	 *
-	 * @param node the node
-	 * @return The index of the node.
-	 */
-	[[nodiscard]] Index index(Code node) const { return index(node, index(), depth()); }
-
-	/*!
-	 * @brief Returns the index of `node`.
-	 *
-	 * @param node the node
-	 * @return The index of the node.
-	 */
-	[[nodiscard]] Index index(Key node) const { return index(code(node)); }
-
-	/*!
-	 * @brief Returns the index of `node`.
-	 *
-	 * @param node the node
-	 * @return The index of the node.
-	 */
-	[[nodiscard]] Index index(Coord node) const { return index(code(node)); }
 
 	//
 	// Node
@@ -1001,59 +665,21 @@ class Tree
 	 * @param node the node
 	 * @return The node.
 	 */
-	[[nodiscard]] Node node(Index node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Node node(NodeType node) const
 	{
-		assert(valid(node));
-		return Node(code(node), node);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			assert(valid(node));
+			return Node(code(node), node);
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return Node(node.code(), index(node));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return Node(node, index(node));
+		} else {
+			return Node(code(node));
+		}
 	}
-
-	/*!
-	 * @brief Returns the node corresponding to `node`.
-	 *
-	 * @param node the node
-	 * @return The node.
-	 */
-	[[nodiscard]] Node node(Node node) const { return Node(node.code(), index(node)); }
-
-	/*!
-	 * @brief Returns the node corresponding to `node`.
-	 *
-	 * @param node the node
-	 * @return The node.
-	 */
-	[[nodiscard]] Node node(Code node) const { return Node(node, index(node)); }
-
-	/*!
-	 * @brief Returns the node corresponding to `node`.
-	 *
-	 * @param node the node
-	 * @return The node.
-	 */
-	[[nodiscard]] Node node(Key node) const { return Node(code(node)); }
-
-	/*!
-	 * @brief Returns the node corresponding to `node`.
-	 *
-	 * @param node the node
-	 * @return The node.
-	 */
-	[[nodiscard]] Node node(Coord node) const { return node(code(node)); }
-
-	/*!
-	 * @brief Returns the node corresponding to `node`.
-	 *
-	 * @param node the node
-	 * @return The node.
-	 */
-	[[nodiscard]] Node operator[](Index node) const { return this->node(node); }
-
-	/*!
-	 * @brief Returns the node corresponding to `node`.
-	 *
-	 * @param node the node
-	 * @return The node.
-	 */
-	[[nodiscard]] Node operator[](Node node) const { return this->node(node); }
 
 	/*!
 	 * @brief Get the node corresponding to a code.
@@ -1068,38 +694,11 @@ class Tree
 	 * @param node The node.
 	 * @return The node.
 	 */
-	[[nodiscard]] Node operator[](Code node) const { return this->node(node); }
-
-	/*!
-	 * @brief Get the node corresponding to a key.
-	 *
-	 * @note The node can be higher up the tree than the specified depth. This happens if
-	 * the node at a higher depth has no children. If it is neccessary that the node is at
-	 * the specified depth, then the corresponding 'createNode' function can be used. The
-	 * data inside the nodes returned by this function and 'createNode' will be the same, so
-	 * it is only neccessary to use 'createNode' if you intend to alter what the node
-	 * stores.
-	 *
-	 * @param node The node.
-	 * @return The node.
-	 */
-	[[nodiscard]] Node operator[](Key node) const { return this->node(node); }
-
-	/*!
-	 * @brief Get the node corresponding to a coordinate at a specific depth.
-	 *
-	 * @note The node can be higher up the tree than the specified depth. This happens if
-	 * the node at a higher depth has no children. If it is neccessary that the node is at
-	 * the specified depth, then the corresponding 'createNode' function can be used. The
-	 * data inside the nodes returned by this function and 'createNode' will be the same, so
-	 * it is only neccessary to use 'createNode' if you intend to alter what the node
-	 * stores.
-	 *
-	 * @param coord The coordinate.
-	 * @param depth The depth.
-	 * @return The node.
-	 */
-	[[nodiscard]] Node operator[](Coord node) const { return this->node(node); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Node operator[](NodeType node) const
+	{
+		return this->node(node);
+	}
 
 	//
 	// Code
@@ -1107,21 +706,26 @@ class Tree
 
 	[[nodiscard]] Code code() const { return Code(static_cast<code_t>(0), depth()); }
 
-	[[nodiscard]] Code code(Index node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Code code(NodeType node) const
 	{
-		assert(valid(node));
-		return block_[node.pos].code(node.offset);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			assert(valid(node));
+			return block_[node.pos].code(node.offset);
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return node.code();
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node;
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return Code(node);
+		} else {
+			return code(key(node));
+		}
 	}
 
-	[[nodiscard]] Code code(Node node) const { return node.code(); }
-
-	[[nodiscard]] Code code(Code code) const { return code; }
-
-	[[nodiscard]] Code code(Key node) const { return Code(node); }
-
-	[[nodiscard]] Code code(Coord node) const { return code(key(node)); }
-
-	[[nodiscard]] std::optional<Code> codeChecked(Coord node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] std::optional<Code> codeChecked(NodeType node) const
 	{
 		return valid(node) ? std::optional<Code>(Code(node)) : std::nullopt;
 	}
@@ -1132,34 +736,39 @@ class Tree
 
 	[[nodiscard]] Key key() const { return Key(Vec<Dim, key_t>(0), depth()); }
 
-	[[nodiscard]] Key key(Index node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Key key(NodeType node) const
 	{
-		return Key(block_[node.pos].code(node.offset));
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return key(block_[node.pos].code(node.offset));
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return key(node.code());
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return Key(node);
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return node;
+		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+			assert(valid(node));
+
+			auto  d = depth(node);
+			Point p = node;
+
+			// TODO: Check performance, might be a lot faster to have float here
+			length_t lr = lengthReciprocal(0);
+
+			auto k =
+			    cast<key_t>(cast<std::make_signed_t<key_t>>(floor(cast<length_t>(p) * lr))) +
+			    half_max_value_;
+
+			return {k >> d, d};
+		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+			return key(Coord(node, 0));
+		}
 	}
 
-	[[nodiscard]] Key key(Node node) const { return Key(node.code()); }
-
-	[[nodiscard]] Key key(Code node) const { return Key(node); }
-
-	[[nodiscard]] Key key(Key key) const { return key; }
-
-	[[nodiscard]] Key key(Coord node) const
-	{
-		assert(valid(node));
-
-		auto  d = depth(node);
-		Point p = node;
-
-		// TODO: Check performance, might be a lot faster to have float here
-		length_t lr = lengthReciprocal(0);
-
-		auto k = cast<key_t>(cast<std::make_signed_t<key_t>>(floor(cast<length_t>(p) * lr))) +
-		         half_max_value_;
-
-		return {k >> d, d};
-	}
-
-	[[nodiscard]] std::optional<Key> keyChecked(Coord node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] std::optional<Key> keyChecked(NodeType node) const
 	{
 		return valid(node) ? std::optional<Key>(key(node)) : std::nullopt;
 	}
@@ -1174,13 +783,20 @@ class Tree
 	// Create
 	//
 
-	Index create(Node node) { return create(code(node), index(node)); }
-
-	Index create(Code node) { return create(node, index()); }
-
-	Index create(Key node) { return create(code(node)); }
-
-	Index create(Coord node) { return create(code(node)); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	Index create(NodeType node)
+	{
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return node;
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return create(code(node), index(node));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return create(node, index());
+		} else {
+			return create(code(node));
+		}
+	}
 
 	template <class InputIt>
 	std::vector<Index> create(InputIt first, InputIt last)
@@ -1296,24 +912,21 @@ class Tree
 	// Create trail
 	//
 
-	std::array<Index, maxNumDepthLevels()> createTrail(Node node)
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	std::array<Index, maxNumDepthLevels()> createTrail(NodeType node)
 	{
-		return createTrail(code(node), index(node));
-	}
-
-	std::array<Index, maxNumDepthLevels()> createTrail(Code node)
-	{
-		return createTrail(node, index());
-	}
-
-	std::array<Index, maxNumDepthLevels()> createTrail(Key node)
-	{
-		return createTrail(code(node));
-	}
-
-	std::array<Index, maxNumDepthLevels()> createTrail(Coord node)
-	{
-		return createTrail(code(node));
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			std::array<Index, maxNumDepthLevels()> tail;
+			tail[depth(node)] = node;
+			return tail;
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return createTrail(code(node), index(node));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return createTrail(node, index());
+		} else {
+			return createTrail(code(node));
+		}
 	}
 
 	//
@@ -1322,37 +935,33 @@ class Tree
 
 	void eraseChildren() { eraseChildren(index()); }
 
-	void eraseChildren(Index node)
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	void eraseChildren(NodeType node)
 	{
-		assert(valid(node));
-		eraseChildren(node, children(node));
-	}
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			assert(valid(node));
+			eraseChildren(node, children(node));
+		} else if constexpr (std::is_same_v<T, Node>) {
+			Index n = index(node);
+			if (code(n) != code(node)) {
+				// The node does not even exist
+				return;
+			}
 
-	void eraseChildren(Node node)
-	{
-		Index n = index(node);
-		if (code(n) != code(node)) {
-			// The node does not even exist
-			return;
+			eraseChildren(n);
+		} else if constexpr (std::is_same_v<T, Code>) {
+			Index n = index(node);
+			if (code(n) != node) {
+				// The node does not even exist
+				return;
+			}
+
+			eraseChildren(n);
+		} else {
+			eraseChildren(code(node));
 		}
-
-		eraseChildren(n);
 	}
-
-	void eraseChildren(Code node)
-	{
-		Index n = index(node);
-		if (code(n) != node) {
-			// The node does not even exist
-			return;
-		}
-
-		eraseChildren(n);
-	}
-
-	void eraseChildren(Key node) { eraseChildren(code(node)); }
-
-	void eraseChildren(Coord node) { eraseChildren(code(node)); }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -1382,56 +991,8 @@ class Tree
 	 * @param node the node to check
 	 * @return `true` if the node is a pure leaf, `false` otherwise.
 	 */
-	[[nodiscard]] bool isPureLeaf(Index node) const { return 0 == depth(node); }
-
-	/*!
-	 * @brief Checks if the node is a pure leaf (i.e., can never have children).
-	 *
-	 * @note Only have to check if the depth of the node is 0.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a pure leaf, `false` otherwise.
-	 */
-	[[nodiscard]] static constexpr bool isPureLeaf(Node node) noexcept
-	{
-		return 0 == depth(node);
-	}
-
-	/*!
-	 * @brief Checks if the node is a pure leaf (i.e., can never have children).
-	 *
-	 * @note Only have to check if the depth of the node is 0.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a pure leaf, `false` otherwise.
-	 */
-	[[nodiscard]] static constexpr bool isPureLeaf(Code node) noexcept
-	{
-		return 0 == depth(node);
-	}
-
-	/*!
-	 * @brief Checks if the node is a pure leaf (i.e., can never have children).
-	 *
-	 * @note Only have to check if the depth of the node is 0.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a pure leaf, `false` otherwise.
-	 */
-	[[nodiscard]] static constexpr bool isPureLeaf(Key node) noexcept
-	{
-		return 0 == depth(node);
-	}
-
-	/*!
-	 * @brief Checks if the node is a pure leaf (i.e., can never have children).
-	 *
-	 * @note Only have to check if the depth of the node is 0.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a pure leaf, `false` otherwise.
-	 */
-	[[nodiscard]] static constexpr bool isPureLeaf(Coord node) noexcept
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr bool isPureLeaf(NodeType node) const
 	{
 		return 0 == depth(node);
 	}
@@ -1446,42 +1007,16 @@ class Tree
 	 * @param node the node to check
 	 * @return `true` if the node is a leaf, `false` otherwise.
 	 */
-	[[nodiscard]] bool isLeaf(Index node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr bool isLeaf(NodeType node) const
 	{
-		return TreeIndex::NULL_POS == children(node);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return TreeIndex::NULL_POS == children(node);
+		} else {
+			return isLeaf(index(node));
+		}
 	}
-
-	/*!
-	 * @brief Checks if the node is a leaf (i.e., has no children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a leaf, `false` otherwise.
-	 */
-	[[nodiscard]] bool isLeaf(Node node) const { return isLeaf(index(node)); }
-
-	/*!
-	 * @brief Checks if the node is a leaf (i.e., has no children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a leaf, `false` otherwise.
-	 */
-	[[nodiscard]] bool isLeaf(Code node) const { return isLeaf(index(node)); }
-
-	/*!
-	 * @brief Checks if the node is a leaf (i.e., has no children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a leaf, `false` otherwise.
-	 */
-	[[nodiscard]] bool isLeaf(Key node) const { return isLeaf(index(node)); }
-
-	/*!
-	 * @brief Checks if the node is a leaf (i.e., has no children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a leaf, `false` otherwise.
-	 */
-	[[nodiscard]] bool isLeaf(Coord node) const { return isLeaf(index(node)); }
 
 	//
 	// Parent
@@ -1493,39 +1028,11 @@ class Tree
 	 * @param node the node to check
 	 * @return `true` if the node is a parent, `false` otherwise.
 	 */
-	[[nodiscard]] bool isParent(Index node) const { return !isLeaf(node); }
-
-	/*!
-	 * @brief Checks if the node is a parent (i.e., has children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a parent, `false` otherwise.
-	 */
-	[[nodiscard]] bool isParent(Node node) const { return !isLeaf(node); }
-
-	/*!
-	 * @brief Checks if the node is a parent (i.e., has children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a parent, `false` otherwise.
-	 */
-	[[nodiscard]] bool isParent(Code node) const { return !isLeaf(node); }
-
-	/*!
-	 * @brief Checks if the node is a parent (i.e., has children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a parent, `false` otherwise.
-	 */
-	[[nodiscard]] bool isParent(Key node) const { return !isLeaf(node); }
-
-	/*!
-	 * @brief Checks if the node is a parent (i.e., has children).
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is a parent, `false` otherwise.
-	 */
-	[[nodiscard]] bool isParent(Coord node) const { return !isLeaf(node); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr bool isParent(NodeType node) const
+	{
+		return !isLeaf(node);
+	}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -1539,39 +1046,22 @@ class Tree
 	 * @param node the node to check
 	 * @return `true` if the node is the root, `false` otherwise.
 	 */
-	[[nodiscard]] bool isRoot(Index node) const { return index() == node; }
-
-	/*!
-	 * @brief Checks if the node is the root of the tree.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is the root, `false` otherwise.
-	 */
-	[[nodiscard]] bool isRoot(Node node) const { return isRoot(node.code()); }
-
-	/*!
-	 * @brief Checks if the node is the root of the tree.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is the root, `false` otherwise.
-	 */
-	[[nodiscard]] bool isRoot(Code node) const { return code() == node; }
-
-	/*!
-	 * @brief Checks if the node is the root of the tree.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is the root, `false` otherwise.
-	 */
-	[[nodiscard]] bool isRoot(Key node) const { return key() == node; }
-
-	/*!
-	 * @brief Checks if the node is the root of the tree.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is the root, `false` otherwise.
-	 */
-	[[nodiscard]] bool isRoot(Coord node) const { return isRoot(key(node)); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr bool isRoot(NodeType node) const
+	{
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return index() == node;
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return isRoot(node.code());
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return code() == node;
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return key() == node;
+		} else {
+			return isRoot(key(node));
+		}
+	}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -1593,58 +1083,29 @@ class Tree
 	 * @param index the index to check
 	 * @return `true` if the index is valid, `false` otherwise.
 	 */
-	[[nodiscard]] bool valid(Index index) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] bool valid(NodeType node) const
 	{
-		return valid(index.pos) && branchingFactor() > index.offset &&
-		       block_[index.pos].valid();
-	}
-
-	/*!
-	 * @brief Checks if a node is valid.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node is valid, `false` otherwise.
-	 */
-	[[nodiscard]] bool valid(Node node) const { return valid(code(node)); }
-
-	/*!
-	 * @brief Checks if a code is valid.
-	 *
-	 * @param code the code to check
-	 * @return `true` if the code is valid, `false` otherwise.
-	 */
-	[[nodiscard]] bool valid(Code code) const
-	{
-		return code.valid() && numDepthLevels() > depth(code);
-	}
-
-	/*!
-	 * @brief Checks if a key is valid.
-	 *
-	 * @param key the key to check
-	 * @return `true` if the key is valid, `false` otherwise.
-	 */
-	[[nodiscard]] bool valid(Key key) const
-	{
-		auto const mv = (2 * half_max_value_) >> depth(key);
-		for (std::size_t i{}; key.size() != i; ++i) {
-			if (mv < key[i]) {
-				return false;
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return valid(node.pos) && branchingFactor() > node.offset &&
+			       block_[node.pos].valid();
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return valid(code(node));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node.valid() && numDepthLevels() > depth(node);
+		} else if constexpr (std::is_same_v<T, Key>) {
+			auto const mv = (2 * half_max_value_) >> depth(node);
+			for (std::size_t i{}; node.size() != i; ++i) {
+				if (mv < node[i]) {
+					return false;
+				}
 			}
+
+			return node.valid() && numDepthLevels() > depth(node);
+		} else {
+			return isInside(node) && numDepthLevels() > depth(node);
 		}
-
-		return key.valid() && numDepthLevels() > depth(key);
-	}
-
-	/*!
-	 * @brief Checks if a coordinate is valid.
-	 *
-	 * @param coord the coordinate to check
-	 * @return `true` if the coordinate is valid, `false` otherwise.
-	 */
-	[[nodiscard]] bool valid(Coord coord) const
-	{
-		return isInside(coord) && numDepthLevels() > depth(coord);
 	}
 
 	/**************************************************************************************
@@ -1659,39 +1120,20 @@ class Tree
 	 * @param node the node to check
 	 * @return `true` if the node exists, `false` otherwise.
 	 */
-	[[nodiscard]] bool exists(Index node) const { return valid(node); }
-
-	/*!
-	 * @brief Checks if a node exists.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node exists, `false` otherwise.
-	 */
-	[[nodiscard]] bool exists(Node node) const { return code(index(node)) == code(node); }
-
-	/*!
-	 * @brief Checks if a node exists.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node exists, `false` otherwise.
-	 */
-	[[nodiscard]] bool exists(Code node) const { return code(index(node)) == node; }
-
-	/*!
-	 * @brief Checks if a node exists.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node exists, `false` otherwise.
-	 */
-	[[nodiscard]] bool exists(Key node) const { return exists(code(node)); }
-
-	/*!
-	 * @brief Checks if a node exists.
-	 *
-	 * @param node the node to check
-	 * @return `true` if the node exists, `false` otherwise.
-	 */
-	[[nodiscard]] bool exists(Coord node) const { return exists(code(node)); }
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] bool exists(NodeType node) const
+	{
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return valid(node);
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return code(index(node)) == code(node);
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return code(index(node)) == node;
+		} else {
+			return exists(code(node));
+		}
+	}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -1712,48 +1154,26 @@ class Tree
 		return children(node.pos)[node.offset];
 	}
 
-	[[nodiscard]] Index child(Index node, offset_t child_index) const
-	{
-		assert(valid(node));
-		assert(branchingFactor() > child_index);
-		// assert(isParent(node));
-		return {children(node), child_index};
-	}
-
-	/*!
-	 * @brief Get a child of a node.
-	 *
-	 * @param node The node.
-	 * @param child_index The index of the child.
-	 * @return The child.
-	 */
-	[[nodiscard]] Node child(Node node, offset_t child_index) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr NodeType child(NodeType node, offset_t child_index) const
 	{
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
-		return Node(child(node.code(), child_index), child(node.index(), child_index));
-	}
 
-	[[nodiscard]] Code child(Code node, offset_t child_index) const
-	{
-		assert(0 < depth(node));
-		assert(branchingFactor() > child_index);
-		return node.child(child_index);
-	}
-
-	[[nodiscard]] Key child(Key node, offset_t child_index) const
-	{
-		assert(0 < depth(node));
-		assert(branchingFactor() > child_index);
-		return node.child(child_index);
-	}
-
-	[[nodiscard]] Coord child(Coord node, offset_t child_index) const
-	{
-		assert(0 < depth(node));
-		assert(branchingFactor() > child_index);
-		return {childCenter(static_cast<Point>(node), halfLength(node), child_index),
-		        node.depth - static_cast<depth_t>(1)};
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			assert(valid(node));
+			return {children(node), child_index};
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return Node(child(node.code(), child_index), child(node.index(), child_index));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node.child(child_index);
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return node.child(child_index);
+		} else {
+			return {childCenter(static_cast<Point>(node), halfLength(node), child_index),
+			        node.depth - static_cast<depth_t>(1)};
+		}
 	}
 
 	/*!
@@ -1763,8 +1183,8 @@ class Tree
 	 * @param child_index The index of the child.
 	 * @return The child.
 	 */
-	template <class T>
-	[[nodiscard]] T childChecked(T node, offset_t child_index) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType childChecked(NodeType node, offset_t child_index) const
 	{
 		if (isLeaf(node)) {
 			throw std::out_of_range("Node has no children");
@@ -1778,50 +1198,28 @@ class Tree
 	// Sibling
 	//
 
-	[[nodiscard]] Index sibling(Index node, offset_t sibling_index) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType sibling(NodeType node, offset_t sibling_index) const
 	{
 		assert(!isRoot(node));
 		assert(branchingFactor() > sibling_index);
-		return {node.pos, sibling_index};
+
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return {node.pos, sibling_index};
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return {sibling(node.code(), sibling_index), sibling(node.index(), sibling_index)};
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node.sibling(sibling_index);
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return node.sibling(sibling_index);
+		} else {
+			return center(sibling(key(node), sibling_index));
+		}
 	}
 
-	/*!
-	 * @brief Get the sibling of a node.
-	 *
-	 * @param node The node.
-	 * @param sibling_index The index of the sibling.
-	 * @return The sibling.
-	 */
-	[[nodiscard]] Node sibling(Node node, offset_t sibling_index) const
-	{
-		assert(!isRoot(node));
-		assert(branchingFactor() > sibling_index);
-		return {sibling(node.code(), sibling_index), sibling(node.index(), sibling_index)};
-	}
-
-	[[nodiscard]] Code sibling(Code node, offset_t sibling_index) const
-	{
-		assert(!isRoot(node));
-		assert(branchingFactor() > sibling_index);
-		return node.sibling(sibling_index);
-	}
-
-	[[nodiscard]] Key sibling(Key node, offset_t sibling_index) const
-	{
-		assert(!isRoot(node));
-		assert(branchingFactor() > sibling_index);
-		return node.sibling(sibling_index);
-	}
-
-	[[nodiscard]] Coord sibling(Coord node, offset_t sibling_index) const
-	{
-		assert(!isRoot(node));
-		assert(branchingFactor() > sibling_index);
-		return coord(sibling(key(node), sibling_index));
-	}
-
-	template <class T>
-	[[nodiscard]] T siblingChecked(T node, offset_t sibling_index) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType siblingChecked(NodeType node, offset_t sibling_index) const
 	{
 		if (!isRoot(node)) {
 			throw std::out_of_range("Root node has no siblings");
@@ -1835,50 +1233,35 @@ class Tree
 	// Parent
 	//
 
-	[[nodiscard]] Index parent(Index node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType parent(NodeType node) const
 	{
 		assert(!isRoot(node));
-		return index(block_[node.pos].parentCode());
+
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			return index(block_[node.pos].parentCode());
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return this->node(parent(node.code()));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node.parent();
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return node.parent();
+		} else {
+			return center(parent(key(node)));
+		}
 	}
 
-	/*!
-	 * @brief Get the parent of a node.
-	 *
-	 * @param node The node.
-	 * @return The parent.
-	 */
-	[[nodiscard]] Node parent(Node node) const
-	{
-		assert(!isRoot(node));
-		return this->node(parent(node.code()));
-	}
-
-	[[nodiscard]] Code parent(Code node) const
-	{
-		assert(!isRoot(node));
-		return node.parent();
-	}
-
-	[[nodiscard]] Key parent(Key node) const
-	{
-		assert(!isRoot(node));
-		return node.parent();
-	}
-
-	[[nodiscard]] Coord parent(Coord node) const
-	{
-		assert(!isRoot(node));
-		return center(parent(key(node)));
-	}
-
-	template <class T>
-	[[nodiscard]] T parentChecked(T node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType parentChecked(NodeType node) const
 	{
 		if (!isRoot(node)) {
 			throw std::out_of_range("Root node has no parent");
 		}
 		return parent(node);
 	}
+
+	// TODO: Look at functions below
 
 	/*!
 	 * @brief Depth first traversal of the tree, starting at the root node. The function
@@ -2174,40 +1557,18 @@ class Tree
 		return begin(node(), only_leaves, only_exists, early_stopping);
 	}
 
-	[[nodiscard]] const_iterator begin(Index node, bool only_leaves = true,
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] const_iterator begin(NodeType node, bool only_leaves = true,
 	                                   bool only_exists    = true,
 	                                   bool early_stopping = false) const
 	{
-		return beginQuery(this->node(node), only_leaves, only_exists, early_stopping);
-	}
-
-	[[nodiscard]] const_iterator begin(Node node, bool only_leaves = true,
-	                                   bool only_exists    = true,
-	                                   bool early_stopping = false) const
-	{
-		return only_leaves ? beginQuery(node, pred::Leaf{}, only_exists, early_stopping)
-		                   : beginQuery(node, pred::True{}, only_exists, early_stopping);
-	}
-
-	[[nodiscard]] const_iterator begin(Code node, bool only_leaves = true,
-	                                   bool only_exists    = true,
-	                                   bool early_stopping = false) const
-	{
-		return begin(this->node(node), only_leaves, only_exists, early_stopping);
-	}
-
-	[[nodiscard]] const_iterator begin(Key node, bool only_leaves = true,
-	                                   bool only_exists    = true,
-	                                   bool early_stopping = false) const
-	{
-		return begin(this->node(node), only_leaves, only_exists, early_stopping);
-	}
-
-	[[nodiscard]] const_iterator begin(Coord node, bool only_leaves = true,
-	                                   bool only_exists    = true,
-	                                   bool early_stopping = false) const
-	{
-		return begin(this->node(node), only_leaves, only_exists, early_stopping);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Node>) {
+			return only_leaves ? beginQuery(node, pred::Leaf{}, only_exists, early_stopping)
+			                   : beginQuery(node, pred::True{}, only_exists, early_stopping);
+		} else {
+			return begin(this->node(node), only_leaves, only_exists, early_stopping);
+		}
 	}
 
 	[[nodiscard]] const_iterator end() const { return endQuery(); }
@@ -2227,61 +1588,22 @@ class Tree
 		                    early_stopping);
 	}
 
-	template <class Geometry>
-	[[nodiscard]] const_nearest_iterator beginNearest(Index node, Geometry const& geometry,
-	                                                  double epsilon        = 0.0,
-	                                                  bool   only_leaves    = true,
-	                                                  bool   only_exists    = true,
-	                                                  bool   early_stopping = false) const
+	template <class NodeType, class Geometry,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] const_nearest_iterator beginNearest(
+	    NodeType node, Geometry const& geometry, double epsilon = 0.0,
+	    bool only_leaves = true, bool only_exists = true, bool early_stopping = false) const
 	{
-		return beginNearest(this->node(node), geometry, epsilon, only_leaves, only_exists,
-		                    early_stopping);
-	}
-
-	template <class Geometry>
-	[[nodiscard]] const_nearest_iterator beginNearest(Node node, Geometry const& geometry,
-	                                                  double epsilon        = 0.0,
-	                                                  bool   only_leaves    = true,
-	                                                  bool   only_exists    = true,
-	                                                  bool   early_stopping = false) const
-	{
-		return only_leaves ? beginQueryNearest(node, geometry, pred::Leaf{}, epsilon,
-		                                       only_exists, early_stopping)
-		                   : beginQueryNearest(node, geometry, pred::True{}, epsilon,
-		                                       only_exists, early_stopping);
-	}
-
-	template <class Geometry>
-	[[nodiscard]] const_nearest_iterator beginNearest(Code node, Geometry const& geometry,
-	                                                  double epsilon        = 0.0,
-	                                                  bool   only_leaves    = true,
-	                                                  bool   only_exists    = true,
-	                                                  bool   early_stopping = false) const
-	{
-		return beginNearest(this->node(node), geometry, epsilon, only_leaves, only_exists,
-		                    early_stopping);
-	}
-
-	template <class Geometry>
-	[[nodiscard]] const_nearest_iterator beginNearest(Key node, Geometry const& geometry,
-	                                                  double epsilon        = 0.0,
-	                                                  bool   only_leaves    = true,
-	                                                  bool   only_exists    = true,
-	                                                  bool   early_stopping = false) const
-	{
-		return beginNearest(this->node(node), geometry, epsilon, only_leaves, only_exists,
-		                    early_stopping);
-	}
-
-	template <class Geometry>
-	[[nodiscard]] const_nearest_iterator beginNearest(Coord node, Geometry const& geometry,
-	                                                  double epsilon        = 0.0,
-	                                                  bool   only_leaves    = true,
-	                                                  bool   only_exists    = true,
-	                                                  bool   early_stopping = false) const
-	{
-		return beginNearest(this->node(node), geometry, epsilon, only_leaves, only_exists,
-		                    early_stopping);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Node>) {
+			return only_leaves ? beginQueryNearest(node, geometry, pred::Leaf{}, epsilon,
+			                                       only_exists, early_stopping)
+			                   : beginQueryNearest(node, geometry, pred::True{}, epsilon,
+			                                       only_exists, early_stopping);
+		} else {
+			return beginNearest(this->node(node), geometry, epsilon, only_leaves, only_exists,
+			                    early_stopping);
+		}
 	}
 
 	[[nodiscard]] const_nearest_iterator endNearest() const { return endQueryNearest(); }
@@ -2299,65 +1621,35 @@ class Tree
 		return beginQuery(node(), predicate, only_exists, early_stopping);
 	}
 
-	template <class Predicate,
+	template <class NodeType, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(Index node, Predicate const& predicate,
+	[[nodiscard]] const_query_iterator beginQuery(NodeType node, Predicate const& predicate,
 	                                              bool only_exists    = true,
 	                                              bool early_stopping = false) const
 	{
-		return beginQuery(this->node(node), predicate, only_exists, early_stopping);
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(Node node, Predicate const& predicate,
-	                                              bool only_exists    = true,
-	                                              bool early_stopping = false) const
-	{
-		if (only_exists) {
-			if (early_stopping) {
-				return {new TreeForwardIterator<Derived, Node, Predicate, true, true>(
-				    &derived(), node, predicate)};
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Node>) {
+			if (only_exists) {
+				if (early_stopping) {
+					return {new TreeForwardIterator<Derived, Node, Predicate, true, true>(
+					    &derived(), node, predicate)};
+				} else {
+					return {new TreeForwardIterator<Derived, Node, Predicate, true, false>(
+					    &derived(), node, predicate)};
+				}
 			} else {
-				return {new TreeForwardIterator<Derived, Node, Predicate, true, false>(
-				    &derived(), node, predicate)};
+				if (early_stopping) {
+					return {new TreeForwardIterator<Derived, Node, Predicate, false, true>(
+					    &derived(), node, predicate)};
+				} else {
+					return {new TreeForwardIterator<Derived, Node, Predicate, false, false>(
+					    &derived(), node, predicate)};
+				}
 			}
 		} else {
-			if (early_stopping) {
-				return {new TreeForwardIterator<Derived, Node, Predicate, false, true>(
-				    &derived(), node, predicate)};
-			} else {
-				return {new TreeForwardIterator<Derived, Node, Predicate, false, false>(
-				    &derived(), node, predicate)};
-			}
+			return beginQuery(this->node(node), predicate, only_exists, early_stopping);
 		}
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(Code node, Predicate const& predicate,
-	                                              bool only_exists    = true,
-	                                              bool early_stopping = false) const
-	{
-		return beginQuery(this->node(node), predicate, only_exists, early_stopping);
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(Key node, Predicate const& predicate,
-	                                              bool only_exists    = true,
-	                                              bool early_stopping = false) const
-	{
-		return beginQuery(this->node(node), predicate, only_exists, early_stopping);
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(Coord node, Predicate const& predicate,
-	                                              bool only_exists    = true,
-	                                              bool early_stopping = false) const
-	{
-		return beginQuery(this->node(node), predicate, only_exists, early_stopping);
 	}
 
 	[[nodiscard]] const_query_iterator endQuery() const
@@ -2379,69 +1671,39 @@ class Tree
 		                         early_stopping);
 	}
 
-	template <class Geometry, class Predicate,
+	template <class NodeType, class Geometry, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
 	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    Index node, Geometry const& geometry, Predicate const& predicate,
+	    NodeType node, Geometry const& geometry, Predicate const& predicate,
 	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
 	{
-		return beginQueryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                         early_stopping);
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    Node node, Geometry const& geometry, Predicate const& predicate,
-	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
-	{
-		if (only_exists) {
-			if (early_stopping) {
-				return {new TreeNearestIterator<Derived, Node, Geometry, Predicate, true, true>(
-				    &derived(), node, geometry, predicate, epsilon)};
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Node>) {
+			if (only_exists) {
+				if (early_stopping) {
+					return {new TreeNearestIterator<Derived, Node, Geometry, Predicate, true, true>(
+					    &derived(), node, geometry, predicate, epsilon)};
+				} else {
+					return {
+					    new TreeNearestIterator<Derived, Node, Geometry, Predicate, true, false>(
+					        &derived(), node, geometry, predicate, epsilon)};
+				}
 			} else {
-				return {new TreeNearestIterator<Derived, Node, Geometry, Predicate, true, false>(
-				    &derived(), node, geometry, predicate, epsilon)};
+				if (early_stopping) {
+					return {
+					    new TreeNearestIterator<Derived, Node, Geometry, Predicate, false, true>(
+					        &derived(), node, geometry, predicate, epsilon)};
+				} else {
+					return {
+					    new TreeNearestIterator<Derived, Node, Geometry, Predicate, false, false>(
+					        &derived(), node, geometry, predicate, epsilon)};
+				}
 			}
 		} else {
-			if (early_stopping) {
-				return {new TreeNearestIterator<Derived, Node, Geometry, Predicate, false, true>(
-				    &derived(), node, geometry, predicate, epsilon)};
-			} else {
-				return {new TreeNearestIterator<Derived, Node, Geometry, Predicate, false, false>(
-				    &derived(), node, geometry, predicate, epsilon)};
-			}
+			return beginQueryNearest(this->node(node), geometry, predicate, epsilon,
+			                         only_exists, early_stopping);
 		}
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    Code node, Geometry const& geometry, Predicate const& predicate,
-	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
-	{
-		return beginQueryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                         early_stopping);
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    Key node, Geometry const& geometry, Predicate const& predicate,
-	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
-	{
-		return beginQueryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                         early_stopping);
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    Coord node, Geometry const& geometry, Predicate const& predicate,
-	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
-	{
-		return beginQueryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                         early_stopping);
 	}
 
 	[[nodiscard]] const_nearest_query_iterator endQueryNearest() const
@@ -2468,44 +1730,18 @@ class Tree
 		return query(node(), predicate, only_exists, early_stopping);
 	}
 
-	template <class Predicate,
+	template <class NodeType, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(Index node, Predicate const& predicate,
+	[[nodiscard]] Query query(NodeType node, Predicate const& predicate,
 	                          bool only_exists = true, bool early_stopping = false) const
 	{
-		return query(this->node(node), predicate, only_exists, early_stopping);
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(Node node, Predicate const& predicate,
-	                          bool only_exists = true, bool early_stopping = false) const
-	{
-		return Query(beginQuery(node, predicate, only_exists, early_stopping), endQuery());
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(Code node, Predicate const& predicate,
-	                          bool only_exists = true, bool early_stopping = false) const
-	{
-		return query(this->node(node), predicate, only_exists, early_stopping);
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(Key node, Predicate const& predicate, bool only_exists = true,
-	                          bool early_stopping = false) const
-	{
-		return query(this->node(node), predicate, only_exists, early_stopping);
-	}
-
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(Coord node, Predicate const& predicate,
-	                          bool only_exists = true, bool early_stopping = false) const
-	{
-		return query(this->node(node), predicate, only_exists, early_stopping);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Node>) {
+			return Query(beginQuery(node, predicate, only_exists, early_stopping), endQuery());
+		} else {
+			return query(this->node(node), predicate, only_exists, early_stopping);
+		}
 	}
 
 	//
@@ -2523,60 +1759,23 @@ class Tree
 		                    early_stopping);
 	}
 
-	template <class Geometry, class Predicate,
+	template <class NodeType, class Geometry, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(Index node, Geometry const& geometry,
+	[[nodiscard]] QueryNearest queryNearest(NodeType node, Geometry const& geometry,
 	                                        Predicate const& predicate = pred::True{},
 	                                        double epsilon = 0.0, bool only_exists = true,
 	                                        bool early_stopping = false) const
 	{
-		return queryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                    early_stopping);
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(Node node, Geometry const& geometry,
-	                                        Predicate const& predicate = pred::True{},
-	                                        double epsilon = 0.0, bool only_exists = true,
-	                                        bool early_stopping = false) const
-	{
-		return QueryNearest(beginQueryNearest(node, geometry, predicate, epsilon, only_exists,
-		                                      early_stopping),
-		                    endQueryNearest());
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(Code node, Geometry const& geometry,
-	                                        Predicate const& predicate = pred::True{},
-	                                        double epsilon = 0.0, bool only_exists = true,
-	                                        bool early_stopping = false) const
-	{
-		return queryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                    early_stopping);
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(Key node, Geometry const& geometry,
-	                                        Predicate const& predicate = pred::True{},
-	                                        double epsilon = 0.0, bool only_exists = true,
-	                                        bool early_stopping = false) const
-	{
-		return queryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                    early_stopping);
-	}
-
-	template <class Geometry, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(Coord node, Geometry const& geometry,
-	                                        Predicate const& predicate = pred::True{},
-	                                        double epsilon = 0.0, bool only_exists = true,
-	                                        bool early_stopping = false) const
-	{
-		return queryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-		                    early_stopping);
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Node>) {
+			return QueryNearest(beginQueryNearest(node, geometry, predicate, epsilon,
+			                                      only_exists, early_stopping),
+			                    endQueryNearest());
+		} else {
+			return queryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
+			                    early_stopping);
+		}
 	}
 
 	/**************************************************************************************
