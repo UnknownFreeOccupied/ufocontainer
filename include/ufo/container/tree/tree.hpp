@@ -270,7 +270,7 @@ class Tree
 	 * @return The depth of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] depth_t depth(NodeType node) const
+	[[nodiscard]] constexpr depth_t depth(NodeType node) const
 	{
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
@@ -367,7 +367,7 @@ class Tree
 	 * @return The half length of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] length_t halfLength(NodeType node) const
+	[[nodiscard]] constexpr length_t halfLength(NodeType node) const
 	{
 		return halfLength(depth(node));
 	}
@@ -532,7 +532,7 @@ class Tree
 	 * @return The center of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] Coord center(NodeType node) const
+	[[nodiscard]] constexpr Coord center(NodeType node) const
 	{
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
@@ -3257,6 +3257,22 @@ class Tree
 		unsigned a{};
 	};
 
+	struct TraceStackElement {
+		Point    t0;
+		Point    t1;
+		Point    tm;
+		unsigned cur_node;
+		Index    node;
+
+		TraceStackElement() = default;
+
+		constexpr TraceStackElement(Index node, unsigned cur_node, Point const& t0,
+		                            Point const& t1, Point const& tm)
+		    : node(node), cur_node(cur_node), t0(t0), t1(t1), tm(tm)
+		{
+		}
+	};
+
 	[[nodiscard]] TraceParams traceInit(Index node, Ray<Dim, ray_t> const& ray) const
 	{
 		return traceInit(ray, center(node), halfLength(node));
@@ -3309,8 +3325,8 @@ class Tree
 	}
 
 	template <class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Index node, TraceParams const& params, InnerFun inner_f,
-	                      HitFun hit_f, T const& miss) const
+	[[nodiscard]] constexpr T trace(Index node, TraceParams const& params, InnerFun inner_f,
+	                                HitFun hit_f, T const& miss) const
 	{
 		constexpr auto const new_node_lut = []() {
 			std::array<std::array<unsigned, Dim>, BF> lut{};
@@ -3349,23 +3365,7 @@ class Tree
 
 		unsigned cur_node = firstNode(t0, tm);
 
-		struct StackElement {
-			Point    t0;
-			Point    t1;
-			Point    tm;
-			unsigned cur_node;
-			Index    node;
-
-			StackElement() = default;
-
-			StackElement(Index node, unsigned cur_node, Point const& t0, Point const& t1,
-			             Point const& tm)
-			    : node(node), cur_node(cur_node), t0(t0), t1(t1), tm(tm)
-			{
-			}
-		};
-
-		std::array<StackElement, maxNumDepthLevels()> stack;
+		std::array<TraceStackElement, maxNumDepthLevels()> stack;
 		stack[0] = {node, cur_node, t0, t1, tm};
 
 		for (int idx{}; 0 <= idx;) {
@@ -3382,14 +3382,14 @@ class Tree
 				t1[i] = (cur_node & (1u << i)) ? t1[i] : tm[i];
 			}
 
-			distance = UFO_MAX(0.0f, max(t0));
-
 			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
 			idx -= BF <= stack[idx].cur_node;
 
 			if (0.0f > min(t1)) {
 				continue;
 			}
+
+			distance = UFO_MAX(0.0f, max(t0));
 
 			if (auto [hit, value] = hit_f(node, distance); hit) {
 				return value;
