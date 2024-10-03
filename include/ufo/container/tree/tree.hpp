@@ -153,7 +153,7 @@ class Tree
 	};
 
 	template <class T>
-	static inline constexpr bool is_node_type_v = is_node_type<T>::value;
+	static constexpr inline bool is_node_type_v = is_node_type<T>::value;
 
  public:
 	/**************************************************************************************
@@ -2826,6 +2826,8 @@ class Tree
 	|                                       Nearest                                       |
 	|                                                                                     |
 	**************************************************************************************/
+
+	// TODO: Benchmark against only returning the distance
 
 	template <class ValueFun, class InnerFun>
 	[[nodiscard]] std::pair<float, Index> nearest(Index                  node,
