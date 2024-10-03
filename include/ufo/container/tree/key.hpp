@@ -76,7 +76,7 @@ class TreeKey : public Vec<Dim, std::uint32_t>
 
 	constexpr TreeKey(Key key, depth_t depth) : Key(key), depth_(depth) {}
 
-	constexpr explicit TreeKey(Key key) : Key(key, 0) {}
+	constexpr explicit TreeKey(Key key) : TreeKey(key, 0) {}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -97,8 +97,8 @@ class TreeKey : public Vec<Dim, std::uint32_t>
 		// All the time you have to leave the space.
 		// Shifting with `maxDepth()` causes problems when
 		// `std::numeric_limits<key_t>::digits <= maxDepth()` because you are trying to
-		// shift more bits than are allowed and has a well-defined behaviour in the C++.
-		// Therefore, we have this check otherwise would cause "shift count overflow".
+		// shift more bits than are allowed and has a well-defined behaviour in C++.
+		// Therefore, we have this check; otherwise, would cause "shift count overflow".
 		return std::numeric_limits<key_t>::digits - 1;
 	}
 
@@ -161,18 +161,8 @@ using HexKey    = TreeKey<4>;
 template <std::size_t Dim>
 std::ostream& operator<<(std::ostream& out, TreeKey<Dim> const& key)
 {
-	out << "x: " << key.x;
-	if constexpr (1 < Dim) {
-		out << " y: " << key.y;
-	}
-	if constexpr (2 < Dim) {
-		out << " z: " << key.z;
-	}
-	if constexpr (3 < Dim) {
-		out << " w: " << key.w;
-	}
-	out << " d: " << key.depth();
-	return out;
+	return out << static_cast<typename TreeKey<Dim>::Key const&>(key)
+	           << " d: " << key.depth();
 }
 
 template <std::size_t Dim>
