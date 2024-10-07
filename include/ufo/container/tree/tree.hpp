@@ -2224,124 +2224,121 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, StopFun stop_f)
+	template <
+	    class NodeFun, class BlockFun, class UpdateFun, class StopFun,
+	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool>         = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>          = true>
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, UpdateFun update_f,
+	                  StopFun stop_f) const
 	{
 		assert(valid(node));
 
 		if (isLeaf(node)) {
 			node_f(node);
-		} else if (!stop_f(node)) {
-			auto c = children(node);
-			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(c, i), node_f, stop_f);
-			}
+			return;
 		}
-	}
 
-	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f)
-	{
-		recursLeaves(node, node_f, [](auto) { return false; });
-	}
-
-	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f) const
-	{
-		assert(valid(node));
+		if (stop_f(node)) {
+			return;
+		}
 
 		auto c = children(node);
-		if (isLeaf(node)) {
-			node_f(node);
-		} else if (stop_f(node)) {
-			return;
-		} else if (allLeaf(c)) {
+
+		if (allLeaf(c)) {
 			block_f(c);
 		} else {
 			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(c, i), node_f, block_f, stop_f);
+				recursLeaves(Index(c, i), node_f, block_f, update_f, stop_f);
 			}
 		}
+
+		update_f(node, c);
+	}
+
+	template <
+	    class NodeFun, class BlockFun, class UpdateFun,
+	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool>         = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f,
+	                  UpdateFun update_f) const
+	{
+		recursLeaves(node, node_f, block_f, update_f,
+		             [](Index /* node*/) -> bool { return false; });
+	}
+
+	template <
+	    class NodeFun, class UpdateFun,
+	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, UpdateFun update_f) const
+	{
+		recursLeaves(
+		    node, node_f, [](pos_t /* pos */) -> void {}, update_f,
+		    [](Index /* node*/) -> bool { return false; });
 	}
 
 	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
 	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f) const
 	{
-		recursLeaves(node, node_f, block_f, [](auto) { return false; });
+		recursLeaves(
+		    node, node_f, block_f, [](Index /* node */, pos_t /* children */) -> void {},
+		    [](Index /* node */) -> bool { return false; });
 	}
 
-	template <class LeafFun, class ParentFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
-	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true,
+	template <class NodeFun,
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f) const
+	{
+		recursLeaves(
+		    node, node_f,
+		    [node_f](pos_t pos) -> void {
+			    for (std::size_t i{}; BF > i; ++i) {
+				    node_f(Index(pos, i));
+			    }
+		    },
+		    [](Index /* node */, pos_t /* children */) -> void {},
+		    [](Index /* node */) -> bool { return false; });
+	}
+
+	template <
+	    class NodeFun, class UpdateFun, class StopFun,
+	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>          = true>
+	void recursLeaves(Index node, NodeFun node_f, UpdateFun update_f, StopFun stop_f) const
+	{
+		recursLeaves(node, node_f, [](pos_t /* pos */) -> void {}, update_f, stop_f);
+	}
+
+	template <class NodeFun, class BlockFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursChildrenFirst(Index node, LeafFun leaf_f, ParentFun parent_f, StopFun stop_f)
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f) const
 	{
-		assert(valid(node));
-
-		if (isLeaf(node)) {
-			leaf_f(node);
-		} else if (!stop_f(node)) {
-			auto c = children(node);
-			for (std::size_t i{}; BF > i; ++i) {
-				recursChildrenFirst(Index(c, i), leaf_f, parent_f, stop_f);
-			}
-			parent_f(node, c);
-		}
+		recursLeaves(
+		    node, node_f, block_f, [](Index /* node */, pos_t /* children */) -> void {},
+		    stop_f);
 	}
 
-	template <class LeafFun, class ParentFun,
-	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
-	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true>
-	void recursChildrenFirst(Index node, LeafFun leaf_f, ParentFun parent_f)
+	template <class NodeFun, class StopFun,
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, StopFun stop_f) const
 	{
-		recursChildrenFirst(node, leaf_f, parent_f, [](auto) { return false; });
-	}
-
-	template <class LeafFun, class LeafBlockFun, class ParentFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
-	          std::enable_if_t<std::is_invocable_v<LeafBlockFun, pos_t>, bool>     = true,
-	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursChildrenFirst(Index node, LeafFun leaf_f, LeafBlockFun leaf_block_f,
-	                         ParentFun parent_f, StopFun stop_f)
-	{
-		assert(valid(node));
-
-		if (isLeaf(node)) {
-			leaf_f(node);
-			return;
-		} else if (stop_f(node)) {
-			return;
-		}
-
-		auto c = children(node);
-		if (allLeaf(c)) {
-			leaf_block_f(c);
-		} else {
-			for (std::size_t i{}; BF > i; ++i) {
-				recursChildrenFirst(Index(c, i), leaf_f, leaf_block_f, parent_f, stop_f);
-			}
-		}
-
-		parent_f(node, c);
-	}
-
-	template <class LeafFun, class LeafBlockFun, class ParentFun,
-	          std::enable_if_t<std::is_invocable_v<LeafFun, Index>, bool>          = true,
-	          std::enable_if_t<std::is_invocable_v<LeafBlockFun, pos_t>, bool>     = true,
-	          std::enable_if_t<std::is_invocable_v<ParentFun, Index, pos_t>, bool> = true>
-	void recursChildrenFirst(Index node, LeafFun leaf_f, LeafBlockFun leaf_block_f,
-	                         ParentFun parent_f)
-	{
-		recursChildrenFirst(node, leaf_f, leaf_block_f, parent_f, [](auto) { return false; });
+		recursLeaves(
+		    node, node_f,
+		    [node_f](pos_t pos) -> void {
+			    for (std::size_t i{}; BF > i; ++i) {
+				    node_f(Index(pos, i));
+			    }
+		    },
+		    [](Index /* node */, pos_t /* children */) -> void {}, stop_f);
 	}
 
 	template <class NodeFun, class StopFun,
@@ -2829,97 +2826,193 @@ class Tree
 
 	// TODO: Benchmark against only returning the distance
 
-	template <class ValueFun, class InnerFun>
-	[[nodiscard]] std::pair<float, Index> nearest(Index                  node,
-	                                              NearestSearchAlgorithm search_alg,
-	                                              ValueFun value_f, InnerFun inner_f,
-	                                              float max_dist, float epsilon) const
+	template <bool OnlyDistance, bool FastAsSonic, class ValueFun, class InnerFun>
+	[[nodiscard]] std::conditional_t<OnlyDistance, float, std::pair<float, Index>> nearest(
+	    Index node, NearestSearchAlgorithm search_alg, ValueFun value_f, InnerFun inner_f,
+	    float max_dist, float epsilon) const
 	{
-		assert(!std::isnan(max_dist));
-		assert(!std::isnan(epsilon));
+		assert(std::isfinite(max_dist));
+		assert(std::isfinite(epsilon));
 
-		if (isPureLeaf(node)) {
-			auto dist = value_f(node);
-			assert(!std::isnan(dist));
-			return max_dist <= dist ? std::pair{max_dist, Index{}} : std::pair{dist, node};
-		} else if (isLeaf(node)) {
-			return {max_dist, Index{}};
-		}
-
-		auto cb = children(node);
-		auto cd = depth(node) - 1u;
-
-		if (0.0f < epsilon) {
-			switch (search_alg) {
-				case NearestSearchAlgorithm::DEPTH_FIRST:
-					return nearestDepthFirst(cb, cd, max_dist, epsilon, value_f, inner_f);
-				case NearestSearchAlgorithm::A_STAR:
-					return nearestAStar(cb, cd, max_dist, epsilon, value_f, inner_f);
-			}
+		std::conditional_t<OnlyDistance, float, std::pair<float, Index>> closest{};
+		if constexpr (OnlyDistance) {
+			closest = max_dist;
 		} else {
-			switch (search_alg) {
-				case NearestSearchAlgorithm::DEPTH_FIRST:
-					return nearestDepthFirst(cb, cd, max_dist, value_f, inner_f);
-				case NearestSearchAlgorithm::A_STAR:
-					return nearestAStar(cb, cd, max_dist, value_f, inner_f);
-			}
+			closest.first = max_dist;
 		}
 
-		// ERROR
-		return {-1.0f, {}};
+		if (isParent(node) && max_dist >= inner_f(node)) {
+			auto cb = children(node);
+			auto cd = depth(cb);
+
+			// if (0.0f < epsilon) {
+			// switch (search_alg) {
+			// 	case NearestSearchAlgorithm::DEPTH_FIRST:
+			closest = nearestDepthFirst<OnlyDistance, FastAsSonic>(cb, cd, max_dist, epsilon,
+			                                                       value_f, inner_f);
+			// 		case NearestSearchAlgorithm::A_STAR:
+			// 			closest = nearestAStar(cb, cd, max_dist, epsilon, value_f, inner_f);
+			// 	}
+			// } else {
+			// 	switch (search_alg) {
+			// 		case NearestSearchAlgorithm::DEPTH_FIRST:
+			// 			closest = nearestDepthFirst(cb, cd, max_dist, value_f, inner_f);
+			// 		case NearestSearchAlgorithm::A_STAR:
+			// 			closest = nearestAStar(cb, cd, max_dist, value_f, inner_f);
+			// 	}
+			// }
+		}
+
+		auto dist = value_f(node);
+		assert(!std::isnan(dist));
+		if constexpr (OnlyDistance) {
+			return UFO_MIN(closest, dist);
+		} else {
+			return closest.first < dist ? closest : std::pair{dist, node};
+		}
 	}
 
-	template <class ValueFun, class InnerFun>
-	[[nodiscard]] std::pair<float, Index> nearestDepthFirst(pos_t block, depth_t depth,
-	                                                        float c_dist, float epsilon,
-	                                                        ValueFun value_f,
-	                                                        InnerFun inner_f) const
+	// template <class Pred, class ValueFun, class InnerFun,
+	//           std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	// [[nodiscard]] std::pair<float, Index> nearest(Index node, Pred pred,
+	//                                               NearestSearchAlgorithm search_alg,
+	//                                               ValueFun value_f, InnerFun inner_f,
+	//                                               float max_dist, float epsilon) const
+	// {
+	// 	using Filter = pred::Filter<Pred>;
+
+	// 	Filter::init(pred);
+
+	// 	auto wrapped_value_f = [value_f, &pred](Index node) -> float {
+	// 		return Filter::returnable(pred) ? value_f(node)
+	// 		                                : std::numeric_limits<float>::infinity();
+	// 	};
+
+	// 	auto wrapped_inner_f = [inner_f, &pred](Index node) -> float {
+	// 		return Filter::traversable(pred) ? inner_f(node)
+	// 		                                 : std::numeric_limits<float>::infinity();
+	// 	};
+
+	// 	return nearest(node, search_alg, wrapped_value_f, wrapped_inner_f, max_dist,
+	// epsilon);
+	// }
+
+	template <bool OnlyDistance, bool FastAsSonic, class ValueFun, class InnerFun>
+	[[nodiscard]] std::conditional_t<OnlyDistance, float, std::pair<float, Index>>
+	nearestDepthFirst(pos_t block, depth_t depth, float c_dist, float epsilon,
+	                  ValueFun value_f, InnerFun inner_f) const
 	{
-		using Stack =
-		    std::array<std::pair<std::size_t, std::array<std::pair<float, pos_t>, BF>>,
-		               maxNumDepthLevels() - 1>;
+		struct StackElement {
+			using Container = std::array<std::pair<float, pos_t>, BF>;
+			using Iterator  = typename Container::iterator;
+
+			Container container;
+			Iterator  it;
+
+			[[nodiscard]] constexpr float& distance() { return it->first; }
+
+			[[nodiscard]] constexpr float const& distance() const { return it->first; }
+
+			[[nodiscard]] constexpr pos_t& block() { return it->second; }
+
+			[[nodiscard]] constexpr pos_t const& block() const { return it->second; }
+
+			constexpr void start() { it = container.begin(); }
+
+			[[nodiscard]] constexpr bool empty() { return container.end() == it; }
+
+			[[nodiscard]] constexpr bool empty() const { return container.end() == it; }
+
+			StackElement& operator++()
+			{
+				++it;
+				return *this;
+			}
+
+			constexpr void sort()
+			{
+				if constexpr (2 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_2(container);
+				} else if constexpr (4 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_4(container);
+				} else if constexpr (8 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_8(container);
+				} else if constexpr (16 == BF) {
+					UFO_SORT_ASCENDING_PAIR_FIRST_16(container);
+				} else {
+					std::sort(container.begin(), container.end(),
+					          [](auto a, auto b) { return a.first < b.first; });
+				}
+			}
+		};
+
+		using Stack = std::array<StackElement, maxNumDepthLevels() - 1>;
 
 		Stack stack;
-		stack[depth].first                 = BF - 1u;
-		stack[depth].second[BF - 1].first  = 0.0f;
-		stack[depth].second[BF - 1].second = block;
+		// Since we only have one block in the beginning we set the index to `BF - 1u` (the
+		// last index)
+		stack[depth].it = std::prev(stack[depth].container.end());
+		// The first block to go through
+		stack[depth].block() = block;
+		// This distance does not matter as long as it is less than `c_dist - epsilon`, since
+		// we only have one block in the beginning
+		stack[depth].distance() = 0.0f;
 
-		Index c_node;
+		std::conditional_t<OnlyDistance, bool, Index> c_node;
+
+		std::array<std::conditional_t<OnlyDistance, float, std::pair<float, offset_t>>, BF> d;
 
 		for (depth_t max_depth = depth + 1; max_depth > depth;) {
-			auto& [idx, c] = stack[depth];
+			StackElement& se = stack[depth];
 
-			if (BF <= idx || c_dist <= c[idx].first + epsilon) {
+			if (se.empty() || c_dist - epsilon <= se.distance()) {
 				++depth;
 				continue;
 			}
 
-			block = c[idx].second;
-			++idx;
+			block = se.block();
+			++se;
 
-			stack[depth - 1].first = 0;
-			auto& candidates       = stack[depth - 1].second;
+			StackElement& cur = stack[depth - 1u];
+
+			cur.start();
 
 			for (std::size_t i{}; BF > i; ++i) {
 				Index node(block, i);
-				candidates[i].first = inner_f(node);
-				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = children(node);
-			}
+				cur.container[i].first = inner_f(node);
+				assert(!std::isnan(cur.container[i].first));
+				cur.container[i].second = children(node);
 
-			if (1u == depth) {
-				std::array<std::pair<float, offset_t>, BF> d;
-				for (auto [dist, child_block] : candidates) {
-					if (c_dist <= dist + epsilon) {
-						continue;
-					}
-
-					for (offset_t i{}; BF > i; ++i) {
-						d[i].first = value_f(Index(child_block, i));
+				if constexpr (!FastAsSonic) {
+					if constexpr (OnlyDistance) {
+						d[i] = value_f(node);
+						assert(!std::isnan(d[i]));
+					} else {
+						d[i].first = value_f(node);
 						assert(!std::isnan(d[i].first));
 						d[i].second = i;
 					}
+				}
+			}
 
+			if constexpr (!FastAsSonic) {
+				if constexpr (OnlyDistance) {
+					if constexpr (2 == BF) {
+						UFO_MIN_2(d);
+					} else if constexpr (4 == BF) {
+						UFO_MIN_4(d);
+					} else if constexpr (8 == BF) {
+						UFO_MIN_8(d);
+					} else if constexpr (16 == BF) {
+						UFO_MIN_16(d);
+					} else {
+						for (std::size_t i = 1; BF > i; ++i) {
+							d[0] = UFO_MIN(d[0], d[i]);
+						}
+					}
+
+					c_dist = c_dist <= d[0] ? c_dist : d[0];
+				} else {
 					if constexpr (2 == BF) {
 						UFO_MIN_PAIR_FIRST_2(d);
 					} else if constexpr (4 == BF) {
@@ -2934,318 +3027,366 @@ class Tree
 						}
 					}
 
-					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+					c_node = c_dist <= d[0].first ? c_node : Index{block, d[0].second};
 					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
 				}
-			} else {
-				if constexpr (2 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_2(candidates);
-				} else if constexpr (4 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_4(candidates);
-				} else if constexpr (8 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_8(candidates);
-				} else if constexpr (16 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_16(candidates);
-				} else {
-					std::sort(candidates.begin(), candidates.end(),
-					          [](auto a, auto b) { return a.first < b.first; });
+			}
+
+			if (1u == depth) {
+				for (auto [dist, child_block] : cur.container) {
+					if (c_dist <= dist + epsilon) {
+						continue;
+					}
+
+					if constexpr (OnlyDistance) {
+						for (offset_t i{}; BF > i; ++i) {
+							d[i] = value_f(Index(child_block, i));
+							assert(!std::isnan(d[i]));
+						}
+
+						if constexpr (2 == BF) {
+							UFO_MIN_2(d);
+						} else if constexpr (4 == BF) {
+							UFO_MIN_4(d);
+						} else if constexpr (8 == BF) {
+							UFO_MIN_8(d);
+						} else if constexpr (16 == BF) {
+							UFO_MIN_16(d);
+						} else {
+							for (std::size_t i = 1; BF > i; ++i) {
+								d[0] = UFO_MIN(d[0], d[i]);
+							}
+						}
+
+						c_dist = c_dist <= d[0] ? c_dist : d[0];
+					} else {
+						for (offset_t i{}; BF > i; ++i) {
+							d[i].first = value_f(Index(child_block, i));
+							assert(!std::isnan(d[i].first));
+							d[i].second = i;
+						}
+
+						if constexpr (2 == BF) {
+							UFO_MIN_PAIR_FIRST_2(d);
+						} else if constexpr (4 == BF) {
+							UFO_MIN_PAIR_FIRST_4(d);
+						} else if constexpr (8 == BF) {
+							UFO_MIN_PAIR_FIRST_8(d);
+						} else if constexpr (16 == BF) {
+							UFO_MIN_PAIR_FIRST_16(d);
+						} else {
+							for (std::size_t i = 1; BF > i; ++i) {
+								d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+							}
+						}
+
+						c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+						c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+					}
 				}
+			} else {
+				cur.sort();
 				--depth;
 			}
 		}
 
-		return {c_dist, c_node};
-	}
-
-	template <class ValueFun, class InnerFun>
-	[[nodiscard]] std::pair<float, Index> nearestDepthFirst(pos_t block, depth_t depth,
-	                                                        float c_dist, ValueFun value_f,
-	                                                        InnerFun inner_f) const
-	{
-		using Stack =
-		    std::array<std::pair<std::size_t, std::array<std::pair<float, pos_t>, BF>>,
-		               maxNumDepthLevels() - 1>;
-
-		Stack stack;
-		stack[depth].first                 = BF - 1u;
-		stack[depth].second[BF - 1].first  = 0.0f;
-		stack[depth].second[BF - 1].second = block;
-
-		Index c_node;
-
-		for (depth_t max_depth = depth + 1; max_depth > depth;) {
-			auto& [idx, c] = stack[depth];
-
-			if (BF <= idx || c_dist <= c[idx].first) {
-				++depth;
-				continue;
-			}
-
-			block = c[idx].second;
-			++idx;
-
-			stack[depth - 1].first = 0;
-			auto& candidates       = stack[depth - 1].second;
-
-			for (std::size_t i{}; BF > i; ++i) {
-				Index node(block, i);
-				candidates[i].first = inner_f(node);
-				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = children(node);
-			}
-
-			if (1u == depth) {
-				std::array<std::pair<float, offset_t>, BF> d;
-				for (auto [dist, child_block] : candidates) {
-					if (c_dist <= dist) {
-						continue;
-					}
-
-					for (offset_t i{}; BF > i; ++i) {
-						d[i].first = value_f(Index(child_block, i));
-						assert(!std::isnan(d[i].first));
-						d[i].second = i;
-					}
-
-					if constexpr (2 == BF) {
-						UFO_MIN_PAIR_FIRST_2(d);
-					} else if constexpr (4 == BF) {
-						UFO_MIN_PAIR_FIRST_4(d);
-					} else if constexpr (8 == BF) {
-						UFO_MIN_PAIR_FIRST_8(d);
-					} else if constexpr (16 == BF) {
-						UFO_MIN_PAIR_FIRST_16(d);
-					} else {
-						for (std::size_t i = 1; BF > i; ++i) {
-							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
-						}
-					}
-
-					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
-					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
-				}
-			} else {
-				if constexpr (2 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_2(candidates);
-				} else if constexpr (4 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_4(candidates);
-				} else if constexpr (8 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_8(candidates);
-				} else if constexpr (16 == BF) {
-					UFO_SORT_ASCENDING_PAIR_FIRST_16(candidates);
-				} else {
-					std::sort(candidates.begin(), candidates.end(),
-					          [](auto a, auto b) { return a.first < b.first; });
-				}
-				--depth;
-			}
+		if constexpr (OnlyDistance) {
+			return c_dist;
+		} else {
+			return {c_dist, c_node};
 		}
-
-		return {c_dist, c_node};
 	}
 
-	template <class ValueFun, class InnerFun>
-	[[nodiscard]] std::pair<float, Index> nearestAStar(pos_t block, depth_t depth,
-	                                                   float c_dist, float epsilon,
-	                                                   ValueFun value_f,
-	                                                   InnerFun inner_f) const
-	{
-		struct S {
-			float   dist;
-			pos_t   block;
-			depth_t depth;
+	// template <class ValueFun, class InnerFun>
+	// [[nodiscard]] std::pair<float, Index> nearestDepthFirst(pos_t block, depth_t depth,
+	//                                                         float c_dist, ValueFun
+	//                                                         value_f, InnerFun inner_f)
+	//                                                         const
+	// {
+	// 	using Stack =
+	// 	    std::array<std::pair<std::size_t, std::array<std::pair<float, pos_t>, BF>>,
+	// 	               maxNumDepthLevels() - 1>;
 
-			S(float dist, pos_t block, depth_t depth) noexcept
-			    : dist(dist), block(block), depth(depth)
-			{
-			}
+	// 	Stack stack;
+	// 	stack[depth].first                 = BF - 1u;
+	// 	stack[depth].second[BF - 1].first  = 0.0f;
+	// 	stack[depth].second[BF - 1].second = block;
 
-			bool operator>(S rhs) const noexcept
-			{
-				// return dist > rhs.dist;
-				return dist + (depth << 2) > rhs.dist + (rhs.depth << 2);
-			}
-		};
+	// 	Index c_node;
 
-		using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
+	// 	for (depth_t max_depth = depth + 1; max_depth > depth;) {
+	// 		auto& [idx, c] = stack[depth];
 
-		std::vector<S> container;
-		container.reserve(1024);
-		Queue queue(std::greater<S>{}, std::move(container));
-		queue.emplace(0.0f, block, depth);
+	// 		if (BF <= idx || c_dist <= c[idx].first) {
+	// 			++depth;
+	// 			continue;
+	// 		}
 
-		auto max_size = depth << 2;
+	// 		block = c[idx].second;
+	// 		++idx;
 
-		Index c_node;
+	// 		stack[depth - 1].first = 0;
+	// 		auto& candidates       = stack[depth - 1].second;
 
-		while (!queue.empty()) {
-			auto cur = queue.top();
+	// 		for (std::size_t i{}; BF > i; ++i) {
+	// 			Index node(block, i);
+	// 			candidates[i].first = inner_f(node);
+	// 			assert(!std::isnan(candidates[i].first));
+	// 			candidates[i].second = children(node);
+	// 		}
 
-			if (c_dist + max_size - (cur.depth << 2) <= cur.dist + epsilon) {
-				return {c_dist, c_node};
-			}
+	// 		if (1u == depth) {
+	// 			std::array<std::pair<float, offset_t>, BF> d;
+	// 			for (auto [dist, child_block] : candidates) {
+	// 				if (c_dist <= dist) {
+	// 					continue;
+	// 				}
 
-			if (c_dist <= cur.dist + epsilon) {
-				queue.pop();
-				continue;
-			}
+	// 				for (offset_t i{}; BF > i; ++i) {
+	// 					d[i].first = value_f(Index(child_block, i));
+	// 					assert(!std::isnan(d[i].first));
+	// 					d[i].second = i;
+	// 				}
 
-			queue.pop();
+	// 				if constexpr (2 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_2(d);
+	// 				} else if constexpr (4 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_4(d);
+	// 				} else if constexpr (8 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_8(d);
+	// 				} else if constexpr (16 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_16(d);
+	// 				} else {
+	// 					for (std::size_t i = 1; BF > i; ++i) {
+	// 						d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+	// 					}
+	// 				}
 
-			block = cur.block;
-			depth = cur.depth;
+	// 				c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+	// 				c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+	// 			}
+	// 		} else {
+	// 			if constexpr (2 == BF) {
+	// 				UFO_SORT_ASCENDING_PAIR_FIRST_2(candidates);
+	// 			} else if constexpr (4 == BF) {
+	// 				UFO_SORT_ASCENDING_PAIR_FIRST_4(candidates);
+	// 			} else if constexpr (8 == BF) {
+	// 				UFO_SORT_ASCENDING_PAIR_FIRST_8(candidates);
+	// 			} else if constexpr (16 == BF) {
+	// 				UFO_SORT_ASCENDING_PAIR_FIRST_16(candidates);
+	// 			} else {
+	// 				std::sort(candidates.begin(), candidates.end(),
+	// 				          [](auto a, auto b) { return a.first < b.first; });
+	// 			}
+	// 			--depth;
+	// 		}
+	// 	}
 
-			std::array<std::pair<float, pos_t>, BF> candidates;
-			for (std::size_t i{}; BF > i; ++i) {
-				Index node(block, i);
-				candidates[i].first = inner_f(node);
-				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = children(node);
-			}
+	// 	return {c_dist, c_node};
+	// }
 
-			if (1u == depth) {
-				std::array<std::pair<float, offset_t>, BF> d;
-				for (auto [dist, child_block] : candidates) {
-					if (c_dist <= dist + epsilon) {
-						continue;
-					}
+	// template <class ValueFun, class InnerFun>
+	// [[nodiscard]] std::pair<float, Index> nearestAStar(pos_t block, depth_t depth,
+	//                                                    float c_dist, float epsilon,
+	//                                                    ValueFun value_f,
+	//                                                    InnerFun inner_f) const
+	// {
+	// 	struct S {
+	// 		float   dist;
+	// 		pos_t   block;
+	// 		depth_t depth;
 
-					for (offset_t i{}; BF > i; ++i) {
-						d[i].first = value_f(Index(child_block, i));
-						assert(!std::isnan(d[i].first));
-						d[i].second = i;
-					}
+	// 		S(float dist, pos_t block, depth_t depth) noexcept
+	// 		    : dist(dist), block(block), depth(depth)
+	// 		{
+	// 		}
 
-					if constexpr (2 == BF) {
-						UFO_MIN_PAIR_FIRST_2(d);
-					} else if constexpr (4 == BF) {
-						UFO_MIN_PAIR_FIRST_4(d);
-					} else if constexpr (8 == BF) {
-						UFO_MIN_PAIR_FIRST_8(d);
-					} else if constexpr (16 == BF) {
-						UFO_MIN_PAIR_FIRST_16(d);
-					} else {
-						for (std::size_t i = 1; BF > i; ++i) {
-							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
-						}
-					}
+	// 		bool operator>(S rhs) const noexcept
+	// 		{
+	// 			// return dist > rhs.dist;
+	// 			return dist + (depth << 2) > rhs.dist + (rhs.depth << 2);
+	// 		}
+	// 	};
 
-					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
-					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
-				}
-			} else {
-				for (auto [dist, child_block] : candidates) {
-					if (c_dist <= dist + epsilon) {
-						continue;
-					}
-					queue.emplace(dist, child_block, depth - 1);
-				}
-			}
-		}
+	// 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
 
-		return {c_dist, c_node};
-	}
+	// 	std::vector<S> container;
+	// 	container.reserve(1024);
+	// 	Queue queue(std::greater<S>{}, std::move(container));
+	// 	queue.emplace(0.0f, block, depth);
 
-	template <class ValueFun, class InnerFun>
-	[[nodiscard]] std::pair<float, Index> nearestAStar(pos_t block, depth_t depth,
-	                                                   float c_dist, ValueFun value_f,
-	                                                   InnerFun inner_f) const
-	{
-		struct S {
-			float   dist;
-			pos_t   block;
-			depth_t depth;
+	// 	auto max_size = depth << 2;
 
-			S(float dist, pos_t block, depth_t depth) noexcept
-			    : dist(dist), block(block), depth(depth)
-			{
-			}
+	// 	Index c_node;
 
-			bool operator>(S rhs) const noexcept
-			{
-				// return dist > rhs.dist;
-				return dist + (depth << 2) > rhs.dist + (rhs.depth << 2);
-			}
-		};
+	// 	while (!queue.empty()) {
+	// 		auto cur = queue.top();
 
-		using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
+	// 		if (c_dist + max_size - (cur.depth << 2) <= cur.dist + epsilon) {
+	// 			return {c_dist, c_node};
+	// 		}
 
-		std::vector<S> container;
-		container.reserve(1024);
-		Queue queue(std::greater<S>{}, std::move(container));
-		queue.emplace(0.0f, block, depth);
+	// 		if (c_dist <= cur.dist + epsilon) {
+	// 			queue.pop();
+	// 			continue;
+	// 		}
 
-		auto max_size = depth << 2;
+	// 		queue.pop();
 
-		Index c_node;
+	// 		block = cur.block;
+	// 		depth = cur.depth;
 
-		while (!queue.empty()) {
-			auto cur = queue.top();
+	// 		std::array<std::pair<float, pos_t>, BF> candidates;
+	// 		for (std::size_t i{}; BF > i; ++i) {
+	// 			Index node(block, i);
+	// 			candidates[i].first = inner_f(node);
+	// 			assert(!std::isnan(candidates[i].first));
+	// 			candidates[i].second = children(node);
+	// 		}
 
-			if (c_dist + max_size - (cur.depth << 2) <= cur.dist) {
-				return {c_dist, c_node};
-			}
+	// 		if (1u == depth) {
+	// 			std::array<std::pair<float, offset_t>, BF> d;
+	// 			for (auto [dist, child_block] : candidates) {
+	// 				if (c_dist <= dist + epsilon) {
+	// 					continue;
+	// 				}
 
-			if (c_dist <= cur.dist) {
-				queue.pop();
-				continue;
-			}
+	// 				for (offset_t i{}; BF > i; ++i) {
+	// 					d[i].first = value_f(Index(child_block, i));
+	// 					assert(!std::isnan(d[i].first));
+	// 					d[i].second = i;
+	// 				}
 
-			queue.pop();
+	// 				if constexpr (2 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_2(d);
+	// 				} else if constexpr (4 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_4(d);
+	// 				} else if constexpr (8 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_8(d);
+	// 				} else if constexpr (16 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_16(d);
+	// 				} else {
+	// 					for (std::size_t i = 1; BF > i; ++i) {
+	// 						d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+	// 					}
+	// 				}
 
-			block = cur.block;
-			depth = cur.depth;
+	// 				c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+	// 				c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+	// 			}
+	// 		} else {
+	// 			for (auto [dist, child_block] : candidates) {
+	// 				if (c_dist <= dist + epsilon) {
+	// 					continue;
+	// 				}
+	// 				queue.emplace(dist, child_block, depth - 1);
+	// 			}
+	// 		}
+	// 	}
 
-			std::array<std::pair<float, pos_t>, BF> candidates;
-			for (std::size_t i{}; BF > i; ++i) {
-				Index node(block, i);
-				candidates[i].first = inner_f(node);
-				assert(!std::isnan(candidates[i].first));
-				candidates[i].second = children(node);
-			}
+	// 	return {c_dist, c_node};
+	// }
 
-			if (1u == depth) {
-				std::array<std::pair<float, offset_t>, BF> d;
-				for (auto [dist, child_block] : candidates) {
-					if (c_dist <= dist) {
-						continue;
-					}
+	// template <class ValueFun, class InnerFun>
+	// [[nodiscard]] std::pair<float, Index> nearestAStar(pos_t block, depth_t depth,
+	//                                                    float c_dist, ValueFun value_f,
+	//                                                    InnerFun inner_f) const
+	// {
+	// 	struct S {
+	// 		float   dist;
+	// 		pos_t   block;
+	// 		depth_t depth;
 
-					for (offset_t i{}; BF > i; ++i) {
-						d[i].first = value_f(Index(child_block, i));
-						assert(!std::isnan(d[i].first));
-						d[i].second = i;
-					}
+	// 		S(float dist, pos_t block, depth_t depth) noexcept
+	// 		    : dist(dist), block(block), depth(depth)
+	// 		{
+	// 		}
 
-					if constexpr (2 == BF) {
-						UFO_MIN_PAIR_FIRST_2(d);
-					} else if constexpr (4 == BF) {
-						UFO_MIN_PAIR_FIRST_4(d);
-					} else if constexpr (8 == BF) {
-						UFO_MIN_PAIR_FIRST_8(d);
-					} else if constexpr (16 == BF) {
-						UFO_MIN_PAIR_FIRST_16(d);
-					} else {
-						for (std::size_t i = 1; BF > i; ++i) {
-							d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
-						}
-					}
+	// 		bool operator>(S rhs) const noexcept
+	// 		{
+	// 			// return dist > rhs.dist;
+	// 			return dist + (depth << 2) > rhs.dist + (rhs.depth << 2);
+	// 		}
+	// 	};
 
-					c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
-					c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
-				}
-			} else {
-				for (auto [dist, child_block] : candidates) {
-					if (c_dist <= dist) {
-						continue;
-					}
-					queue.emplace(dist, child_block, depth - 1);
-				}
-			}
-		}
+	// 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
 
-		return {c_dist, c_node};
-	}
+	// 	std::vector<S> container;
+	// 	container.reserve(1024);
+	// 	Queue queue(std::greater<S>{}, std::move(container));
+	// 	queue.emplace(0.0f, block, depth);
+
+	// 	auto max_size = depth << 2;
+
+	// 	Index c_node;
+
+	// 	while (!queue.empty()) {
+	// 		auto cur = queue.top();
+
+	// 		if (c_dist + max_size - (cur.depth << 2) <= cur.dist) {
+	// 			return {c_dist, c_node};
+	// 		}
+
+	// 		if (c_dist <= cur.dist) {
+	// 			queue.pop();
+	// 			continue;
+	// 		}
+
+	// 		queue.pop();
+
+	// 		block = cur.block;
+	// 		depth = cur.depth;
+
+	// 		std::array<std::pair<float, pos_t>, BF> candidates;
+	// 		for (std::size_t i{}; BF > i; ++i) {
+	// 			Index node(block, i);
+	// 			candidates[i].first = inner_f(node);
+	// 			assert(!std::isnan(candidates[i].first));
+	// 			candidates[i].second = children(node);
+	// 		}
+
+	// 		if (1u == depth) {
+	// 			std::array<std::pair<float, offset_t>, BF> d;
+	// 			for (auto [dist, child_block] : candidates) {
+	// 				if (c_dist <= dist) {
+	// 					continue;
+	// 				}
+
+	// 				for (offset_t i{}; BF > i; ++i) {
+	// 					d[i].first = value_f(Index(child_block, i));
+	// 					assert(!std::isnan(d[i].first));
+	// 					d[i].second = i;
+	// 				}
+
+	// 				if constexpr (2 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_2(d);
+	// 				} else if constexpr (4 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_4(d);
+	// 				} else if constexpr (8 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_8(d);
+	// 				} else if constexpr (16 == BF) {
+	// 					UFO_MIN_PAIR_FIRST_16(d);
+	// 				} else {
+	// 					for (std::size_t i = 1; BF > i; ++i) {
+	// 						d[0] = UFO_MIN_PAIR_FIRST(d[0], d[i]);
+	// 					}
+	// 				}
+
+	// 				c_node = c_dist <= d[0].first ? c_node : Index{child_block, d[0].second};
+	// 				c_dist = c_dist <= d[0].first ? c_dist : d[0].first;
+	// 			}
+	// 		} else {
+	// 			for (auto [dist, child_block] : candidates) {
+	// 				if (c_dist <= dist) {
+	// 					continue;
+	// 				}
+	// 				queue.emplace(dist, child_block, depth - 1);
+	// 			}
+	// 		}
+	// 	}
+
+	// 	return {c_dist, c_node};
+	// }
 
 	/**************************************************************************************
 	|                                                                                     |
