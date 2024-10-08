@@ -626,6 +626,8 @@ class Tree
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr Index index(NodeType node) const
 	{
+		assert(valid(node));
+
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return node;
@@ -2863,12 +2865,14 @@ class Tree
 			// }
 		}
 
-		auto dist = value_f(node);
+		if constexpr (!FastAsSonic) {
+			max_dist = value_f(node);
+		}
 		assert(!std::isnan(dist));
 		if constexpr (OnlyDistance) {
-			return UFO_MIN(closest, dist);
+			return UFO_MIN(closest, max_dist);
 		} else {
-			return closest.first < dist ? closest : std::pair{dist, node};
+			return closest.first < max_dist ? closest : std::pair{max_dist, node};
 		}
 	}
 
