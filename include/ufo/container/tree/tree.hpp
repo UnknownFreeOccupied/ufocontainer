@@ -2836,6 +2836,8 @@ class Tree
 		assert(std::isfinite(max_dist));
 		assert(std::isfinite(epsilon));
 
+		
+
 		std::conditional_t<OnlyDistance, float, std::pair<float, Index>> closest{};
 		if constexpr (OnlyDistance) {
 			closest = max_dist;
@@ -2876,30 +2878,30 @@ class Tree
 		}
 	}
 
-	// template <class Pred, class ValueFun, class InnerFun,
-	//           std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
-	// [[nodiscard]] std::pair<float, Index> nearest(Index node, Pred pred,
-	//                                               NearestSearchAlgorithm search_alg,
-	//                                               ValueFun value_f, InnerFun inner_f,
-	//                                               float max_dist, float epsilon) const
-	// {
-	// 	using Filter = pred::Filter<Pred>;
+	template <class Pred, class ValueFun, class InnerFun,
+	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
+	[[nodiscard]] std::pair<float, Index> nearest(Index node, Pred pred,
+	                                              NearestSearchAlgorithm search_alg,
+	                                              ValueFun value_f, InnerFun inner_f,
+	                                              float max_dist, float epsilon) const
+	{
+		using Filter = pred::Filter<Pred>;
 
-	// 	Filter::init(pred);
+		Filter::init(pred);
 
-	// 	auto wrapped_value_f = [value_f, &pred](Index node) -> float {
-	// 		return Filter::returnable(pred) ? value_f(node)
-	// 		                                : std::numeric_limits<float>::infinity();
-	// 	};
+		auto wrapped_value_f = [value_f, &pred](Index node) -> float {
+			return Filter::returnable(pred) ? value_f(node)
+			                                : std::numeric_limits<float>::infinity();
+		};
 
-	// 	auto wrapped_inner_f = [inner_f, &pred](Index node) -> float {
-	// 		return Filter::traversable(pred) ? inner_f(node)
-	// 		                                 : std::numeric_limits<float>::infinity();
-	// 	};
+		auto wrapped_inner_f = [inner_f, &pred](Index node) -> float {
+			return Filter::traversable(pred) ? inner_f(node)
+			                                 : std::numeric_limits<float>::infinity();
+		};
 
-	// 	return nearest(node, search_alg, wrapped_value_f, wrapped_inner_f, max_dist,
-	// epsilon);
-	// }
+		return nearest(node, search_alg, wrapped_value_f, wrapped_inner_f, max_dist,
+	epsilon);
+	}
 
 	template <bool OnlyDistance, bool FastAsSonic, class ValueFun, class InnerFun>
 	[[nodiscard]] std::conditional_t<OnlyDistance, float, std::pair<float, Index>>
