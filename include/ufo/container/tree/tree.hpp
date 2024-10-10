@@ -593,8 +593,8 @@ class Tree
 	 *
 	 * @return The center of the tree (/ root node).
 	 */
-	template <std::size_t Axis>
-	[[nodiscard]] coord_t center() const
+	template <int Axis>
+	[[nodiscard]] coord_t centerAxis() const
 	{
 		static_assert(Axis < Dim);
 		return coord_t(0);
