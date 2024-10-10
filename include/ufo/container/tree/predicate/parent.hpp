@@ -43,6 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_PARENT_HPP
 
 // UFO
+#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
@@ -51,17 +52,29 @@ namespace ufo::pred
 struct Parent {
 };
 
-template <class Tree>
-[[nodiscard]] constexpr bool valueCheck(Parent, Tree const& t, TreeIndex n)
-{
-	return t.isParent(n);
-}
+template <>
+struct Filter<Parent> {
+	using Pred = Parent;
 
-template <class Tree>
-[[nodiscard]] constexpr bool innerCheck(Parent, Tree const& t, TreeIndex n)
-{
-	return t.isParent(n);
-}
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
+	                                               TreeIndex const& n)
+	{
+		return t.isParent(n);
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
+	                                                TreeIndex const& n)
+	{
+		return t.isParent(n);
+	}
+};
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_PARENT_HPP

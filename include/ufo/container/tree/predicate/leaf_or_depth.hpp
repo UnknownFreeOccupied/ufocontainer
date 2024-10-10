@@ -43,7 +43,6 @@
 #define UFO_CONTAINER_TREE_PREDICATE_LEAF_OR_DEPTH_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/leaf.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
@@ -58,17 +57,29 @@ struct LeafOrDepth {
 	constexpr LeafOrDepth(depth_t depth = 0) : depth(depth) {}
 };
 
-template <class Tree, class Node>
-[[nodiscard]] constexpr bool valueCheck(LeafOrDepth p, Tree const& t, Node n)
-{
-	return p.depth == t.depth(n) || valueCheck(Leaf(), t, n);
-}
+template <>
+struct Filter<LeafOrDepth> {
+	using Pred = LeafOrDepth;
 
-template <class Tree, class Node>
-[[nodiscard]] constexpr bool innerCheck(LeafOrDepth p, Tree const& t, Node n)
-{
-	return p.depth < t.depth(n);
-}
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               Node const& n)
+	{
+		return t.isLeaf(n) || p.depth == t.depth(n);
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                Node const& n)
+	{
+		return p.depth < t.depth(n);
+	}
+};
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_LEAF_OR_DEPTH_HPP

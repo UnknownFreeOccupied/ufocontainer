@@ -60,9 +60,17 @@ constexpr Modified<!Negated> operator!(Modified<Negated>)
 }
 
 template <bool Negated>
-struct ValueCheck<Modified<Negated>> {
+struct Filter<Modified<Negated>> {
+	using Pred = Modified<Negated>;
+
 	template <class Tree>
-	[[nodiscard]] static constexpr bool apply(Modified<Negated>, Tree const& t, TreeIndex n)
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
+	                                               TreeIndex const& n)
 	{
 		if constexpr (Negated) {
 			return !t.isModified(n);
@@ -70,12 +78,10 @@ struct ValueCheck<Modified<Negated>> {
 			return t.isModified(n);
 		}
 	}
-};
 
-template <bool Negated>
-struct InnerCheck<Modified<Negated>> {
 	template <class Tree>
-	[[nodiscard]] static constexpr bool apply(Modified<Negated>, Tree const& t, TreeIndex n)
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
+	                                                TreeIndex const& n)
 	{
 		if constexpr (Negated) {
 			return true;

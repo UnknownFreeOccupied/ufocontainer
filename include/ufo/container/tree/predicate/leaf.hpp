@@ -53,18 +53,24 @@ struct Leaf {
 };
 
 template <>
-struct ValueCheck<Leaf> {
+struct Filter<Leaf> {
+	using Pred = Leaf;
+
 	template <class Tree>
-	[[nodiscard]] static constexpr bool apply(Leaf, Tree const& t, TreeIndex n)
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
+	                                               TreeIndex const& n)
 	{
 		return t.isLeaf(n);
 	}
-};
 
-template <>
-struct InnerCheck<Leaf> {
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool apply(Leaf, Tree const& t, Node n)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                TreeIndex const&)
 	{
 		return true;
 	}

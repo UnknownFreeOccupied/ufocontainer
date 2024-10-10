@@ -1,5 +1,5 @@
 /*!
- * UFOMap: An Efficient Probabilistic 3D Mapping Framework That Embraces the Unknown
+ * UFOTree: An Efficient Probabilistic 3D Treeping Framework That Embraces the Unknown
  *
  * @author Daniel Duberg (dduberg@kth.se)
  * @see https://github.com/UnknownFreeOccupied/ufomap
@@ -39,58 +39,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_EXISTS_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_EXISTS_HPP
-
-// UFO
-#include <ufo/container/tree/index.hpp>
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
+#ifndef UFO_CONTAINER_TREE_PREDICATE_PREDICATE_TYPE_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_PREDICATE_TYPE_HPP
 
 namespace ufo::pred
 {
 
-template <bool Negated = false>
-struct Exists {
-};
+enum class PredicateType { VALUE = 1, INNER, VALUE_AND_INNER };
 
-template <bool Negated>
-constexpr Exists<!Negated> operator!(Exists<Negated>)
-{
-	return {};
-}
-
-template <bool Negated>
-struct Filter<Exists<Negated>> {
-	using Pred = Exists<Negated>;
-
-	template <class Tree>
-	static constexpr void init(Pred&, Tree const&)
-	{
-	}
-
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               Node const& n)
-	{
-		if constexpr (Negated) {
-			return !t.exists(n);
-		} else {
-			return t.exists(n);
-		}
-	}
-
-	template <class Tree>
-	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                TreeIndex const& n)
-	{
-		if constexpr (Negated) {
-			return true;
-		} else {
-			return t.isParent(n);
-		}
-	}
-};
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_EXISTS_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_PREDICATE_TYPE_HPP

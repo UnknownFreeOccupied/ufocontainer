@@ -43,32 +43,48 @@
 #define UFO_CONTAINER_TREE_PREDICATE_CHILD_OF_HPP
 
 // UFO
+#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/predicate/predicate_compare.hpp>
 
+// STL
+#include <algorithm>
+#include <cstddef>
+
 namespace ufo::pred
 {
-template <class Code>
+template <std::size_t Dim>
 struct ChildOf {
-	Code code;
+	TreeCode<Dim> code;
 
-	constexpr ChildOf(Code code) noexcept : code(code) {}
+	constexpr ChildOf(TreeCode<Dim> const& code) noexcept : code(code) {}
 };
 
-template <class Code, class Tree, class Node>
-[[nodiscard]] constexpr bool valueCheck(ChildOf<Code> p, Tree const& t, Node n)
-{
-	return t.depth(n) < p.code.depth() &&
-	       Code::equalAtDepth(t.code(n), p.code, p.code.depth());
-}
+template <std::size_t Dim>
+struct Filter<ChildOf<Dim>> {
+	using Pred = ChildOf<Dim>;
 
-template <class Code, class Tree, class Node>
-[[nodiscard]] constexpr bool innerCheck(ChildOf<Code> p, Tree const& t, Node n)
-{
-	return t.depth(n) > p.code.depth()
-	           ? Code::equalAtDepth(t.code(n), p.code, t.depth(n))
-	           : Code::equalAtDepth(t.code(n), p.code, p.code.depth());
-}
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               Node const& n)
+	{
+		return p.code.depth() > t.depth(n) &&
+		       TreeCode<Dim>::equalAtDepth(p.code, t.code(n), p.code.depth());
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                Node const& n)
+	{
+		return TreeCode<Dim>::equalAtDepth(p.code, t.code(n),
+		                                   std::max(p.code.depth(), t.depth(n)));
+	}
+};
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_CHILD_OF_HPP

@@ -71,9 +71,17 @@ using DepthMin = DepthGE;
 using DepthMax = DepthLE;
 
 template <PredicateCompare PC, PredicateType PT>
-struct ValueCheck<Depth<PC, PT>> {
+struct Filter<Depth<PC, PT>> {
+	using Pred = Depth<PC, PT>;
+
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
 	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool apply(Depth<PC, PT> p, Tree const& t, Node const& n)
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               Node const& n)
 	{
 		if constexpr (PredicateType::INNER == PT) {
 			return true;
@@ -91,12 +99,10 @@ struct ValueCheck<Depth<PC, PT>> {
 			return t.depth(n) > p.depth;
 		}
 	}
-};
 
-template <PredicateCompare PC, PredicateType PT>
-struct InnerCheck<Depth<PC, PT>> {
 	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool apply(Depth<PC, PT> p, Tree const& t, Node const& n)
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                Node const& n)
 	{
 		if constexpr (PredicateType::VALUE == PT) {
 			return true;
@@ -111,7 +117,7 @@ struct InnerCheck<Depth<PC, PT>> {
 		} else if constexpr (PredicateCompare::LESS == PC) {
 			return true;
 		} else if constexpr (PredicateCompare::GREATER == PC) {
-			return t.depth(n) > (p.depth + 1U);
+			return t.depth(n) > (p.depth + Pred::depth_t(1));
 		}
 	}
 };

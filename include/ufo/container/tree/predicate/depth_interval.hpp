@@ -58,17 +58,31 @@ struct DepthInterval {
 	constexpr DepthInterval(depth_t min, depth_t max) noexcept : min(min), max(max) {}
 };
 
-template <class Tree, class Node>
-[[nodiscard]] constexpr bool valueCheck(DepthInterval p, Tree const& t, Node n)
-{
-	return valueCheck(p.min, t, n) && valueCheck(p.max, t, n);
-}
+template <>
+struct Filter<DepthInterval> {
+	using Pred = DepthInterval;
 
-template <class Tree, class Node>
-[[nodiscard]] constexpr bool innerCheck(DepthInterval p, Tree const& t, Node n)
-{
-	return innerCheck(p.min, t, n) && innerCheck(p.max, t, n);
-}
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               Node const& n)
+	{
+		return Filter<DepthMin>::returnable(p.min, t, n) &&
+		       Filter<DepthMax>::returnable(p.max, t, n);
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                Node const& n)
+	{
+		return Filter<DepthMin>::traversable(p.min, t, n) &&
+		       Filter<DepthMax>::traversable(p.max, t, n);
+	}
+};
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
