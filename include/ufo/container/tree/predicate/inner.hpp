@@ -43,8 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
 {

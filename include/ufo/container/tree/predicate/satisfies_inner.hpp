@@ -39,55 +39,46 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_SATISFIES_INNER_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_SATISFIES_INNER_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/depth.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
 {
-/*!
- * @brief
- *
- * @note The interval is inclusive (i.e., [min .. max]).
- *
- */
-template <bool Negated = false>
-struct DepthInterval {
-	DepthMin min;
-	DepthMax max;
+template <class Fun, bool Negated = false>
+struct SatisfiesInner {
+	SatisfiesInner(Fun fun) : fun(fun) {}
 
-	constexpr DepthInterval(int min, int max) noexcept : min(min), max(max) {}
+	Fun fun;
 };
 
-template <bool Negated>
-constexpr DepthInterval<!Negated> operator!(DepthInterval<Negated> const& p)
+template <class Fun, bool Negated>
+constexpr SatisfiesInner<Fun, !Negated> operator!(SatisfiesInner<Fun, Negated> const& p)
 {
-	return DepthInterval<!Negated>(p.min, p.max);
+	return SatisfiesInner<Fun, !Negated>(p.fun);
 }
 
-template <bool Negated>
-struct Filter<DepthInterval<Negated>> {
-	using Pred = DepthInterval<Negated>;
+template <class Fun, bool Negated>
+struct Filter<SatisfiesInner<Fun, Negated>> {
+	using Pred = SatisfiesInner<Fun, Negated>;
 
 	template <class Tree>
 	static constexpr void init(Pred&, Tree const&)
 	{
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	template <class Value>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Value const&)
 	{
-		if constexpr (Negated) {
-			return !(Filter<DepthMin>::returnable(p.min, t, n) &&
-			         Filter<DepthMax>::returnable(p.max, t, n));
-		} else {
-			return Filter<DepthMin>::returnable(p.min, t, n) &&
-			       Filter<DepthMax>::returnable(p.max, t, n);
-		}
+		return true;
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&, Node const&)
+	{
+		return true;
 	}
 
 	template <class Tree, class Node>
@@ -95,13 +86,12 @@ struct Filter<DepthInterval<Negated>> {
 	                                                Node const& n)
 	{
 		if constexpr (Negated) {
-			return 0 < p.min.depth || p.max.depth + 1 < t.depth(n);
+			return !p.fun(n);
 		} else {
-			return Filter<DepthMin>::traversable(p.min, t, n) &&
-			       Filter<DepthMax>::traversable(p.max, t, n);
+			return p.fun(n);
 		}
 	}
 };
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_SATISFIES_INNER_HPP

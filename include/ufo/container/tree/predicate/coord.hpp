@@ -39,8 +39,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_DEPTH_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_DEPTH_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_COORD_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_COORD_HPP
 
 // UFO
 #include <ufo/container/tree/predicate/filter.hpp>
@@ -48,27 +48,36 @@
 
 namespace ufo::pred
 {
-template <PredicateCompare PC = PredicateCompare::EQUAL>
-struct Depth {
-	// It is int because length predicate requires it
-	int depth;
+template <std::size_t Dim, PredicateCompare PC = PredicateCompare::EQUAL>
+struct Coord {
+	double coord;
 
-	constexpr Depth(int depth = 0) noexcept : depth(depth) {}
+	constexpr Coord(double coord = 0.0) noexcept : coord(coord) {}
 };
 
-using DepthE  = Depth<PredicateCompare::EQUAL>;
-using DepthNE = Depth<PredicateCompare::NOT_EQUAL>;
-using DepthLE = Depth<PredicateCompare::LESS_EQUAL>;
-using DepthGE = Depth<PredicateCompare::GREATER_EQUAL>;
-using DepthL  = Depth<PredicateCompare::LESS>;
-using DepthG  = Depth<PredicateCompare::GREATER>;
+template <PredicateCompare PC = PredicateCompare::EQUAL>
+struct X : Coord<0, PC> {
+	constexpr X(double x = 0.0) : Coord<0, PC>(x) {}
+};
 
-using DepthMin = DepthGE;
-using DepthMax = DepthLE;
+template <PredicateCompare PC = PredicateCompare::EQUAL>
+struct Y : Coord<1, PC> {
+	constexpr Y(double y = 0.0) : Coord<1, PC>(y) {}
+};
 
-template <PredicateCompare PC>
-struct Filter<Depth<PC>> {
-	using Pred = Depth<PC>;
+template <PredicateCompare PC = PredicateCompare::EQUAL>
+struct Z : Coord<2, PC> {
+	constexpr Z(double z = 0.0) : Coord<2, PC>(z) {}
+};
+
+template <PredicateCompare PC = PredicateCompare::EQUAL>
+struct W : Coord<3, PC> {
+	constexpr W(double w = 0.0) : Coord<3, PC>(w) {}
+};
+
+template <std::size_t Dim, PredicateCompare PC>
+struct Filter<Coord<Dim, PC>> {
+	using Pred = Coord<Dim, PC>;
 
 	template <class Tree>
 	static constexpr void init(Pred&, Tree const&)
@@ -79,20 +88,21 @@ struct Filter<Depth<PC>> {
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
 	                                               Node const& n)
 	{
-		// Cast to int to prevent int to be promoted to unsigned
-		int n_depth = static_cast<int>(t.depth(n));
+		auto c  = t.template centerAxis<Dim>(n);
+		auto hl = t.halfLength(n);
+
 		if constexpr (PredicateCompare::EQUAL == PC) {
-			return n_depth == p.depth;
+			return c - hl <= p.coord && c + hl >= p.coord;
 		} else if constexpr (PredicateCompare::NOT_EQUAL == PC) {
-			return n_depth != p.depth;
+			return c - hl > p.coord || c + hl < p.coord;
 		} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
-			return n_depth <= p.depth;
+			return c - hl <= p.coord;
 		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
-			return n_depth >= p.depth;
+			return c + hl >= p.coord;
 		} else if constexpr (PredicateCompare::LESS == PC) {
-			return n_depth < p.depth;
+			return c + hl < p.coord;
 		} else if constexpr (PredicateCompare::GREATER == PC) {
-			return n_depth > p.depth;
+			return c - hl > p.coord;
 		}
 	}
 
@@ -100,23 +110,40 @@ struct Filter<Depth<PC>> {
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
 	                                                Node const& n)
 	{
-		// Cast to int to prevent int to be promoted to unsigned
-		int n_depth = static_cast<int>(t.depth(n));
+		auto c  = t.template centerAxis<Dim>(n);
+		auto hl = t.halfLength(n);
+
 		if constexpr (PredicateCompare::EQUAL == PC) {
-			return n_depth > p.depth;
+			return c - hl <= p.coord && c + hl >= p.coord;
 		} else if constexpr (PredicateCompare::NOT_EQUAL == PC) {
 			return true;
 		} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
-			return true;
+			return c - hl <= p.coord;
 		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
-			return n_depth > p.depth;
+			return c + hl >= p.coord;
 		} else if constexpr (PredicateCompare::LESS == PC) {
-			return true;
+			return c - hl + t.length(0) < p.coord;
 		} else if constexpr (PredicateCompare::GREATER == PC) {
-			return n_depth > (p.depth + 1);
+			return c + hl - t.length(0) > p.coord;
 		}
 	}
 };
+
+template <PredicateCompare PC>
+struct Filter<X<PC>> : Filter<Coord<0, PC>> {
+};
+
+template <PredicateCompare PC>
+struct Filter<Y<PC>> : Filter<Coord<1, PC>> {
+};
+
+template <PredicateCompare PC>
+struct Filter<Z<PC>> : Filter<Coord<2, PC>> {
+};
+
+template <PredicateCompare PC>
+struct Filter<W<PC>> : Filter<Coord<3, PC>> {
+};
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_DEPTH_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_COORD_HPP

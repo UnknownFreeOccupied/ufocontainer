@@ -585,6 +585,89 @@ class Tree
 	}
 
 	//
+	// Center axis
+	//
+
+	/*!
+	 * @brief Returns the center of the tree (/ root node) for the axis specified.
+	 *
+	 * @return The center of the tree (/ root node).
+	 */
+	template <std::size_t Axis>
+	[[nodiscard]] coord_t center() const
+	{
+		static_assert(Axis < Dim);
+		return coord_t(0);
+	}
+
+	/*!
+	 * @brief Returns the center of `node` for the axis specified.
+	 *
+	 * @param node the node
+	 * @return The center of the node.
+	 */
+	template <std::size_t Axis, class NodeType,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] constexpr coord_t centerAxis(NodeType node) const
+	{
+		// TODO: Implement
+
+		static_assert(Axis < Dim);
+
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			// TODO: Check if center is stored in the node
+			return centerAxis<Axis>(block_[node.pos].code(node.offset));
+		} else if constexpr (std::is_same_v<T, Node>) {
+			// TODO: Not working, only returns root or something???
+			return centerAxis<Axis>(key(node));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return centerAxis<Axis>(key(node));
+		} else if constexpr (std::is_same_v<T, Key>) {
+			assert(valid(node));
+
+			auto node_depth = depth(node);
+
+			if (depth() == node_depth) {
+				return center();
+			}
+
+			// TODO: Check performance, might be a lot faster to have float here and in rest of
+			// method
+			length_t          l = length(node_depth);
+			std::int_fast64_t hmv =
+			    static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
+
+			return static_cast<coord_t>(
+			    (static_cast<length_t>(static_cast<std::int_fast64_t>(node[Axis]) - hmv) +
+			     static_cast<length_t>(0.5)) *
+			    l);
+		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+			return centerAxis<Axis>(key(node));
+		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+			return centerAxis<Axis>(Coord(node, 0u));
+		} else {
+			// FIXME: Look at
+			static_assert(is_node_type_v<NodeType>);
+		}
+	}
+
+	/*!
+	 * @brief Returns the center of `node` for the axis specified, if the node is valid
+	 * (i.e., `valid(node)`).
+	 *
+	 * @param node the node
+	 * @return The center of the node if the node is valid, null otherwise.
+	 */
+	template <std::size_t Axis, class NodeType,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] std::optional<coord_t> centerAxisChecked(Code node) const
+	{
+		static_assert(Axis < Dim);
+		return valid(node) ? std::optional<coord_t>(centerAxis<Axis>(node)) : std::nullopt;
+	}
+
+	//
 	// Block
 	//
 
@@ -2836,8 +2919,6 @@ class Tree
 		assert(std::isfinite(max_dist));
 		assert(std::isfinite(epsilon));
 
-		
-
 		std::conditional_t<OnlyDistance, float, std::pair<float, Index>> closest{};
 		if constexpr (OnlyDistance) {
 			closest = max_dist;
@@ -2899,8 +2980,7 @@ class Tree
 			                                 : std::numeric_limits<float>::infinity();
 		};
 
-		return nearest(node, search_alg, wrapped_value_f, wrapped_inner_f, max_dist,
-	epsilon);
+		return nearest(node, search_alg, wrapped_value_f, wrapped_inner_f, max_dist, epsilon);
 	}
 
 	template <bool OnlyDistance, bool FastAsSonic, class ValueFun, class InnerFun>

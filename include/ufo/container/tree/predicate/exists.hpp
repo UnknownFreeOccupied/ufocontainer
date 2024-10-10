@@ -44,8 +44,7 @@
 
 // UFO
 #include <ufo/container/tree/index.hpp>
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
 {
@@ -55,9 +54,9 @@ struct Exists {
 };
 
 template <bool Negated>
-constexpr Exists<!Negated> operator!(Exists<Negated>)
+constexpr Exists<!Negated> operator!(Exists<Negated> const&)
 {
-	return {};
+	return Exists<!Negated>{};
 }
 
 template <bool Negated>

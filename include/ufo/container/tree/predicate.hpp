@@ -44,20 +44,23 @@
 
 // UFO
 #include <ufo/container/tree/predicate/child_of.hpp>
+#include <ufo/container/tree/predicate/coord.hpp>
 #include <ufo/container/tree/predicate/depth.hpp>
 #include <ufo/container/tree/predicate/depth_interval.hpp>
-#include <ufo/container/tree/predicate/dynamic.hpp>
 #include <ufo/container/tree/predicate/exists.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 #include <ufo/container/tree/predicate/inner.hpp>
 #include <ufo/container/tree/predicate/leaf.hpp>
 #include <ufo/container/tree/predicate/leaf_or_depth.hpp>
+#include <ufo/container/tree/predicate/length.hpp>
+#include <ufo/container/tree/predicate/length_interval.hpp>
 #include <ufo/container/tree/predicate/modified.hpp>
 #include <ufo/container/tree/predicate/parent.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
+#include <ufo/container/tree/predicate/predicate_compare.hpp>
 #include <ufo/container/tree/predicate/pure_leaf.hpp>
 #include <ufo/container/tree/predicate/satisfies.hpp>
-#include <ufo/container/tree/predicate/size.hpp>
-#include <ufo/container/tree/predicate/size_interval.hpp>
+#include <ufo/container/tree/predicate/satisfies_inner.hpp>
 #include <ufo/container/tree/predicate/spatial.hpp>
 
 namespace ufo::pred
@@ -66,7 +69,6 @@ constexpr PureLeaf operator!(Inner) { return {}; }
 constexpr Inner    operator!(PureLeaf) { return {}; }
 constexpr Parent   operator!(Leaf) { return {}; }
 constexpr Leaf     operator!(Parent) { return {}; }
-
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_HPP

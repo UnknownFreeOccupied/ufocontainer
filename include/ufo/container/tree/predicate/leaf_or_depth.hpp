@@ -43,13 +43,12 @@
 #define UFO_CONTAINER_TREE_PREDICATE_LEAF_OR_DEPTH_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
 {
 struct LeafOrDepth {
-	using depth_t = std::uint32_t;
+	using depth_t = unsigned;
 
 	// Depth to consider as leaf
 	depth_t depth;

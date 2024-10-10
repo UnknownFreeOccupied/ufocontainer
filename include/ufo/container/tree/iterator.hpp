@@ -162,37 +162,38 @@ class TreeIterator
 	template <class Predicate>
 	constexpr void initPredicate(Predicate& predicate) const
 	{
-		pred::Init<Predicate>::apply(predicate, *tree_);
+		pred::Filter<Predicate>::init(predicate, *tree_);
 	}
 
 	template <bool OnlyExists, class TNode, class Predicate>
-	[[nodiscard]] bool validInner(TNode const& node, Predicate const& predicate) const
+	[[nodiscard]] bool traversable(TNode const& node, Predicate const& predicate) const
 	{
 		if constexpr (OnlyExists) {
 			return isParent(node) &&
-			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
+			       pred::Filter<Predicate>::traversable(predicate, *tree_, node);
 		} else {
 			return !isPureLeaf(node) &&
-			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
+			       pred::Filter<Predicate>::traversable(predicate, *tree_, node);
 		}
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validInner(TreeIndex node, Predicate const& predicate) const
+	[[nodiscard]] bool traversable(TreeIndex node, Predicate const& predicate) const
 	{
-		return isParent(node) && pred::innerCheck(predicate, *tree_, node);
+		return isParent(node) &&
+		       pred::Filter<Predicate>::traversable(predicate, *tree_, node);
 	}
 
 	template <class TNode, class Predicate>
-	[[nodiscard]] bool validReturn(TNode const& node, Predicate const& predicate) const
+	[[nodiscard]] bool returnable(TNode const& node, Predicate const& predicate) const
 	{
-		return pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
+		return pred::Filter<Predicate>::returnable(predicate, *tree_, node);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(TreeIndex node, Predicate const& predicate) const
+	[[nodiscard]] bool returnable(TreeIndex node, Predicate const& predicate) const
 	{
-		return pred::valueCheck(predicate, *tree_, node);
+		return pred::Filter<Predicate>::returnable(predicate, *tree_, node);
 	}
 
  protected:
@@ -292,16 +293,16 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 				current = this->template sibling<OnlyExists>(current, --i);
 
 				if constexpr (OnlyLeavesOrFixedDepth) {
-					if (this->validReturn(current, predicate_)) {
+					if (this->returnable(current, predicate_)) {
 						return_nodes_[return_index_++] = current;
-					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
+					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
 						inner_nodes_[inner_index_++] = current;
 					}
 				} else {
-					if (this->validReturn(current, predicate_)) {
+					if (this->returnable(current, predicate_)) {
 						return_nodes_[return_index_++] = current;
 					}
-					if (this->template validInner<OnlyExists>(current, predicate_)) {
+					if (this->template traversable<OnlyExists>(current, predicate_)) {
 						inner_nodes_[inner_index_++] = current;
 					}
 				}
@@ -334,19 +335,19 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 		}
 
 		if constexpr (OnlyLeavesOrFixedDepth) {
-			if (this->validReturn(node, predicate_)) {
+			if (this->returnable(node, predicate_)) {
 				return_nodes_[return_index_++] = node;
-			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 				inner_nodes_[inner_index_++] = node;
 				next();
 			}
 		} else {
-			if (this->validReturn(node, predicate_)) {
+			if (this->returnable(node, predicate_)) {
 				return_nodes_[return_index_++] = node;
-				if (this->template validInner<OnlyExists>(node, predicate_)) {
+				if (this->template traversable<OnlyExists>(node, predicate_)) {
 					inner_nodes_[inner_index_++] = node;
 				}
-			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 				inner_nodes_[inner_index_++] = node;
 				next();
 			}
@@ -414,19 +415,19 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 				current = this->template sibling<OnlyExists>(current, idx);
 
 				if constexpr (OnlyLeavesOrFixedDepth) {
-					if (this->validReturn(current, predicate_)) {
+					if (this->returnable(current, predicate_)) {
 						return_nodes_.emplace(current, distanceSquared(current));
-					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
+					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 					}
 				} else {
-					if (this->validReturn(current, predicate_)) {
+					if (this->returnable(current, predicate_)) {
 						auto dist_sq = distanceSquared(current);
 						return_nodes_.emplace(current, dist_sq);
-						if (this->template validInner<OnlyExists>(current, predicate_)) {
+						if (this->template traversable<OnlyExists>(current, predicate_)) {
 							inner_nodes_.emplace(current, dist_sq + epsilon_);
 						}
-					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
+					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 					}
 				}
@@ -466,9 +467,9 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 		}
 
 		if constexpr (OnlyLeavesOrFixedDepth) {
-			if (this->validReturn(node, predicate_)) {
+			if (this->returnable(node, predicate_)) {
 				return_nodes_.emplace(node, distanceSquared(node));
-			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 				std::vector<value_type> container;
 				container.reserve(256);
 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
@@ -480,7 +481,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 				next();
 			}
 		} else {
-			if (this->validReturn(node, predicate_)) {
+			if (this->returnable(node, predicate_)) {
 				std::vector<value_type> container;
 				container.reserve(256);
 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
@@ -491,10 +492,10 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 				auto const dist_sq = distanceSquared(node);
 
 				return_nodes_.emplace(node, dist_sq);
-				if (this->template validInner<OnlyExists>(node, predicate_)) {
+				if (this->template traversable<OnlyExists>(node, predicate_)) {
 					inner_nodes_.emplace(node, dist_sq + epsilon_);
 				}
-			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 				std::vector<value_type> container;
 				container.reserve(256);
 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
@@ -598,7 +599,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 	}
 
 // 	template <bool OnlyExists, class Node, class Predicate>
-// 	[[nodiscard]] constexpr bool validInner(Node const&      node,
+// 	[[nodiscard]] constexpr bool traversable(Node const&      node,
 // 	                                        Predicate const& predicate) const
 // 	{
 // 		if constexpr (OnlyExists) {
@@ -611,7 +612,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 	}
 
 // 	template <class Node, class Predicate>
-// 	[[nodiscard]] constexpr bool validReturn(Node const&      node,
+// 	[[nodiscard]] constexpr bool returnable(Node const&      node,
 // 	                                         Predicate const& predicate) const
 // 	{
 // 		return pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
@@ -715,16 +716,16 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				current = this->template sibling<OnlyExists>(current, --i);
 
 // 				if constexpr (OnlyLeavesOrFixedDepth) {
-// 					if (this->validReturn(current, predicate_)) {
+// 					if (this->returnable(current, predicate_)) {
 // 						return_nodes_[return_index_++] = current;
-// 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
+// 					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
 // 						inner_nodes_[inner_index_++] = current;
 // 					}
 // 				} else {
-// 					if (this->validReturn(current, predicate_)) {
+// 					if (this->returnable(current, predicate_)) {
 // 						return_nodes_[return_index_++] = current;
 // 					}
-// 					if (this->template validInner<OnlyExists>(current, predicate_)) {
+// 					if (this->template traversable<OnlyExists>(current, predicate_)) {
 // 						inner_nodes_[inner_index_++] = current;
 // 					}
 // 				}
@@ -757,19 +758,19 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 		}
 
 // 		if constexpr (OnlyLeavesOrFixedDepth) {
-// 			if (this->validReturn(node, predicate_)) {
+// 			if (this->returnable(node, predicate_)) {
 // 				return_nodes_[return_index_++] = node;
-// 			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 // 				inner_nodes_[inner_index_++] = node;
 // 				next();
 // 			}
 // 		} else {
-// 			if (this->validReturn(node, predicate_)) {
+// 			if (this->returnable(node, predicate_)) {
 // 				return_nodes_[return_index_++] = node;
-// 				if (this->template validInner<OnlyExists>(node, predicate_)) {
+// 				if (this->template traversable<OnlyExists>(node, predicate_)) {
 // 					inner_nodes_[inner_index_++] = node;
 // 				}
-// 			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 // 				inner_nodes_[inner_index_++] = node;
 // 				next();
 // 			}
@@ -839,19 +840,19 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				current = this->template sibling<OnlyExists>(current, idx);
 
 // 				if constexpr (OnlyLeavesOrFixedDepth) {
-// 					if (this->validReturn(current, predicate_)) {
+// 					if (this->returnable(current, predicate_)) {
 // 						return_nodes_.emplace(current, distanceSquared(current));
-// 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
+// 					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
 // 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 // 					}
 // 				} else {
-// 					if (this->validReturn(current, predicate_)) {
+// 					if (this->returnable(current, predicate_)) {
 // 						auto dist_sq = distanceSquared(current);
 // 						return_nodes_.emplace(current, dist_sq);
-// 						if (this->template validInner<OnlyExists>(current, predicate_)) {
+// 						if (this->template traversable<OnlyExists>(current, predicate_)) {
 // 							inner_nodes_.emplace(current, dist_sq + epsilon_);
 // 						}
-// 					} else if (this->template validInner<OnlyExists>(current, predicate_)) {
+// 					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
 // 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
 // 					}
 // 				}
@@ -891,9 +892,9 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 		}
 
 // 		if constexpr (OnlyLeavesOrFixedDepth) {
-// 			if (this->validReturn(node, predicate_)) {
+// 			if (this->returnable(node, predicate_)) {
 // 				return_nodes_.emplace(node, distanceSquared(node));
-// 			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 // 				std::vector<value_type> container;
 // 				container.reserve(256);
 // 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
@@ -905,7 +906,7 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				next();
 // 			}
 // 		} else {
-// 			if (this->validReturn(node, predicate_)) {
+// 			if (this->returnable(node, predicate_)) {
 // 				std::vector<value_type> container;
 // 				container.reserve(256);
 // 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
@@ -916,10 +917,10 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 // 				auto const dist_sq = distanceSquared(node);
 
 // 				return_nodes_.emplace(node, dist_sq);
-// 				if (this->template validInner<OnlyExists>(node, predicate_)) {
+// 				if (this->template traversable<OnlyExists>(node, predicate_)) {
 // 					inner_nodes_.emplace(node, dist_sq + epsilon_);
 // 				}
-// 			} else if (this->template validInner<OnlyExists>(node, predicate_)) {
+// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
 // 				std::vector<value_type> container;
 // 				container.reserve(256);
 // 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,

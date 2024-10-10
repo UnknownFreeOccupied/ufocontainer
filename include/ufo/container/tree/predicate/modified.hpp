@@ -44,8 +44,7 @@
 
 // UFO
 #include <ufo/container/tree/index.hpp>
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
 {
@@ -56,7 +55,7 @@ struct Modified {
 template <bool Negated>
 constexpr Modified<!Negated> operator!(Modified<Negated>)
 {
-	return {};
+	return Modified<!Negated>{};
 }
 
 template <bool Negated>
@@ -73,9 +72,9 @@ struct Filter<Modified<Negated>> {
 	                                               TreeIndex const& n)
 	{
 		if constexpr (Negated) {
-			return !t.isModified(n);
+			return !t.modified(n);
 		} else {
-			return t.isModified(n);
+			return t.modified(n);
 		}
 	}
 
@@ -86,7 +85,7 @@ struct Filter<Modified<Negated>> {
 		if constexpr (Negated) {
 			return true;
 		} else {
-			return t.isModified(n);
+			return t.modified(n);
 		}
 	}
 };

@@ -43,7 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_SPATIAL_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/predicate.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 #include <ufo/geometry/contains.hpp>
 #include <ufo/geometry/intersects.hpp>
 #include <ufo/utility/type_traits.hpp>
@@ -98,11 +98,11 @@ template <SpatialTag Tag>
 
 template <class Geometry, SpatialTag Tag, bool Negated = false>
 struct Spatial {
-	constexpr Spatial() {}
+	Geometry geometry{};
+
+	constexpr Spatial() = default;
 
 	constexpr Spatial(Geometry geometry) : geometry{geometry} {}
-
-	Geometry geometry;
 };
 
 template <class Geometry>
@@ -125,86 +125,90 @@ template <class Geometry, SpatialTag Tag, bool Negated>
 constexpr Spatial<Geometry, Tag, !Negated> operator!(
     Spatial<Geometry, Tag, Negated> const& p)
 {
-	return {p.geometry};
+	return Spatial<Geometry, Tag, !Negated>(p.geometry);
 }
 
-//
-// Spatial check
-//
+template <class Geometry, SpatialTag Tag, bool Negated>
+struct Filter<Spatial<Geometry, Tag, Negated>> {
+	using Pred = Spatial<Geometry, Tag, Negated>;
 
-template <SpatialTag Tag, class G1, class G2>
-[[nodiscard]] constexpr bool spatialCheck(G1 const& g1, G2 const& g2)
-{
-	if constexpr (SpatialTag::CONTAINS == Tag) {
-		return contains(g1, g2);
-	} else if constexpr (SpatialTag::DISJOINT == Tag) {
-		return !intersects(g1, g2);
-	} else if constexpr (SpatialTag::INTERSECTS == Tag) {
-		return intersects(g1, g2);
-	} else if constexpr (SpatialTag::INSIDE == Tag) {
-		return contains(g2, g1);
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
 	}
-}
 
-//
-// Predicate value check
-//
+	template <class Value>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Value const& v)
+	{
+		if constexpr (is_pair_v<std::decay_t<Value>>) {
+			if constexpr (Negated) {
+				return !check<Tag>(v.first, p.geometry);
+			} else {
+				return check<Tag>(v.first, p.geometry);
+			}
+		} else {
+			if constexpr (Negated) {
+				return !check<Tag>(v, p.geometry);
+			} else {
+				return check<Tag>(v, p.geometry);
+			}
+		}
+	}
 
-template <class Geometry, SpatialTag Tag, bool Negated, class Value>
-[[nodiscard]] constexpr bool valueCheck(Spatial<Geometry, Tag, Negated> const& p,
-                                        Value const&                           v)
-{
-	if constexpr (is_pair_v<Value>) {
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               Node const& n)
+	{
 		if constexpr (Negated) {
-			return !spatialCheck<Tag>(v.first, p.geometry);
+			return !check<Tag>(t.bounds(n), p.geometry);
 		} else {
-			return spatialCheck<Tag>(v.first, p.geometry);
+			return check<Tag>(t.bounds(n), p.geometry);
 		}
-	} else {
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                Node const& n)
+	{
 		if constexpr (Negated) {
-			return !spatialCheck<Tag>(v, p.geometry);
+			if constexpr (SpatialTag::CONTAINS == Tag) {
+				return true;
+			} else if constexpr (SpatialTag::DISJOINT == Tag) {
+				return check<SpatialTag::INTERSECTS>(t.bounds(n), p.geometry);
+			} else {
+				return !check<SpatialTag::INSIDE>(t.bounds(n), p.geometry);
+			}
 		} else {
-			return spatialCheck<Tag>(v, p.geometry);
+			if constexpr (SpatialTag::CONTAINS == Tag) {
+				return check<SpatialTag::CONTAINS>(t.bounds(n), p.geometry);
+			} else if constexpr (SpatialTag::DISJOINT == Tag) {
+				return !check<SpatialTag::INSIDE>(t.bounds(n), p.geometry);
+			} else {
+				return check<SpatialTag::INTERSECTS>(t.bounds(n), p.geometry);
+			}
 		}
 	}
-}
 
-template <class Geometry, SpatialTag Tag, bool Negated, class Tree, class Node>
-[[nodiscard]] constexpr bool valueCheck(Spatial<Geometry, Tag, Negated> const& p,
-                                        Tree const& t, Node n)
+ protected:
+	template <SpatialTag Tag2, class G1, class G2>
+	[[nodiscard]] static constexpr bool check(G1 const& g1, G2 const& g2)
+	{
+		if constexpr (SpatialTag::CONTAINS == Tag2) {
+			return contains(g1, g2);
+		} else if constexpr (SpatialTag::DISJOINT == Tag2) {
+			return disjoint(g1, g2);
+		} else if constexpr (SpatialTag::INTERSECTS == Tag2) {
+			return intersects(g1, g2);
+		} else if constexpr (SpatialTag::INSIDE == Tag2) {
+			return inside(g1, g2);
+		}
+	}
+};
+
+template <class G1, class G2>
+bool disjoint(G1 const& g1, G2 const& g2)
 {
-	if constexpr (Negated) {
-		return !spatialCheck<Tag>(t.bounds(n), p.geometry);
-	} else {
-		return spatialCheck<Tag>(t.bounds(n), p.geometry);
-	}
-}
-
-//
-// Predicate inner check
-//
-
-template <class Geometry, SpatialTag Tag, bool Negated, class Tree, class Node>
-[[nodiscard]] constexpr bool innerCheck(Spatial<Geometry, Tag, Negated> const& p,
-                                        Tree const& t, Node n)
-{
-	if constexpr (Negated) {
-		if constexpr (SpatialTag::CONTAINS == Tag) {
-			return true;
-		} else if constexpr (SpatialTag::DISJOINT == Tag) {
-			return spatialCheck<SpatialTag::INTERSECTS>(t.bounds(n), p.geometry);
-		} else {
-			return !spatialCheck<SpatialTag::INSIDE>(t.bounds(n), p.geometry);
-		}
-	} else {
-		if constexpr (SpatialTag::CONTAINS == Tag) {
-			return spatialCheck<SpatialTag::CONTAINS>(t.bounds(n), p.geometry);
-		} else if constexpr (SpatialTag::DISJOINT == Tag) {
-			return spatialCheck<SpatialTag::INSIDE>(t.bounds(n), p.geometry);
-		} else {
-			return spatialCheck<SpatialTag::INTERSECTS>(t.bounds(n), p.geometry);
-		}
-	}
+	return !intersections(g1, g2);
 }
 
 //
@@ -228,7 +232,7 @@ struct is_spatial_pred : detail::is_spatial_pred<std::decay_t<T>> {
 
 // Helper variable template
 template <class T>
-inline constexpr bool is_spatial_pred_v = is_spatial_pred<T>::value;
+constexpr inline bool is_spatial_pred_v = is_spatial_pred<T>::value;
 
 //
 // Contains spatial predicate
@@ -270,7 +274,7 @@ template <class T>
 using contains_spatial_pred = detail::contains_spatial_pred<std::decay_t<T>>;
 
 template <class T>
-inline constexpr bool contains_spatial_pred_v = contains_spatial_pred<T>::value;
+constexpr inline bool contains_spatial_pred_v = contains_spatial_pred<T>::value;
 
 //
 // Contains always spatial predicate
@@ -309,7 +313,7 @@ template <class T>
 using contains_always_spatial_pred = detail::contains_always_spatial_pred<T>;
 
 template <class T>
-inline constexpr bool contains_always_spatial_pred_v =
+constexpr inline bool contains_always_spatial_pred_v =
     contains_always_spatial_pred<T>::value;
 
 }  // namespace ufo::pred

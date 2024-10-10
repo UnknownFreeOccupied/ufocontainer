@@ -39,69 +39,108 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_LENGTH_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_LENGTH_HPP
 
 // UFO
 #include <ufo/container/tree/predicate/depth.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
+#include <ufo/container/tree/predicate/predicate_compare.hpp>
 
 namespace ufo::pred
 {
-/*!
- * @brief
- *
- * @note The interval is inclusive (i.e., [min .. max]).
- *
- */
-template <bool Negated = false>
-struct DepthInterval {
-	DepthMin min;
-	DepthMax max;
+template <PredicateCompare PC = PredicateCompare::EQUAL>
+struct Length {
+	double length;
 
-	constexpr DepthInterval(int min, int max) noexcept : min(min), max(max) {}
+	constexpr Length(double length = 0.0) noexcept : length(length) {}
+
+ private:
+	Depth<PC> depth_;
+
+	template <class T>
+	friend class Filter;
 };
 
-template <bool Negated>
-constexpr DepthInterval<!Negated> operator!(DepthInterval<Negated> const& p)
-{
-	return DepthInterval<!Negated>(p.min, p.max);
-}
+using LengthE  = Length<PredicateCompare::EQUAL>;
+using LengthNE = Length<PredicateCompare::NOT_EQUAL>;
+using LengthLE = Length<PredicateCompare::LESS_EQUAL>;
+using LengthGE = Length<PredicateCompare::GREATER_EQUAL>;
+using LengthL  = Length<PredicateCompare::LESS>;
+using LengthG  = Length<PredicateCompare::GREATER>;
 
-template <bool Negated>
-struct Filter<DepthInterval<Negated>> {
-	using Pred = DepthInterval<Negated>;
+using LengthMin = LengthGE;
+using LengthMax = LengthLE;
+
+template <PredicateCompare PC>
+struct Filter<Length<PC>> {
+	using Pred = Length<PC>;
 
 	template <class Tree>
-	static constexpr void init(Pred&, Tree const&)
+	static constexpr void init(Pred& p, Tree const& t)
 	{
+		int max = t.maxNumDepthLevels();
+
+		if constexpr (PredicateCompare::EQUAL == PC || PredicateCompare::NOT_EQUAL == PC) {
+			for (int d{}; max > d; ++d) {
+				if (p.length == t.length(d)) {
+					p.depth_ = d;
+					return;
+				}
+			}
+
+			p.depth_ = max;
+		} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
+			p.depth_ = -1;
+
+			for (int d{}; max > d; ++d) {
+				if (p.length >= t.length(d)) {
+					p.depth_ = d;
+				}
+			}
+		} else if constexpr (PredicateCompare::LESS == PC) {
+			p.depth_ = -1;
+
+			for (int d{}; max > d; ++d) {
+				if (p.length > t.length(d)) {
+					p.depth_ = d;
+				}
+			}
+		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
+			for (int d{}; max > d; ++d) {
+				if (p.length <= t.length(d)) {
+					p.depth_ = d;
+					return;
+				}
+			}
+
+			p.depth_ = max;
+		} else if constexpr (PredicateCompare::GREATER == PC) {
+			for (int d{}; max > d; ++d) {
+				if (p.length < t.length(d)) {
+					p.depth_ = d;
+					return;
+				}
+			}
+
+			p.depth_ = max;
+		}
 	}
 
 	template <class Tree, class Node>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
 	                                               Node const& n)
 	{
-		if constexpr (Negated) {
-			return !(Filter<DepthMin>::returnable(p.min, t, n) &&
-			         Filter<DepthMax>::returnable(p.max, t, n));
-		} else {
-			return Filter<DepthMin>::returnable(p.min, t, n) &&
-			       Filter<DepthMax>::returnable(p.max, t, n);
-		}
+		return Filter<Depth<PC>>::returnable(p, t, n);
 	}
 
 	template <class Tree, class Node>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
 	                                                Node const& n)
 	{
-		if constexpr (Negated) {
-			return 0 < p.min.depth || p.max.depth + 1 < t.depth(n);
-		} else {
-			return Filter<DepthMin>::traversable(p.min, t, n) &&
-			       Filter<DepthMax>::traversable(p.max, t, n);
-		}
+		return Filter<Depth<PC>>::traversable(p, t, n);
 	}
 };
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_DEPTH_INTERVAL_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_LENGTH_HPP

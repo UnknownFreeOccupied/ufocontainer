@@ -44,8 +44,7 @@
 
 // UFO
 #include <ufo/container/tree/code.hpp>
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
+#include <ufo/container/tree/predicate/filter.hpp>
 
 // STL
 #include <algorithm>
