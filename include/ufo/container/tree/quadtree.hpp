@@ -53,6 +53,7 @@ namespace ufo
 template <class Derived, template <TreeType> class Block>
 class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 {
+ protected:
 	using Base = Tree<Derived, Block<TreeType::QUAD>>;
 
 	//

@@ -53,6 +53,7 @@ namespace ufo
 template <class Derived, template <TreeType> class Block>
 class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 {
+ protected:
 	using Base = Tree<Derived, Block<TreeType::HEX>>;
 
 	//

@@ -51,6 +51,7 @@ namespace ufo
 template <class Derived, template <TreeType> class Block>
 class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
 {
+ protected:
 	using Base = Tree<Derived, Block<TreeType::BINARY>>;
 
 	//
