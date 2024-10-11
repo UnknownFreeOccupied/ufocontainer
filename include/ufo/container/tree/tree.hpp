@@ -579,7 +579,7 @@ class Tree
 	 * @return The center of the node if the node is valid, null otherwise.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] std::optional<Coord> centerChecked(Code node) const
+	[[nodiscard]] std::optional<Coord> centerChecked(NodeType node) const
 	{
 		return valid(node) ? std::optional<Coord>(center(node)) : std::nullopt;
 	}
@@ -589,82 +589,114 @@ class Tree
 	//
 
 	/*!
-	 * @brief Returns the center of the tree (/ root node) for the axis specified.
+	 * @brief Returns the center of the tree (/ root node) for the `axis` specified.
 	 *
-	 * @return The center of the tree (/ root node).
+	 * @param axis the axis
+	 * @return The center of the tree (/ root node) for the `axis` specified.
 	 */
-	template <int Axis>
-	[[nodiscard]] coord_t centerAxis() const
+	[[nodiscard]] coord_t centerAxis(std::size_t axis) const
 	{
-		static_assert(Axis < Dim);
+		assert(Dim > axis);
 		return coord_t(0);
 	}
 
 	/*!
-	 * @brief Returns the center of `node` for the axis specified.
+	 * @brief Returns the center of `node` for the `axis` specified.
 	 *
 	 * @param node the node
-	 * @return The center of the node.
+	 * @param axis the axis
+	 * @return The center of the node for the `axis` specified.
 	 */
-	template <std::size_t Axis, class NodeType,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] constexpr coord_t centerAxis(NodeType node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] coord_t centerAxis(NodeType node, std::size_t axis) const
 	{
 		// TODO: Implement
 
-		static_assert(Axis < Dim);
+		assert(Dim > axis);
+
+		key_t   k;
+		depth_t d;
 
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			// TODO: Check if center is stored in the node
-			return centerAxis<Axis>(block_[node.pos].code(node.offset));
+			if constexpr (Block::HasCenter) {
+				return block_[node.pos].center(node.offset)[axis];
+			} else {
+				return centerAxis(block_[node.pos].code(node.offset), axis);
+			}
 		} else if constexpr (std::is_same_v<T, Node>) {
-			// TODO: Not working, only returns root or something???
-			return centerAxis<Axis>(key(node));
+			return centerAxis(code(node), axis);
 		} else if constexpr (std::is_same_v<T, Code>) {
-			return centerAxis<Axis>(key(node));
+			assert(valid(node));
+			k = node[axis];
+			d = node.depth();
 		} else if constexpr (std::is_same_v<T, Key>) {
 			assert(valid(node));
-
-			auto node_depth = depth(node);
-
-			if (depth() == node_depth) {
-				return center();
-			}
-
-			// TODO: Check performance, might be a lot faster to have float here and in rest of
-			// method
-			length_t          l = length(node_depth);
-			std::int_fast64_t hmv =
-			    static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
-
-			return static_cast<coord_t>(
-			    (static_cast<length_t>(static_cast<std::int_fast64_t>(node[Axis]) - hmv) +
-			     static_cast<length_t>(0.5)) *
-			    l);
+			k = node[axis];
+			d = node.depth();
 		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
-			return centerAxis<Axis>(key(node));
+			assert(valid(node));
+
+			d      = depth(node);
+			auto p = node[axis];
+
+			// TODO: Check performance, might be a lot faster to have float here
+			length_t lr = lengthReciprocal(0);
+
+			k = static_cast<key_t>(static_cast<std::make_signed_t<key_t>>(
+			        std::floor(static_cast<length_t>(p) * lr))) +
+			    half_max_value_;
+
+			k >>= d;
 		} else if constexpr (is_one_of_v<T, Point, Point2>) {
-			return centerAxis<Axis>(Coord(node, 0u));
+			assert(valid(node));
+
+			d      = 0;
+			auto p = node[axis];
+
+			// TODO: Check performance, might be a lot faster to have float here
+			length_t lr = lengthReciprocal(0);
+
+			k = static_cast<key_t>(static_cast<std::make_signed_t<key_t>>(
+			        std::floor(static_cast<length_t>(p) * lr))) +
+			    half_max_value_;
 		} else {
 			// FIXME: Look at
 			static_assert(is_node_type_v<NodeType>);
+			// TODO: What should happen here?
+			return std::numeric_limits<coord_t>::quiet_NaN();
 		}
+
+		if (depth() == d) {
+			return centerAxis(axis);
+		}
+
+		// TODO: Check performance, might be a lot faster to have float here and in rest of
+		// method
+		length_t          l   = length(d);
+		std::int_fast64_t hmv = static_cast<std::int_fast64_t>(half_max_value_ >> d);
+
+		return static_cast<coord_t>(
+		    (static_cast<length_t>(static_cast<std::int_fast64_t>(k) - hmv) +
+		     static_cast<length_t>(0.5)) *
+		    l);
 	}
 
 	/*!
-	 * @brief Returns the center of `node` for the axis specified, if the node is valid
+	 * @brief Returns the center of `node` for the `axis` specified, if the node is valid
 	 * (i.e., `valid(node)`).
 	 *
 	 * @param node the node
-	 * @return The center of the node if the node is valid, null otherwise.
+	 * @param axis the axis
+	 * @return The center of the node for the `axis` specified if the node is valid, null
+	 * otherwise.
 	 */
-	template <std::size_t Axis, class NodeType,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] std::optional<coord_t> centerAxisChecked(Code node) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] std::optional<coord_t> centerAxisChecked(NodeType    node,
+	                                                       std::size_t axis) const
 	{
-		static_assert(Axis < Dim);
-		return valid(node) ? std::optional<coord_t>(centerAxis<Axis>(node)) : std::nullopt;
+		assert(Dim > axis);
+		return valid(node) ? std::optional<coord_t>(centerAxis(node, axis)) : std::nullopt;
 	}
 
 	//

@@ -123,17 +123,11 @@ class TreeCode
 	|                                                                                     |
 	**************************************************************************************/
 
-	// [[nodiscard]] constexpr key_t& operator[](size_type pos) noexcept
-	// {
-	// 	assert(size() > pos);
-	// 	return key[pos];
-	// }
-
-	// [[nodiscard]] constexpr key_t const& operator[](size_type pos) const noexcept
-	// {
-	// 	assert(size() > pos);
-	// 	return key[pos];
-	// }
+	[[nodiscard]] constexpr key_t operator[](size_type pos) const noexcept
+	{
+		assert(size() > pos);
+		return Morton<Dim>(Morton<Dim>::decode(code_ >> (Dim * depth_), pos));
+	}
 
 	/**************************************************************************************
 	|                                                                                     |

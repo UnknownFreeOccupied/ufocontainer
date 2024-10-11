@@ -63,6 +63,8 @@ struct TreeBlock {
 	static constexpr std::size_t const BF  = branchingFactor<TT>();
 	static constexpr std::size_t const Dim = dimensions<TT>();
 
+	static constexpr bool const HasCenter = WithCenter;
+
 	using Code     = TreeCode<Dim>;
 	using length_t = double;
 	using Point    = Vec<Dim, float>;
@@ -117,6 +119,8 @@ struct TreeBlock<TT, true> {
 
 	static constexpr std::size_t const BF  = branchingFactor<TT>();
 	static constexpr std::size_t const Dim = dimensions<TT>();
+
+	static constexpr bool const HasCenter = true;
 
 	using Code     = TreeCode<Dim>;
 	using Point    = Vec<Dim, float>;
