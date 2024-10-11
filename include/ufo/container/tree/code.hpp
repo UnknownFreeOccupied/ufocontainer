@@ -126,7 +126,7 @@ class TreeCode
 	[[nodiscard]] constexpr key_t operator[](size_type pos) const noexcept
 	{
 		assert(size() > pos);
-		return Morton<Dim>(Morton<Dim>::decode(code_ >> (Dim * depth_), pos));
+		return Morton<Dim>::decode(code_ >> (Dim * depth_), pos);
 	}
 
 	/**************************************************************************************

@@ -88,7 +88,7 @@ struct Filter<Coord<Dim, PC>> {
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
 	                                               Node const& n)
 	{
-		auto c  = t.template centerAxis<Dim>(n);
+		auto c  = t.centerAxis(n, Dim);
 		auto hl = t.halfLength(n);
 
 		if constexpr (PredicateCompare::EQUAL == PC) {
@@ -110,7 +110,7 @@ struct Filter<Coord<Dim, PC>> {
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
 	                                                Node const& n)
 	{
-		auto c  = t.template centerAxis<Dim>(n);
+		auto c  = t.centerAxis(n, Dim);
 		auto hl = t.halfLength(n);
 
 		if constexpr (PredicateCompare::EQUAL == PC) {
