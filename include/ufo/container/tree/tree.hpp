@@ -986,10 +986,10 @@ class Tree
 					            null_pos, processing_pos)) {
 						    children = pos++;
 
-						    if (children == block_.cap() + 1) {
-							    reserve(children);
+						    if (children == block_.cap()) {
+							    reserve(children + 1);
 						    } else {
-							    while (children > block_.cap() + 1) {
+							    while (children > block_.cap()) {
 							    }
 						    }
 
@@ -1437,7 +1437,7 @@ class Tree
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] NodeType ancestor(NodeType node, depth_t depth) const
 	{
-		assert(!isRoot(node));
+		assert(!isRoot(node) || this->depth(node) == depth);
 		assert(this->depth(node) <= depth);
 
 		if (this->depth(node) == depth) {
@@ -2984,14 +2984,16 @@ class Tree
 
 	void reserve(std::size_t cap)
 	{
-		block_.reserve(cap);
+		// Important that derived is done first in case of parallel
 		derived().onReserve(cap);
+		block_.reserve(cap);
 	}
 
 	void setSize(std::size_t size)
 	{
-		block_.setSize(size);
+		// Important that derived is done first in case of parallel
 		derived().onSetSize(size);
+		block_.setSize(size);
 	}
 
 	//
@@ -3090,7 +3092,7 @@ class Tree
 		if constexpr (!FastAsSonic) {
 			max_dist = value_f(node);
 		}
-		assert(!std::isnan(dist));
+		assert(!std::isnan(max_dist));
 		if constexpr (OnlyDistance) {
 			return UFO_MIN(closest, max_dist);
 		} else {

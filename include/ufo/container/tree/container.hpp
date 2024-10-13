@@ -384,10 +384,7 @@ class TreeContainer
 
 	constexpr size_type size() const noexcept { return size_; }
 
-	constexpr size_type cap() const noexcept
-	{
-		return cap_.load(std::memory_order_acquire);
-	}
+	size_type cap() const noexcept { return cap_.load(std::memory_order_acquire); }
 
 	constexpr size_type max_size() const noexcept
 	{
@@ -401,10 +398,12 @@ class TreeContainer
 	{
 		size_type last = bucket_pos(cap - 1);
 		for (size_type i{}; last >= i; ++i) {
-			if (nullptr == buckets_[i]) {
-				createBucket(buckets_[i]);
+			auto& bucket = buckets_[i];
+			if (nullptr == bucket) {
+				bucket = std::make_unique<T[]>(NumBlocksPerBucket);
 			}
 		}
+		cap_ = (last + 1) * NumBlocksPerBucket;
 	}
 
 	constexpr void resize(size_type sz)
@@ -464,11 +463,11 @@ class TreeContainer
 	}
 
 	// element access
-	constexpr reference operator[](size_type n) { return block(n); }
+	reference operator[](size_type n) { return block(n); }
 
-	constexpr const_reference operator[](size_type n) const { return block(n); }
+	const_reference operator[](size_type n) const { return block(n); }
 
-	constexpr const_reference at(size_type n) const
+	const_reference at(size_type n) const
 	{
 		if (size() <= n) {
 			// TODO: Add error message
@@ -477,7 +476,7 @@ class TreeContainer
 		return block(n);
 	}
 
-	constexpr reference at(size_type n)
+	reference at(size_type n)
 	{
 		if (size() <= n) {
 			// TODO: Add error message
@@ -486,13 +485,13 @@ class TreeContainer
 		return block(n);
 	}
 
-	constexpr reference front() { return operator[](0); }
+	reference front() { return operator[](0); }
 
-	constexpr const_reference front() const { return operator[](0); }
+	const_reference front() const { return operator[](0); }
 
-	constexpr reference back() { return operator[](size() - 1); }
+	reference back() { return operator[](size() - 1); }
 
-	constexpr const_reference back() const { return operator[](size() - 1); }
+	const_reference back() const { return operator[](size() - 1); }
 
 	// modifiers
 	template <class... Args>
@@ -648,8 +647,8 @@ class TreeContainer
 
 	void createBucket(Bucket& bucket)
 	{
-		cap_ += NumBlocksPerBucket;
 		bucket = std::make_unique<T[]>(NumBlocksPerBucket);
+		cap_ += NumBlocksPerBucket;
 	}
 
  private:
