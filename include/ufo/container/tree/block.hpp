@@ -52,6 +52,7 @@
 
 // STL
 #include <array>
+#include <atomic>
 #include <cstddef>
 
 namespace ufo
@@ -69,26 +70,72 @@ struct TreeBlock {
 	using length_t = double;
 	using Point    = Vec<Dim, float>;
 
-	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
+	std::array<std::atomic<TreeIndex::pos_t>, BF>
+	    children;  // =
+	               // createArray<BF>(std::atomic<TreeIndex::pos_t>(TreeIndex::NULL_POS));
 
-	constexpr TreeBlock()                 = default;
-	constexpr TreeBlock(TreeBlock const&) = default;
-
-	constexpr TreeBlock(Code code, Point /* center */, length_t /* half_length */)
-	    : code_(code)
+	constexpr TreeBlock()
 	{
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
+		}
 	}
 
-	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset,
-	                    length_t /* half_length */)
-	    : code_(parent.code(offset).firstborn())
+	constexpr TreeBlock(TreeBlock const& other)
 	{
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i].store(other.children[i].load(std::memory_order_relaxed),
+			                  std::memory_order_relaxed);
+		}
+		parent_block_ = other.parent_block_;
+		code_         = other.code_;
 	}
 
-	constexpr void fill(TreeBlock const& parent, std::size_t offset,
+	constexpr TreeBlock(TreeBlock&&) = default;
+
+	constexpr TreeBlock(TreeIndex::pos_t parent_block, Code code, Point /* center */,
 	                    length_t /* half_length */)
+	    : parent_block_(parent_block), code_(code)
 	{
-		code_ = parent.code(offset).firstborn();
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
+		}
+	}
+
+	constexpr TreeBlock(TreeIndex::pos_t parent_block, TreeBlock const& parent,
+	                    std::size_t offset, length_t /* half_length */)
+	    : parent_block_(parent_block), code_(parent.code(offset).firstborn())
+	{
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
+		}
+	}
+
+	constexpr TreeBlock& operator=(TreeBlock const& rhs)
+	{
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i].store(rhs.children[i].load(std::memory_order_relaxed),
+			                  std::memory_order_relaxed);
+		}
+		parent_block_ = rhs.parent_block_;
+		code_         = rhs.code_;
+		return *this;
+	}
+
+	constexpr TreeBlock& operator=(TreeBlock&&) = default;
+
+	constexpr void fill(TreeIndex::pos_t parent_block, TreeBlock const& parent,
+	                    std::size_t offset, length_t /* half_length */)
+	{
+		parent_block_ = parent_block;
+		code_         = parent.code(offset).firstborn();
+	}
+
+	[[nodiscard]] constexpr TreeIndex::pos_t parentBlock() const { return parent_block_; }
+
+	[[nodiscard]] constexpr TreeIndex parent() const
+	{
+		return TreeIndex(parent_block_, code_.offset(code_.depth() + 1));
 	}
 
 	[[nodiscard]] constexpr Code code(std::size_t idx) const
@@ -109,12 +156,16 @@ struct TreeBlock {
 	[[nodiscard]] constexpr bool valid() const { return code_.valid(); }
 
  private:
+	// Position of the parent block
+	TreeIndex::pos_t parent_block_ = TreeIndex::NULL_POS;
 	// Code to the first node of the block
 	Code code_ = Code::invalid();
 };
 
 template <TreeType TT>
-struct TreeBlock<TT, true> {
+struct TreeBlock<TT, true> : TreeBlock<TT, false> {
+	using Base = TreeBlock<TT, false>;
+
 	static constexpr TreeType const tree_type = TT;
 
 	static constexpr std::size_t const BF  = branchingFactor<TT>();
@@ -126,45 +177,36 @@ struct TreeBlock<TT, true> {
 	using Point    = Vec<Dim, float>;
 	using length_t = double;
 
-	// Code to the first node of the block
-	Code                             code;
-	Point                            center;
-	std::array<TreeIndex::pos_t, BF> children = createArray<BF>(TreeIndex::NULL_POS);
+	Point center;
 
 	constexpr TreeBlock()                 = default;
 	constexpr TreeBlock(TreeBlock const&) = default;
 
-	constexpr TreeBlock(Code code, Point center, length_t /* half_length */)
-	    : code(code), center(center)
+	constexpr TreeBlock(TreeIndex::pos_t parent_block, Code code, Point center,
+	                    length_t half_length)
+	    : Base(parent_block, code, center, half_length)
 	{
 	}
 
-	constexpr TreeBlock(TreeBlock const& parent, std::size_t offset, length_t half_length)
-	    : code(parent.code.child(offset))
+	constexpr TreeBlock(TreeIndex::pos_t parent_block, TreeBlock const& parent,
+	                    std::size_t offset, length_t half_length)
+	    : Base(parent_block, static_cast<Base const&>(parent), offset, half_length)
 	{
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] = offset & std::size_t(1u << i) ? parent.center[i] + half_length
-			                                          : parent.center[i] - half_length;
+			center[i] = (offset & std::size_t(1u << i)) ? parent.center[i] + half_length
+			                                            : parent.center[i] - half_length;
 		}
 	}
 
-	constexpr void fill(TreeBlock const& parent, std::size_t offset, length_t half_length)
+	constexpr void fill(TreeIndex::pos_t parent_block, TreeBlock const& parent,
+	                    std::size_t offset, length_t half_length)
 	{
-		code = parent.code.child(offset);
+		Base::fill(parent_block, static_cast<Base const&>(parent), offset, half_length);
 
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] = offset & std::size_t(1u << i) ? parent.center[i] + half_length
-			                                          : parent.center[i] - half_length;
+			center[i] = (offset & std::size_t(1u << i)) ? parent.center[i] + half_length
+			                                            : parent.center[i] - half_length;
 		}
-	}
-
-	/*!
-	 * @return The depth of the block.
-	 */
-	[[nodiscard]] constexpr auto depth() const noexcept(noexcept(code.depth()))
-	{
-		// One less than the parent
-		return code.depth() - 1;
 	}
 };
 }  // namespace ufo

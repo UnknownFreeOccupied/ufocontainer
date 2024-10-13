@@ -129,6 +129,8 @@ class TreeKey : public Vec<Dim, std::uint32_t>
 		this->depth_ = depth;
 	}
 
+	// TODO: Add methods from Code
+
 	[[nodiscard]] constexpr key_t offset(depth_t depth) const noexcept
 	{
 		assert(maxDepth() >= depth);

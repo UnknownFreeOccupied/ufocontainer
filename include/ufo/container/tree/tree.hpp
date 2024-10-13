@@ -202,8 +202,7 @@ class Tree
 	{
 		block_.clear();
 		free_block_.clear();
-		// Create root
-		block_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
+		createRoot();
 		derived().onClear();
 	}
 
@@ -921,63 +920,108 @@ class Tree
 	{
 		using value_type = std::decay_t<typename std::iterator_traits<InputIt>::value_type>;
 
-		if constexpr (std::is_same_v<Code, value_type>) {
-			std::vector<Index> nodes;
-			nodes.reserve(std::distance(first, last));
+		if constexpr (std::is_same_v<Index, value_type>) {
+			return std::vector<Index>(first, last);
+		} else {
+			std::vector<Index> nodes(std::distance(first, last));
 
-			std::array<Index, maxNumDepthLevels()> node;
-			auto                                   cur_depth = depth();
-			node[cur_depth]                                  = index();
-			Code prev_code                                   = code();
-			for (; first != last; ++first) {
-				Code code         = *first;
-				auto wanted_depth = depth(code);
-				cur_depth         = Code::depthWhereEqual(prev_code, code);
-				prev_code         = code;
+			std::transform(first, last, nodes.begin(), [this](auto const& x) {
+				thread_local Index   node  = this->index();
+				thread_local Code    code  = this->code();
+				thread_local depth_t depth = this->depth();
 
-				for (; wanted_depth < cur_depth; --cur_depth) {
-					node[cur_depth - 1] = createChild(node[cur_depth], code.offset[cur_depth - 1]);
+				Code    e            = this->code(x);
+				depth_t wanted_depth = this->depth(e);
+				depth                = Code::depthWhereEqual(code, e);
+				code                 = e;
+
+				node = ancestor(node, depth);
+				for (; wanted_depth < depth; --depth) {
+					node = createChild(node, code.offset(depth - 1));
 				}
-				nodes.push_back(node[cur_depth]);
-			}
+
+				return node;
+			});
 
 			return nodes;
-		} else {
-			std::vector<Code> codes;
-			codes.reserve(std::distance(first, last));
-			std::transform(first, last, std::back_inserter(codes),
-			               [this](auto const& v) { return code(v); });
-			return create(codes.begin(), codes.end());
 		}
 	}
 
 	template <
-	    class ExecutionPolicy, class ForwardIt,
+	    class ExecutionPolicy, class RandomIt,
 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
-	std::vector<Index> create(ExecutionPolicy&& policy, ForwardIt first, ForwardIt last)
+	std::vector<Index> create(ExecutionPolicy&& policy, RandomIt first, RandomIt last)
 	{
-		using value_type = std::decay_t<typename std::iterator_traits<ForwardIt>::value_type>;
+		using value_type = std::decay_t<typename std::iterator_traits<RandomIt>::value_type>;
 
-		if constexpr (std::is_same_v<Code, value_type>) {
-			if constexpr (std::is_same_v<execution::sequenced_policy,
-			                             std::decay_t<ExecutionPolicy>>) {
-				return create(first, last);
-			}
-
-#if !defined(UFO_TBB) && !defined(UFO_OMP)
+		if constexpr (std::is_same_v<Index, value_type>) {
+			return std::vector<Index>(first, last);
+		} else if constexpr (std::is_same_v<execution::sequenced_policy,
+		                                    std::decay_t<ExecutionPolicy>>) {
 			return create(first, last);
+		} else {
+#if defined(UFO_TBB)
+			std::vector<Index> nodes(std::distance(first, last));
+
+			std::atomic<pos_t> pos = block_.size();
+
+			std::transform(
+			    std::forward<ExecutionPolicy>(policy), first, last, nodes.begin(),
+			    [this, &pos](auto const& x) {
+				    thread_local Index   node  = this->index();
+				    thread_local Code    code  = this->code();
+				    thread_local depth_t depth = this->depth();
+
+				    Code    e            = this->code(x);
+				    depth_t wanted_depth = this->depth(e);
+				    depth                = Code::depthWhereEqual(code, e);
+				    code                 = e;
+
+				    node = ancestor(node, depth);
+				    for (; wanted_depth < depth; --depth) {
+					    pos_t       null_pos       = Index::NULL_POS;
+					    pos_t const processing_pos = null_pos - 1;
+					    pos_t       children;
+					    if (block_[node.pos].children[node.offset].compare_exchange_strong(
+					            null_pos, processing_pos)) {
+						    children = pos++;
+
+						    if (children == block_.cap() + 1) {
+							    reserve(children);
+						    } else {
+							    while (children > block_.cap() + 1) {
+							    }
+						    }
+
+						    block_[children].fill(node.pos, block_[node.pos], node.offset,
+						                          halfLength(node));
+						    derived().onFillChildren(node, children);
+
+						    block_[node.pos].children[node.offset].store(children,
+						                                                 std::memory_order_release);
+					    } else {
+						    while (processing_pos ==
+						           (children = block_[node.pos].children[node.offset].load(
+						                std::memory_order_acquire))) {
+						    }
+					    }
+
+					    node.pos    = children;
+					    node.offset = code.offset(depth - 1);
+				    }
+
+				    return node;
+			    });
+
+			setSize(pos);
+
+			return nodes;
+
+#elif defined(UFO_OMP)
+// TODO: Implement
 #else
-			// FIXME: Implement, using `createChildThreadSafe`
-			// FIXME: Remove when above has been implemented
 			return create(first, last);
 #endif
-		} else {
-			// TODO: Is this correct?
-			std::vector<Code> codes;
-			codes.reserve(std::distance(first, last));
-			std::transform(policy, first, last, std::back_inserter(codes),
-			               [this](auto const& v) { return code(v); });
-			return create(std::forward<ExecutionPolicy>(policy), codes.begin(), codes.end());
 		}
 	}
 
@@ -1002,8 +1046,9 @@ class Tree
 	pos_t createChildren(Index node)
 	{
 		assert(!isPureLeaf(node));
+
 		if (isParent(node)) {
-			return this->children(node);
+			return children(node);
 		}
 
 		pos_t children;
@@ -1023,6 +1068,7 @@ class Tree
 	{
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
+
 		return Index(createChildren(node), child_index);
 	}
 
@@ -1259,24 +1305,28 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] std::array<pos_t, branchingFactor()> children(pos_t block) const
+	[[nodiscard]] std::array<pos_t, BF> children(pos_t block) const
 	{
 		assert(valid(block));
-		return block_[block].children;
+		std::array<pos_t, BF> children;
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i] = block_[block].children[i].load(std::memory_order_relaxed);
+		}
+		return children;
 	}
 
 	[[nodiscard]] pos_t children(Index node) const
 	{
 		assert(valid(node));
 		// assert(isParent(node));
-		return children(node.pos)[node.offset];
+		return block_[node.pos].children[node.offset].load(std::memory_order_relaxed);
 	}
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr NodeType child(NodeType node, offset_t child_index) const
 	{
 		assert(0 < depth(node));
-		assert(branchingFactor() > child_index);
+		assert(BF > child_index);
 
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
@@ -1306,7 +1356,7 @@ class Tree
 	{
 		if (isLeaf(node)) {
 			throw std::out_of_range("Node has no children");
-		} else if (branchingFactor() <= child_index) {
+		} else if (BF <= child_index) {
 			throw std::out_of_range("child_index out of range");
 		}
 		return child(node, child_index);
@@ -1320,7 +1370,7 @@ class Tree
 	[[nodiscard]] NodeType sibling(NodeType node, offset_t sibling_index) const
 	{
 		assert(!isRoot(node));
-		assert(branchingFactor() > sibling_index);
+		assert(BF > sibling_index);
 
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
@@ -1341,7 +1391,7 @@ class Tree
 	{
 		if (!isRoot(node)) {
 			throw std::out_of_range("Root node has no siblings");
-		} else if (branchingFactor() <= sibling_index) {
+		} else if (BF <= sibling_index) {
 			throw std::out_of_range("sibling_index out of range");
 		}
 		return sibling(node, sibling_index);
@@ -1358,7 +1408,8 @@ class Tree
 
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			return index(block_[node.pos].parentCode());
+			return block_[node.pos].parent();
+			// return index(block_[node.pos].parentCode());
 		} else if constexpr (std::is_same_v<T, Node>) {
 			return this->node(parent(node.code()));
 		} else if constexpr (std::is_same_v<T, Code>) {
@@ -1377,6 +1428,50 @@ class Tree
 			throw std::out_of_range("Root node has no parent");
 		}
 		return parent(node);
+	}
+
+	//
+	// Ancestor
+	//
+
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType ancestor(NodeType node, depth_t depth) const
+	{
+		assert(!isRoot(node));
+		assert(this->depth(node) <= depth);
+
+		if (this->depth(node) == depth) {
+			return node;
+		}
+
+		using T = std::decay_t<NodeType>;
+		if constexpr (std::is_same_v<T, Index>) {
+			pos_t block = node.pos;
+			for (depth_t d = this->depth(node); depth > d + 1; ++d) {
+				block = block_[block].parentBlock();
+			}
+			return block_[block].parent();
+		} else if constexpr (std::is_same_v<T, Node>) {
+			return this->node(ancestor(node.code(), depth));
+		} else if constexpr (std::is_same_v<T, Code>) {
+			return node.toDepth(depth);
+		} else if constexpr (std::is_same_v<T, Key>) {
+			return node.toDepth(depth);
+		} else {
+			return center(ancestor(key(node), depth));
+		}
+	}
+
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] NodeType ancestorChecked(NodeType node, depth_t depth) const
+	{
+		if (!isRoot(node)) {
+			throw std::out_of_range("Root node has no ancestor");
+		} else if (this->depth(node) > depth) {
+			// FIXME: Add nice message
+			throw std::out_of_range("Something");
+		}
+		return ancestor(node, depth);
 	}
 
 	// TODO: Look at functions below
@@ -1429,7 +1524,7 @@ class Tree
 		nodes[1] = child(node, 0);
 		for (std::size_t i{1}; 0 != i;) {
 			node = nodes[i];
-			i -= branchingFactor() <= ++nodes[i].offset;
+			i -= BF <= ++nodes[i].offset;
 			if (f(node) && isParent(node)) {
 				nodes[++i] = child(node, 0);
 			}
@@ -1465,7 +1560,7 @@ class Tree
 			for (int depth{}; 0 <= depth;) {
 				node        = nodes[depth];
 				auto offset = nodes[depth].offset();
-				if (branchingFactor() - 1 > offset) {
+				if (BF - 1 > offset) {
 					nodes[depth] = sibling(nodes[depth], offset + 1);
 				} else {
 					--depth;
@@ -1478,7 +1573,7 @@ class Tree
 			for (int depth{}; 0 <= depth;) {
 				node        = nodes[depth];
 				auto offset = nodes[depth].offset();
-				if (branchingFactor() - 1 > offset) {
+				if (BF - 1 > offset) {
 					nodes[depth] = sibling(nodes[depth], offset + 1);
 				} else {
 					--depth;
@@ -1584,7 +1679,7 @@ class Tree
 		// 		nodes.pop();
 
 		// 		if (f(n_d) && isParent(n_d)) {
-		// 			for (offset_t i{}; branchingFactor() != i; ++i) {
+		// 			for (offset_t i{}; BF != i; ++i) {
 		// 				auto c = child(n_d, i);
 		// 				nodes.emplace(c, distanceSquared(c.boundingVolume(), g));
 		// 			}
@@ -1596,7 +1691,7 @@ class Tree
 		// 		nodes.pop();
 
 		// 		if (f(n_d) && !isPureLeaf(n_d)) {
-		// 			for (offset_t i{}; branchingFactor() != i; ++i) {
+		// 			for (offset_t i{}; BF != i; ++i) {
 		// 				auto c = child(n_d, i);
 		// 				nodes.emplace(c, distanceSquared(c.boundingVolume(), g));
 		// 			}
@@ -2190,8 +2285,7 @@ class Tree
 			node_half_length_reciprocal_[i] = static_cast<length_t>(1) / node_half_length_[i];
 		}
 
-		// Create root
-		block_.emplace_back(code(), parentCenter(center(), halfLength(), 0), length());
+		createRoot();
 	}
 
 	Tree(Tree const& other)
@@ -2333,6 +2427,18 @@ class Tree
 	[[nodiscard]] constexpr Derived const& derived() const
 	{
 		return *static_cast<Derived const*>(this);
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                     Create root                                     |
+	|                                                                                     |
+	**************************************************************************************/
+
+	void createRoot()
+	{
+		block_.emplace_back(Index::NULL_POS, code(), parentCenter(center(), halfLength(), 0),
+		                    length());
 	}
 
 	/**************************************************************************************
@@ -2673,7 +2779,9 @@ class Tree
 	{
 		assert(block_.size() > block);
 		return std::all_of(block_[block].children.begin(), block_[block].children.end(),
-		                   [](auto e) { return Index::NULL_POS == e; });
+		                   [](auto const& e) {
+			                   return Index::NULL_POS == e.load(std::memory_order_relaxed);
+		                   });
 	}
 
 	/*!
@@ -2686,7 +2794,9 @@ class Tree
 	{
 		assert(block_.size() > block);
 		return std::any_of(block_[block].children.begin(), block_[block].children.end(),
-		                   [](auto e) { return Index::NULL_POS == e; });
+		                   [](auto const& e) {
+			                   return Index::NULL_POS == e.load(std::memory_order_relaxed);
+		                   });
 	}
 
 	/*!
@@ -2699,7 +2809,9 @@ class Tree
 	{
 		assert(block_.size() > block);
 		return std::none_of(block_[block].children.begin(), block_[block].children.end(),
-		                    [](auto e) { return Index::NULL_POS == e; });
+		                    [](auto const& e) {
+			                    return Index::NULL_POS == e.load(std::memory_order_relaxed);
+		                    });
 	}
 
 	/*!
@@ -2805,7 +2917,7 @@ class Tree
 	[[nodiscard]] static constexpr Point childCenter(Point center, length_t half_length,
 	                                                 offset_t child_index)
 	{
-		assert(branchingFactor() > child_index);
+		assert(BF > child_index);
 		half_length /= static_cast<length_t>(2);
 		for (std::size_t i{}; Point::size() > i; ++i) {
 			center[i] += (child_index & offset_t(1u << i)) ? half_length : -half_length;
@@ -2828,7 +2940,7 @@ class Tree
 	[[nodiscard]] static constexpr Point parentCenter(Point center, length_t half_length,
 	                                                  offset_t index)
 	{
-		assert(branchingFactor() > index);
+		assert(BF > index);
 		for (std::size_t i{}; Point::size() > i; ++i) {
 			center[i] += (index & offset_t(1u << i)) ? -half_length : half_length;
 		}
@@ -2843,26 +2955,43 @@ class Tree
 
 	pos_t createBlock(Index node)
 	{
-		pos_t children                         = static_cast<pos_t>(block_.size());
-		block_[node.pos].children[node.offset] = children;
-		block_.emplace_back(block_[node.pos], node.offset, halfLength(node));
+		pos_t children = static_cast<pos_t>(block_.size());
+		block_[node.pos].children[node.offset].store(children, std::memory_order_relaxed);
+		block_.emplace_back(node.pos, block_[node.pos], node.offset, halfLength(node));
 		derived().onCreateChildren(node);
 		return children;
 	}
 
 	void fillChildren(Index node, pos_t children)
 	{
-		block_[node.pos].children[node.offset] = children;
-		block_[children].fill(block_[node.pos], node.offset, halfLength(node));
+		block_[node.pos].children[node.offset].store(children, std::memory_order_relaxed);
+		block_[children].fill(node.pos, block_[node.pos], node.offset, halfLength(node));
 		derived().onFillChildren(node, children);
 	}
 
 	void pruneChildren(Index node, pos_t children)
 	{
-		block_[node.pos].children[node.offset] = Index::NULL_POS;
+		block_[node.pos].children[node.offset].store(Index::NULL_POS,
+		                                             std::memory_order_relaxed);
 		derived().onPruneChildren(node, children);
 		// Important that derived is pruned first in case they use parent code
 		block_[children] = Block();
+	}
+
+	//
+	// Reserve
+	//
+
+	void reserve(std::size_t cap)
+	{
+		block_.reserve(cap);
+		derived().onReserve(cap);
+	}
+
+	void setSize(std::size_t size)
+	{
+		block_.setSize(size);
+		derived().onSetSize(size);
 	}
 
 	//
@@ -2894,23 +3023,6 @@ class Tree
 		return trail;
 	}
 
-	pos_t createChildrenThreadSafe(Index node)
-	{
-		assert(0 < depth(node));
-		if (isParent(node)) {
-			return children(node);
-		}
-
-		std::lock_guard<std::mutex> const lock(create_mutex_);
-		return createChildren(node);
-	}
-
-	Index createChildThreadSafe(Index node, offset_t child_index)
-	{
-		assert(branchingFactor() > child_index);
-		return Index(createChildren(node), child_index);
-	}
-
 	//
 	// Erase
 	//
@@ -2928,11 +3040,6 @@ class Tree
 
 		pruneChildren(node, children);
 		free_block_.push_back(children);
-	}
-
-	void eraseChildrenThreadSafe(Index node, pos_t children)
-	{
-		// TODO: Implement
 	}
 
 	/**************************************************************************************
@@ -3691,9 +3798,6 @@ class Tree
 	}
 
  protected:
-	// Mutex for creating children concurrently
-	std::mutex create_mutex_;
-
 	// The number of depth levels
 	depth_t num_depth_levels_;
 	// Half the maximum key value the tree can store

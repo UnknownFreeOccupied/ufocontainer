@@ -248,6 +248,7 @@ class TreeCode
 		depth_t depth = depth_ - 1;
 		return TreeCode(code_ | (static_cast<code_t>(idx) << (Dim * depth)), depth);
 	}
+	
 	/*!
 	 * @brief Get the code of the firstborn child of this code (same as child(0)).
 	 *

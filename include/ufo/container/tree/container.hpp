@@ -47,6 +47,7 @@
 #include <ufo/utility/execution.hpp>
 
 // STL
+#include <atomic>
 #include <cstddef>
 #include <cstring>
 #include <iterator>
@@ -383,9 +384,27 @@ class TreeContainer
 
 	constexpr size_type size() const noexcept { return size_; }
 
+	constexpr size_type cap() const noexcept
+	{
+		return cap_.load(std::memory_order_acquire);
+	}
+
 	constexpr size_type max_size() const noexcept
 	{
 		return NumBuckets * NumBlocksPerBucket;
+	}
+
+	// TODO: Make private
+	void setSize(size_type size) { size_ = size; }
+
+	void reserve(size_type cap)
+	{
+		size_type last = bucket_pos(cap - 1);
+		for (size_type i{}; last >= i; ++i) {
+			if (nullptr == buckets_[i]) {
+				createBucket(buckets_[i]);
+			}
+		}
 	}
 
 	constexpr void resize(size_type sz)
@@ -486,6 +505,7 @@ class TreeContainer
 		}
 		block(b, s) = T(std::forward<Args>(args)...);
 		++size_;
+		// size_ = NumBlocksPerBucket;
 		return block(b, s);
 	}
 
@@ -628,6 +648,7 @@ class TreeContainer
 
 	void createBucket(Bucket& bucket)
 	{
+		cap_ += NumBlocksPerBucket;
 		bucket = std::make_unique<T[]>(NumBlocksPerBucket);
 	}
 
@@ -636,6 +657,7 @@ class TreeContainer
 	// TODO: Add functions to upload (changed) buckets to GPU
 	std::unique_ptr<Bucket[]> buckets_ = std::make_unique<Bucket[]>(NumBuckets);
 	size_type                 size_{};
+	std::atomic<size_type>    cap_{};
 };
 }  // namespace ufo
 
