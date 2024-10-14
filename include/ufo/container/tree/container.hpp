@@ -546,10 +546,11 @@ class TreeContainer
 
 	void clear()
 	{
-		size_type last = bucket_pos(size_);
-		for (size_type i{}; last >= i; ++i) {
-			buckets_[i].reset();
-		}
+		// TODO: Look at
+		// size_type last = bucket_pos(size_);
+		// for (size_type i{}; last >= i; ++i) {
+		// 	buckets_[i].reset();
+		// }
 		size_ = 0;
 	}
 
