@@ -918,11 +918,19 @@ class Tree
 	template <class InputIt>
 	std::vector<Index> create(InputIt first, InputIt last)
 	{
-		using value_type = std::decay_t<typename std::iterator_traits<InputIt>::value_type>;
+		return create(execution::seq, first, last);
+	}
+
+	template <
+	    class ExecutionPolicy, class RandomIt,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+	std::vector<Index> create(ExecutionPolicy&& policy, RandomIt first, RandomIt last)
+	{
+		using value_type = std::decay_t<typename std::iterator_traits<RandomIt>::value_type>;
 
 		if constexpr (std::is_same_v<Index, value_type>) {
 			return std::vector<Index>(first, last);
-		} else {
+		} else if constexpr (execution::is_seq_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
 			std::transform(first, last, nodes.begin(), [this](auto const& x) {
@@ -944,84 +952,64 @@ class Tree
 			});
 
 			return nodes;
-		}
-	}
-
-	template <
-	    class ExecutionPolicy, class RandomIt,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
-	std::vector<Index> create(ExecutionPolicy&& policy, RandomIt first, RandomIt last)
-	{
-		using value_type = std::decay_t<typename std::iterator_traits<RandomIt>::value_type>;
-
-		if constexpr (std::is_same_v<Index, value_type>) {
-			return std::vector<Index>(first, last);
-		} else if constexpr (std::is_same_v<execution::sequenced_policy,
-		                                    std::decay_t<ExecutionPolicy>>) {
-			return create(first, last);
-		} else {
-#if defined(UFO_TBB)
+		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
 			std::atomic<pos_t> pos = block_.size();
 
-			std::transform(
-			    std::forward<ExecutionPolicy>(policy), first, last, nodes.begin(),
-			    [this, &pos](auto const& x) {
-				    thread_local Index   node  = this->index();
-				    thread_local Code    code  = this->code();
-				    thread_local depth_t depth = this->depth();
+			std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this, &pos](auto const& x) {
+				thread_local Index   node  = this->index();
+				thread_local Code    code  = this->code();
+				thread_local depth_t depth = this->depth();
 
-				    Code    e            = this->code(x);
-				    depth_t wanted_depth = this->depth(e);
-				    depth                = Code::depthWhereEqual(code, e);
-				    code                 = e;
+				Code    e            = this->code(x);
+				depth_t wanted_depth = this->depth(e);
+				depth                = Code::depthWhereEqual(code, e);
+				code                 = e;
 
-				    node = ancestor(node, depth);
-				    for (; wanted_depth < depth; --depth) {
-					    pos_t       null_pos       = Index::NULL_POS;
-					    pos_t const processing_pos = Index::PROCESSING_POS;
-					    pos_t       children;
-					    if (block_[node.pos].children[node.offset].compare_exchange_strong(
-					            null_pos, processing_pos)) {
-						    children = pos++;
+				node = ancestor(node, depth);
+				for (; wanted_depth < depth; --depth) {
+					pos_t       null_pos       = Index::NULL_POS;
+					pos_t const processing_pos = Index::PROCESSING_POS;
+					pos_t       children;
+					if (block_[node.pos].children[node.offset].compare_exchange_strong(
+					        null_pos, processing_pos)) {
+						children = pos++;
 
-						    if (children == block_.cap()) {
-							    reserve(children + 1);
-						    } else {
-							    while (children > block_.cap()) {
-							    }
-						    }
+						if (children == block_.cap()) {
+							reserve(children + 1);
+						} else {
+							while (children > block_.cap()) {
+							}
+						}
 
-						    block_[children].fill(node.pos, block_[node.pos], node.offset,
-						                          halfLength(node));
-						    derived().onFillChildren(node, children);
+						block_[children].fill(node.pos, block_[node.pos], node.offset,
+						                      halfLength(node));
+						derived().onFillChildren(node, children);
 
-						    block_[node.pos].children[node.offset].store(children,
-						                                                 std::memory_order_release);
-					    } else {
-						    while (processing_pos ==
-						           (children = block_[node.pos].children[node.offset].load(
-						                std::memory_order_acquire))) {
-						    }
-					    }
+						block_[node.pos].children[node.offset].store(children,
+						                                             std::memory_order_release);
+					} else {
+						while (processing_pos ==
+						       (children = block_[node.pos].children[node.offset].load(
+						            std::memory_order_acquire))) {
+						}
+					}
 
-					    node.pos    = children;
-					    node.offset = code.offset(depth - 1);
-				    }
+					node.pos    = children;
+					node.offset = code.offset(depth - 1);
+				}
 
-				    return node;
-			    });
+				return node;
+			});
 
 			setSize(pos);
 
 			return nodes;
-
-#elif defined(UFO_OMP)
-// TODO: Implement
-#else
-			return create(first, last);
-#endif
+		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+			// TODO: Implement
+		} else {
+			// TODO: Error
 		}
 	}
 
@@ -1035,7 +1023,7 @@ class Tree
 
 	template <
 	    class ExecutionPolicy, class Range,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	std::vector<Index> create(ExecutionPolicy&& policy, Range const& r)
 	{
 		using std::begin;
@@ -2090,7 +2078,7 @@ class Tree
 	template <
 	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class InnerFun,
 	    class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1 last,
 	                RandomIt2 d_first, InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
@@ -2100,7 +2088,7 @@ class Tree
 
 	template <
 	    class ExecutionPolicy, class RandomIt, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	[[nodiscard]] std::vector<T> trace(ExecutionPolicy&& policy, RandomIt first,
 	                                   RandomIt last, InnerFun inner_f, HitFun hit_f,
 	                                   T const& miss) const
@@ -2115,15 +2103,6 @@ class Tree
 	                RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
 	                T const& miss) const
 	{
-		if constexpr (std::is_same_v<execution::sequenced_policy,
-		                             std::decay_t<ExecutionPolicy>>) {
-			return trace(node, first, last, d_first, inner_f, hit_f, miss);
-		}
-
-#if !defined(UFO_TBB) && !defined(UFO_OMP)
-		return trace(node, first, last, d_first, inner_f, hit_f, miss);
-#endif
-
 		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
 			// Unless NodeType is Index, we need to check that the node actually exists
 			if (!exists(node)) {
@@ -2131,46 +2110,53 @@ class Tree
 			}
 		}
 
-		Index n = index(node);
+		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
+			return trace(node, first, last, d_first, inner_f, hit_f, miss);
+		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
+			Index n = index(node);
 
-		auto center      = this->center(n);
-		auto half_length = halfLength(n);
+			auto center      = this->center(n);
+			auto half_length = halfLength(n);
 
-#if defined(UFO_TBB)
-		return std::transform(
-		    std::forward<ExecutionPolicy>(policy), first, last, d_first,
-		    [&](auto const& ray) {
-			    auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-				    return inner_f(node, ray, distance);
-			    };
+			return std::transform(UFO_TBB_PAR first, last, d_first, [&](auto const& ray) {
+				auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+					return inner_f(node, ray, distance);
+				};
 
-			    auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-				    return hit_f(node, ray, distance);
-			    };
+				auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+					return hit_f(node, ray, distance);
+				};
 
-			    auto params = traceInit(ray, center, half_length);
-			    return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
-		    });
-#elif defined(UFO_OMP)
-		std::size_t size = std::distance(first, last);
+				auto params = traceInit(ray, center, half_length);
+				return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
+			});
+		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+			Index n = index(node);
+
+			auto center      = this->center(n);
+			auto half_length = halfLength(n);
+
+			std::size_t size = std::distance(first, last);
 
 #pragma omp parallel for
-		for (std::size_t i = 0; i != size; ++i) {
-			auto const& ray = first[i];
+			for (std::size_t i = 0; i != size; ++i) {
+				auto const& ray = first[i];
 
-			auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-				return inner_f(node, ray, distance);
-			};
+				auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
+					return inner_f(node, ray, distance);
+				};
 
-			auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-				return hit_f(node, ray, distance);
-			};
-			auto params = traceInit(ray, center, half_length);
-			d_first[i]  = trace(n, params, ray, wrapped_inner_f, wrapped_hit_f, miss);
+				auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+					return hit_f(node, ray, distance);
+				};
+				auto params = traceInit(ray, center, half_length);
+				d_first[i]  = trace(n, params, ray, wrapped_inner_f, wrapped_hit_f, miss);
+			}
+
+			return std::next(d_first, size);
+		} else {
+			// TODO: Error
 		}
-
-		return std::next(d_first, size);
-#endif
 	}
 
 	template <class ExecutionPolicy, class NodeType, class RandomIt, class InnerFun,

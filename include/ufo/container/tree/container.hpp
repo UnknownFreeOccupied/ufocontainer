@@ -562,47 +562,42 @@ class TreeContainer
 	template <class OutputIt>
 	OutputIt copy(OutputIt d_first) const
 	{
-		if (empty()) {
-			return d_first;
-		}
-
-		auto n = num_buckets() - 1;
-		for (std::size_t i{}; n != i; ++i) {
-			d_first = std::copy(std::begin(buckets_[i]), std::end(buckets_[i]), d_first);
-		}
-
-		// Handle last bucket
-		return std::copy(std::begin(buckets_[n]),
-		                 std::next(std::begin(buckets_[n]), block_pos(size_)), d_first);
+		return copy(execution::seq, d_first);
 	}
 
 	template <
 	    class ExecutionPolicy, class ForwardIt,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	ForwardIt copy(ExecutionPolicy&& policy, ForwardIt d_first) const
 	{
 		if (empty()) {
 			return d_first;
 		}
 
-		if constexpr (std::is_same_v<execution::sequenced_policy,
-		                             std::decay_t<ExecutionPolicy>>) {
-			return copy(d_first);
-		}
+		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
+			auto n = num_buckets() - 1;
+			for (std::size_t i{}; n != i; ++i) {
+				d_first = std::copy(std::begin(buckets_[i]), std::end(buckets_[i]), d_first);
+			}
 
-#if defined(UFO_TBB)
-		auto n = num_buckets() - 1;
-		for (std::size_t i{}; n != i; ++i) {
-			d_first =
-			    std::copy(policy, std::begin(buckets_[i]), std::end(buckets_[i]), d_first);
-		}
+			// Handle last bucket
+			return std::copy(std::begin(buckets_[n]),
+			                 std::next(std::begin(buckets_[n]), block_pos(size_)), d_first);
+		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
+			auto n = num_buckets() - 1;
+			for (std::size_t i{}; n != i; ++i) {
+				d_first =
+				    std::copy(policy, std::begin(buckets_[i]), std::end(buckets_[i]), d_first);
+			}
 
-		// Handle last bucket
-		return std::copy(policy, std::begin(buckets_[n]),
-		                 std::next(std::begin(buckets_[n]), block_pos(size_)), d_first);
-#else
-		return copy(d_first);
-#endif
+			// Handle last bucket
+			return std::copy(policy, std::begin(buckets_[n]),
+			                 std::next(std::begin(buckets_[n]), block_pos(size_)), d_first);
+		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+			// TODO: Implement
+		} else {
+			// TODO: Error
+		}
 	}
 
  private:

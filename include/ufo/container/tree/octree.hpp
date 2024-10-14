@@ -296,7 +296,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	template <
 	// 	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class Pred,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  =
-	// true, 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
+	// true, 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
 	// bool> = true> 	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1
 	// last, 	                RandomIt2 d_first, Pred const& pred, bool only_exists = true)
 	// const
@@ -309,7 +309,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class Pred, class
 	// HitFun, 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true,
 	// 	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              =
-	// true, 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
+	// true, 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
 	// bool> = true> 	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1
 	// last, 	                RandomIt2 d_first, Pred const& pred, HitFun hit_f, bool
 	// only_exists = true) const
@@ -321,7 +321,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	template <
 	// 	    class ExecutionPolicy, class RandomIt, class Pred,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  =
-	// true, 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
+	// true, 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
 	// bool> = true> 	auto trace(ExecutionPolicy&& policy, RandomIt first, RandomIt last,
 	// Pred const& pred, 	           bool only_exists = true) const
 	// 	{
@@ -333,7 +333,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class RandomIt, class Pred, class HitFun,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 =
 	// true, 	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto trace(ExecutionPolicy&& policy, RandomIt first, RandomIt last, Pred const& pred,
 	// HitFun hit_f, bool only_exists = true) const
 	// 	{
@@ -344,7 +344,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	template <
 	// 	    class ExecutionPolicy, class RayRange, class Pred,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  =
-	// true, 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
+	// true, 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
 	// bool> = true> 	auto trace(ExecutionPolicy&& policy, RayRange const& r, Pred const&
 	// pred, 	           bool only_exists = true) const
 	// 	{
@@ -358,7 +358,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class RayRange, class Pred, class HitFun,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 =
 	// true, 	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto trace(ExecutionPolicy&& policy, RayRange const& r, Pred const& pred, HitFun
 	// hit_f, 	           bool only_exists = true) const
 	// 	{
@@ -372,7 +372,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2, class
 	// Pred, 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true,
 	// std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool>                  = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first, RandomIt1
 	// last, RandomIt2 d_first, Pred const& pred, 	                bool only_exists = true)
 	// const
@@ -388,7 +388,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// is_node_type_v<NodeType>, bool> = true, 	    std::enable_if_t<pred::is_pred_v<Pred,
 	// Derived, Node>, bool> = true, 	    std::enable_if_t<std::is_invocable_v<HitFun, Node,
 	// Ray3>, bool>              = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first, RandomIt1
 	// last, RandomIt2 d_first, Pred const& pred, HitFun hit_f, 	                bool
 	// only_exists = true) const
@@ -452,7 +452,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class NodeType, class RandomIt, class Pred,
 	// 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool>              =
 	// true, 	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool> = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto trace(ExecutionPolicy&& policy, NodeType node, RandomIt first, RandomIt last,
 	// Pred const& pred, bool only_exists = true) const
 	// 	{
@@ -466,7 +466,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool>              =
 	// true, 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true,
 	// std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto trace(ExecutionPolicy&& policy, NodeType node, RandomIt first, RandomIt last,
 	// Pred const& pred, HitFun hit_f, bool only_exists = true) const
 	// 	{
@@ -483,7 +483,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class NodeType, class RayRange, class Pred,
 	// 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool>              =
 	// true, 	    std::enable_if_t<pred::is_pred_v<Pred, Octree, Node>, bool> = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto trace(ExecutionPolicy&& policy, NodeType node, RayRange const& r, Pred const&
 	// pred, 	           bool only_exists = true) const
 	// 	{
@@ -498,7 +498,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool>              =
 	// true, 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true,
 	// std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto trace(ExecutionPolicy&& policy, NodeType node, RayRange const& r, Pred const&
 	// pred, 	           HitFun hit_f, bool only_exists = true) const
 	// 	{
@@ -601,7 +601,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	template <
 	// 	    class ExecutionPolicy, class Pred,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 =
-	// true, 	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>,
+	// true, 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
 	// bool> = true> 	Image<Node> image(ExecutionPolicy&& policy, Pred const& pred, Pose3f
 	// const& pose, 	                  std::size_t rows, std::size_t cols, float
 	// vertical_fov, 	                  float near_clip, float far_clip, Vec3f up = {0, 0,
@@ -616,7 +616,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class Pred, class HitFun,
 	// 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool>                 =
 	// true, 	    std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool> = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto image(ExecutionPolicy&& policy, Pred const& pred, HitFun hit_f, Pose3f const&
 	// pose, 	           std::size_t rows, std::size_t cols, float vertical_fov, float
 	// near_clip, 	           float far_clip, Vec3f up = {0, 0, 1}, Vec3f right = {0, -1,
@@ -631,7 +631,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    class ExecutionPolicy, class NodeType, class Pred,
 	// 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool>              =
 	// true, 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// Image<Node> image(ExecutionPolicy&& policy, NodeType node, Pred const& pred, Pose3f
 	// const& pose, std::size_t rows, std::size_t cols, 	                  float
 	// vertical_fov, float near_clip, float far_clip, 	                  Vec3f up = {0, 0,
@@ -649,7 +649,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 	// 	    std::enable_if_t<Base::template is_node_type_v<NodeType>, bool>              =
 	// true, 	    std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true,
 	// std::enable_if_t<std::is_invocable_v<HitFun, Node, Ray3>, bool>              = true,
-	// std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	// std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	// auto image(ExecutionPolicy&& policy, NodeType node, Pred const& pred, HitFun hit_f,
 	// Pose3f const& pose, std::size_t rows, std::size_t cols, float vertical_fov, float
 	// near_clip, float far_clip, Vec3f up = {0, 0, 1}, 	           Vec3f right = {0, -1,
@@ -766,7 +766,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
 	            InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
@@ -776,7 +776,7 @@ class Octree : public Tree<Derived, Block<TreeType::OCT>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, Camera const& camera,
 	                              std::size_t rows, std::size_t cols, InnerFun inner_f,
 	                              HitFun hit_f, T const& miss) const

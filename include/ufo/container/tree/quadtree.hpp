@@ -128,7 +128,8 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
+	                     bool> = true>
 	void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
 	            InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
@@ -138,7 +139,8 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<is_execution_policy_v<std::decay_t<ExecutionPolicy>>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
+	                     bool> = true>
 	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, Camera const& camera,
 	                              std::size_t rows, std::size_t cols, InnerFun inner_f,
 	                              HitFun hit_f, T const& miss) const
