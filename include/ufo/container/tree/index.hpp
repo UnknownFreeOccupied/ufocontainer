@@ -55,7 +55,8 @@ struct TreeIndex {
 	using pos_t    = std::uint32_t;
 	using offset_t = std::uint32_t;
 
-	static constexpr pos_t const NULL_POS = std::numeric_limits<pos_t>::max();
+	static constexpr pos_t const NULL_POS       = std::numeric_limits<pos_t>::max();
+	static constexpr pos_t const PROCESSING_POS = NULL_POS - 1;
 
 	pos_t    pos{NULL_POS};
 	offset_t offset{0};
@@ -82,7 +83,7 @@ struct TreeIndex {
 		return {pos, offset};
 	}
 
-	[[nodiscard]] constexpr bool valid() const { return NULL_POS != pos; }
+	[[nodiscard]] constexpr bool valid() const { return PROCESSING_POS > pos; }
 };
 
 inline std::ostream& operator<<(std::ostream& out, TreeIndex index)

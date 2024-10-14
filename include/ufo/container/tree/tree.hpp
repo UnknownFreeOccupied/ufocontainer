@@ -980,7 +980,7 @@ class Tree
 				    node = ancestor(node, depth);
 				    for (; wanted_depth < depth; --depth) {
 					    pos_t       null_pos       = Index::NULL_POS;
-					    pos_t const processing_pos = null_pos - 1;
+					    pos_t const processing_pos = Index::PROCESSING_POS;
 					    pos_t       children;
 					    if (block_[node.pos].children[node.offset].compare_exchange_strong(
 					            null_pos, processing_pos)) {
