@@ -2098,7 +2098,8 @@ class Tree
 	}
 
 	template <class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
-	          class InnerFun, class HitFun, class T>
+	          class InnerFun, class HitFun, class T,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
 	                RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
 	                T const& miss) const
