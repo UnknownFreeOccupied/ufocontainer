@@ -47,7 +47,7 @@
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/container/tree/type.hpp>
 #include <ufo/geometry/shape/ray.hpp>
-#include <ufo/math/trans3.hpp>
+#include <ufo/math/transform3.hpp>
 #include <ufo/utility/type_traits.hpp>
 #include <ufo/vision/camera.hpp>
 #include <ufo/vision/image.hpp>
