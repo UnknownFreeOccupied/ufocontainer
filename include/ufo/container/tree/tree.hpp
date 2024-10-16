@@ -990,10 +990,10 @@ class Tree
 						block_[node.pos].children[node.offset].store(children,
 						                                             std::memory_order_release);
 					} else {
-						while (processing_pos ==
-						       (children = block_[node.pos].children[node.offset].load(
-						            std::memory_order_acquire))) {
-						}
+						do {
+							children =
+							    block_[node.pos].children[node.offset].load(std::memory_order_acquire);
+						} while (processing_pos == children);
 					}
 
 					node.pos    = children;
@@ -2097,8 +2097,9 @@ class Tree
 		             hit_f, miss);
 	}
 
-	template <class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
-	          class InnerFun, class HitFun, class T,
+	template <
+	    class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
+	    class InnerFun, class HitFun, class T,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
 	                RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
@@ -2552,7 +2553,7 @@ class Tree
 	}
 
 	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
 	void recursChildrenFirst(Index node, NodeFun node_f, StopFun stop_f)
 	{
@@ -2569,16 +2570,16 @@ class Tree
 	}
 
 	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true>
 	void recursChildrenFirst(Index node, NodeFun node_f)
 	{
-		recursChildrenFirst(node, node_f, [](auto) { return false; });
+		recursChildrenFirst(node, node_f, [](Index) { return false; });
 	}
 
 	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
 	void recursChildrenFirst(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
 	{
 		assert(valid(node));
@@ -2591,16 +2592,16 @@ class Tree
 	}
 
 	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
 	void recursChildrenFirst(Index node, NodeFun node_f, BlockFun block_f)
 	{
-		recursChildrenFirst(node, node_f, block_f, [](auto) { return false; });
+		recursChildrenFirst(node, node_f, block_f, [](Index) { return false; });
 	}
 
 	template <class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
 	void recursChildrenFirst(pos_t block, BlockFun block_f, StopFun stop_f)
 	{
 		assert(valid(block));
@@ -2616,14 +2617,14 @@ class Tree
 	}
 
 	template <class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
 	void recursChildrenFirst(pos_t block, BlockFun block_f)
 	{
-		recursChildrenFirst(block, block_f, [](auto) { return false; });
+		recursChildrenFirst(block, block_f, [](Index) { return false; });
 	}
 
 	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
 	void recursParentFirst(Index node, NodeFun node_f, StopFun stop_f)
 	{
@@ -2642,16 +2643,16 @@ class Tree
 	}
 
 	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true>
 	void recursParentFirst(Index node, NodeFun node_f)
 	{
-		recursParentFirst(node, node_f, [](auto) { return false; });
+		recursParentFirst(node, node_f, [](Index) { return false; });
 	}
 
 	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>         = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
 	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
 	{
 		assert(valid(node));
@@ -2666,16 +2667,16 @@ class Tree
 	}
 
 	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
 	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f)
 	{
-		recursParentFirst(node, node_f, block_f, [](auto) { return false; });
+		recursParentFirst(node, node_f, block_f, [](Index) { return false; });
 	}
 
 	template <class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool>        = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
+	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
 	void recursParentFirst(pos_t block, BlockFun block_f, StopFun stop_f)
 	{
 		assert(valid(block));
@@ -2695,10 +2696,10 @@ class Tree
 	}
 
 	template <class BlockFun,
-	          std::enable_if_t<std::is_invocable_v<BlockFun, pos_t>, bool> = true>
+	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
 	void recursParentFirst(pos_t block, BlockFun block_f)
 	{
-		recursParentFirst(block, block_f, [](auto) { return false; });
+		recursParentFirst(block, block_f, [](Index) { return false; });
 	}
 
 	/**************************************************************************************
