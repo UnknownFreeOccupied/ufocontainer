@@ -382,11 +382,14 @@ class TreeContainer
 	// capacity
 	[[nodiscard]] constexpr bool empty() const noexcept { return 0 == size_; }
 
-	constexpr size_type size() const noexcept { return size_; }
+	[[nodiscard]] constexpr size_type size() const noexcept { return size_; }
 
-	size_type cap() const noexcept { return cap_.load(std::memory_order_acquire); }
+	[[nodiscard]] size_type cap() const noexcept
+	{
+		return cap_.load(std::memory_order_acquire);
+	}
 
-	constexpr size_type max_size() const noexcept
+	[[nodiscard]] constexpr size_type max_size() const noexcept
 	{
 		return NumBuckets * NumBlocksPerBucket;
 	}
