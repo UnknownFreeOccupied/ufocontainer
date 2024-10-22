@@ -535,7 +535,12 @@ class Tree
 	{
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			return center(block_[node.pos].code(node.offset));
+			if constexpr (Block::HasCenter) {
+				// TODO: Fix
+				return block_[node.pos].center(node.offset);
+			} else {
+				return center(block_[node.pos].code(node.offset));
+			}
 		} else if constexpr (std::is_same_v<T, Node>) {
 			// TODO: Not working, only returns root or something???
 			return center(key(node));
@@ -619,6 +624,7 @@ class Tree
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
+				// TODO: Fix
 				return block_[node.pos].center(node.offset)[axis];
 			} else {
 				return centerAxis(block_[node.pos].code(node.offset), axis);
