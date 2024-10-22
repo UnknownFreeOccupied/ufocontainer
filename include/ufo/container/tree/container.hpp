@@ -544,7 +544,7 @@ class TreeContainer
 	friend void swap(TreeContainer& lhs, TreeContainer& rhs)
 	{
 		std::swap(lhs.buckets_, rhs.buckets_);
-		std::swap(lhs.size_, rhs.size_);
+		// TODO: std::swap(lhs.size_, rhs.size_);
 	}
 
 	void clear()
@@ -654,7 +654,7 @@ class TreeContainer
 	// TODO: Add indicator for if bucket has change
 	// TODO: Add functions to upload (changed) buckets to GPU
 	std::unique_ptr<Bucket[]> buckets_ = std::make_unique<Bucket[]>(NumBuckets);
-	size_type                 size_{};
+	std::atomic<size_type>    size_{};
 	std::atomic<size_type>    cap_{};
 };
 }  // namespace ufo
