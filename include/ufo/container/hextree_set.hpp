@@ -43,12 +43,11 @@
 #define UFO_CONTAINER_HEXTREE_SET_HPP
 
 // UFO
-#include <ufo/container/hextree/hextree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree_set.hpp>
 
 namespace ufo
 {
-using HextreeSet = TreeMap<Hextree>;
+using HextreeSet = TreeSet<4>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_HEXTREE_SET_HPP

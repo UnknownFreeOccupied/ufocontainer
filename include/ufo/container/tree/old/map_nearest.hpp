@@ -67,7 +67,7 @@ struct TreeMapNearest {
 
 	[[nodiscard]] Point const& point() const { return it_->first; }
 
-	[[nodiscard]] mapped_type& mapped() const { return it_->second; }
+	[[nodiscard]] mapped_type const& mapped() const { return it_->second; }
 
 	bool operator==(TreeMapNearest rhs) const noexcept
 	{
@@ -87,7 +87,8 @@ struct TreeMapNearest {
 
 	bool operator>=(TreeMapNearest rhs) const noexcept { return distance >= rhs.distance; }
 
- private:
+	// TODO: Make private
+ public:
 	Iterator it_;
 };
 

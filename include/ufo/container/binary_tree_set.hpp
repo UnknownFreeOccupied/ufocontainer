@@ -43,12 +43,11 @@
 #define UFO_CONTAINER_BINARY_TREE_SET_HPP
 
 // UFO
-#include <ufo/container/binary_tree/binary_tree.hpp>
-#include <ufo/container/tree/tree_set.hpp>
+#include <ufo/container/tree_set.hpp>
 
 namespace ufo
 {
-using BinaryTreeSet = TreeSet<BinaryTree>;
+using BinaryTreeSet = TreeSet<1>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_BINARY_TREE_SET_HPP

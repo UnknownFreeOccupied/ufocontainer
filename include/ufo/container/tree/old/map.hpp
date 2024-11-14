@@ -39,8 +39,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_SET_HPP
-#define UFO_CONTAINER_TREE_SET_HPP
+#ifndef UFO_CONTAINER_TREE_MAP_DETAIL_HPP
+#define UFO_CONTAINER_TREE_MAP_DETAIL_HPP
 
 // UFO
 #include <ufo/container/tree/set_or_map.hpp>
@@ -49,12 +49,18 @@
 // STL
 #include <algorithm>
 
-namespace ufo
+namespace ufo::detail
 {
-template <template <class, template <TreeType> class> class Tree>
-class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
+template <template <class, template <TreeType> class> class Tree, class T>
+class TreeMap : public TreeSetOrMap<TreeMap<Tree, T>, Tree, T>
 {
-	using Base = TreeSetOrMap<TreeSet, Tree>;
+	using Base = TreeSetOrMap<TreeMap, Tree, T>;
+
+	//
+	// Friends
+	//
+
+	friend Base;
 
  public:
 	/**************************************************************************************
@@ -64,6 +70,9 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	**************************************************************************************/
 
 	// UFO stuff
+	using Index    = typename Base::Index;
+	using Code     = typename Base::Code;
+	using Point    = typename Base::Point;
 	using depth_t  = typename Base::depth_t;
 	using length_t = typename Base::length_t;
 
@@ -82,15 +91,15 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	|                                                                                     |
 	**************************************************************************************/
 
-	TreeSet(length_t leaf_node_length = static_cast<length_t>(0.1),
-	        depth_t  num_depth_levels = std::min(static_cast<depth_t>(17),
+	TreeMap(length_t leaf_node_length = static_cast<length_t>(0.1),
+	        depth_t  num_depth_levels = std::max(static_cast<depth_t>(17),
 	                                             Base::maxNumDepthLevels()))
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}
 
 	template <class InputIt>
-	TreeSet(InputIt first, InputIt last,
+	TreeMap(InputIt first, InputIt last,
 	        length_t leaf_node_length = static_cast<length_t>(0.1),
 	        depth_t  num_depth_levels = std::max(static_cast<depth_t>(17),
 	                                             Base::maxNumDepthLevels()))
@@ -98,7 +107,7 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	{
 	}
 
-	TreeSet(std::initializer_list<value_type> init,
+	TreeMap(std::initializer_list<value_type> init,
 	        length_t                          leaf_node_length = static_cast<length_t>(0.1),
 	        depth_t num_depth_levels = std::max(static_cast<depth_t>(17),
 	                                            Base::maxNumDepthLevels()))
@@ -106,17 +115,9 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	{
 	}
 
-	template <class Range>
-	TreeSet(Range const& range, length_t leaf_node_length = static_cast<length_t>(0.1),
-	        depth_t num_depth_levels = std::max(static_cast<depth_t>(17),
-	                                            Base::maxNumDepthLevels()))
-	    : Base(range, leaf_node_length, num_depth_levels)
-	{
-	}
+	TreeMap(TreeMap const&) = default;
 
-	TreeSet(TreeSet const&) = default;
-
-	TreeSet(TreeSet&&) = default;
+	TreeMap(TreeMap&&) = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -124,7 +125,7 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	|                                                                                     |
 	**************************************************************************************/
 
-	~TreeSet() {}
+	~TreeMap() {}
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -132,9 +133,9 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	|                                                                                     |
 	**************************************************************************************/
 
-	TreeSet& operator=(TreeSet const&) = default;
+	TreeMap& operator=(TreeMap const&) = default;
 
-	TreeSet& operator=(TreeSet&&) = default;
+	TreeMap& operator=(TreeMap&&) = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -142,16 +143,76 @@ class TreeSet : public TreeSetOrMap<TreeSet<Tree>, Tree>
 	|                                                                                     |
 	**************************************************************************************/
 
+	template <class... Args>
+	void emplace(Point point, Args&&... args)
+	{
+		Base::insert(value_type(point, T(std::forward<Args>(args)...)));
+	}
+
+	size_type erase(value_type const& value)
+	{
+		Code code = Base::code(value.first);
+
+		std::array<Index, Base::maxNumDepthLevels()> trail;
+		int const                                    root_depth = Base::depth();
+		trail[root_depth]                                       = Base::index();
+		for (auto depth = root_depth; 0 < depth; --depth) {
+			if (Base::isLeaf(trail[depth])) {
+				return 0;
+			}
+			trail[depth - 1] = Base::child(trail[depth], code.offset(depth - 1));
+		}
+
+		auto&     v           = values(trail[0]);
+		size_type num_removed = v.size();
+		v.remove_if([&value](auto const& x) {
+			return equal(x.first, value.first) && x.second == value.second;
+		});
+		num_removed -= v.size();
+
+		Base::size_ -= num_removed;
+
+		Point min(std::numeric_limits<typename Point::scalar_t>::max());
+		Point max(std::numeric_limits<typename Point::scalar_t>::lowest());
+		for (auto const& [p, _] : v) {
+			for (int i{}; Point::size() > i; ++i) {
+				min[i] = UFO_MIN(min[i], p[i]);
+				max[i] = UFO_MAX(max[i], p[i]);
+			}
+		}
+		boundsMin(trail[0]) = min;
+		boundsMax(trail[0]) = max;
+
+		// Propagate
+		for (int i = 1; root_depth >= i; ++i) {
+			auto  block = trail[i - 1].pos;
+			Point min   = boundsMin(Index(block, 0));
+			Point max   = boundsMax(Index(block, 0));
+			for (int o = 1; Base::branchingFactor() > o; ++o) {
+				Point t_min = boundsMin(Index(block, o));
+				Point t_max = boundsMax(Index(block, o));
+				for (int j{}; Point::size() > j; ++j) {
+					min[j] = UFO_MIN(min[j], t_min[j]);
+					max[j] = UFO_MAX(max[j], t_max[j]);
+				}
+			}
+			boundsMin(trail[i]) = min;
+			boundsMax(trail[i]) = max;
+		}
+
+		return num_removed;
+	}
+
 	/*!
 	 * @brief Exchanges the contents of the container with those of `other`.
 	 *
 	 * @param other	container to exchange the contents with
 	 */
-	void swap(TreeSet& other)
+	void swap(TreeMap& other)
 	{
 		std::swap(static_cast<Base&>(*this), static_cast<Base&>(other));
 	}
 };
-}  // namespace ufo
+}  // namespace ufo::detail
 
-#endif  // UFO_CONTAINER_TREE_SET_HPP
+#endif  // UFO_CONTAINER_TREE_MAP_DETAIL_HPP

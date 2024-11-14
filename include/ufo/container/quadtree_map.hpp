@@ -43,13 +43,12 @@
 #define UFO_CONTAINER_QUADTREE_MAP_HPP
 
 // UFO
-#include <ufo/container/quadtree/quadtree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree_map.hpp>
 
 namespace ufo
 {
 template <class T>
-using QuadtreeMap = TreeMap<Quadtree, T>;
+using QuadtreeMap = TreeMap<2, T>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_QUADTREE_MAP_HPP

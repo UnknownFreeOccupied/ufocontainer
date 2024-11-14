@@ -43,13 +43,12 @@
 #define UFO_CONTAINER_OCTREE_MAP_HPP
 
 // UFO
-#include <ufo/container/tree/map.hpp>
-#include <ufo/container/tree/octree.hpp>
+#include <ufo/container/tree_map.hpp>
 
 namespace ufo
 {
 template <class T>
-using OctreeMap = TreeMap<Octree, T>;
+using OctreeMap = TreeMap<3, T>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_OCTREE_MAP_HPP

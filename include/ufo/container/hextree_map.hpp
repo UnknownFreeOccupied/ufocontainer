@@ -43,13 +43,12 @@
 #define UFO_CONTAINER_HEXTREE_MAP_HPP
 
 // UFO
-#include <ufo/container/hextree/hextree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree_map.hpp>
 
 namespace ufo
 {
 template <class T>
-using HextreeMap = TreeMap<Hextree, T>;
+using HextreeMap = TreeMap<4, T>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_HEXTREE_MAP_HPP

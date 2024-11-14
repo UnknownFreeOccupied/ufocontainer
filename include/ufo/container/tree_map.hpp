@@ -39,54 +39,38 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_SET_OR_MAP_HPP
-#define UFO_CONTAINER_TREE_SET_OR_MAP_HPP
+#ifndef UFO_CONTAINER_TREE_MAP_HPP
+#define UFO_CONTAINER_TREE_MAP_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/spatial.hpp>
-#include <ufo/container/tree/set_or_map_block.hpp>
-#include <ufo/container/tree/set_or_map_iterator.hpp>
-#include <ufo/container/tree/set_or_map_nearest_iterator.hpp>
-#include <ufo/container/tree/set_or_map_query_iterator.hpp>
-#include <ufo/container/tree/set_or_map_query_nearest_iterator.hpp>
+#include <ufo/container/tree/map/block.hpp>
+#include <ufo/container/tree/map/iterator.hpp>
 #include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/type.hpp>
-#include <ufo/geometry/distance.hpp>
-#include <ufo/utility/macros.hpp>
-#include <ufo/utility/type_traits.hpp>
 
 // STL
-#include <algorithm>
+#include <array>
+#include <cstddef>
+#include <limits>
 #include <list>
-#include <type_traits>
-#include <vector>
 
 namespace ufo
 {
-namespace detail
+template <std::size_t Dim, class T>
+class TreeMap
+    : protected Tree<TreeMap<Dim, T>, Dim, TreeMapBlock<Dim, std::size_t(1) << Dim, T>>
 {
-template <class T>
-struct TreeSetOrMapBlockHelper {
-	template <TreeType TT>
-	using Block = TreeSetOrMapBlock<TT, T>;
-};
-}  // namespace detail
-
-template <class Derived, template <class, template <TreeType> class> class TTree,
-          class T = void>
-class TreeSetOrMap
-    : protected TTree<Derived, detail::TreeSetOrMapBlockHelper<T>::template Block>
-{
-	using Base = TTree<Derived, detail::TreeSetOrMapBlockHelper<T>::template Block>;
-
-	static constexpr bool const IsMap = !std::is_void_v<T>;
+ protected:
+	using Block = TreeMapBlock<Dim, std::size_t(1) << Dim, T>;
+	using Base  = Tree<TreeMap, Dim, Block>;
 
 	//
 	// Friends
 	//
 
-	template <class Derived2, class Block>
-	friend class Tree;
+	// First base friends :)
+	friend Base;
+	// Second base friends ;)
+	friend typename Base::Base;
 
 	template <class Geometry, pred::SpatialTag Tag, bool Negated>
 	friend class pred::Spatial;
@@ -113,7 +97,7 @@ class TreeSetOrMap
 	using pos_t    = typename Base::pos_t;
 
 	// STL stuff
-	using value_type      = std::conditional_t<IsMap, std::pair<Point const, T>, Point>;
+	using value_type      = typename Block::value_type;
 	using mapped_type     = T;
 	using reference       = value_type&;
 	using const_reference = value_type const&;
@@ -123,28 +107,26 @@ class TreeSetOrMap
 	using difference_type = std::ptrdiff_t;
 
  public:
-	// Iterators
-	using iterator       = TreeSetOrMapIterator<TreeSetOrMap>;
-	using const_iterator = TreeSetOrMapIterator<TreeSetOrMap const>;
+	using iterator       = TreeMapIterator<false, Dim, T>;
+	using const_iterator = TreeMapIterator<true, Dim, T>;
 
-	using query_iterator       = TreeSetOrMapQueryIterator<TreeSetOrMap>;
-	using const_query_iterator = TreeSetOrMapQueryIterator<TreeSetOrMap const>;
+	// 	using query_iterator       = TreeMapQueryIterator<TreeMap>;
+	// 	using const_query_iterator = TreeMapQueryIterator<TreeMap const>;
 
-	using nearest_iterator       = TreeSetOrMapNearestIterator<TreeSetOrMap>;
-	using const_nearest_iterator = TreeSetOrMapNearestIterator<TreeSetOrMap const>;
+	// 	using nearest_iterator       = TreeMapNearestIterator<TreeMap>;
+	// 	using const_nearest_iterator = TreeMapNearestIterator<TreeMap const>;
 
-	using query_nearest_iterator = TreeSetOrMapQueryNearestIterator<TreeSetOrMap>;
-	using const_query_nearest_iterator =
-	    TreeSetOrMapQueryNearestIterator<TreeSetOrMap const>;
+	// 	using query_nearest_iterator       = TreeMapQueryNearestIterator<TreeMap>;
+	// 	using const_query_nearest_iterator = TreeMapQueryNearestIterator<TreeMap const>;
 
-	using Query      = IteratorWrapper<query_iterator>;
-	using ConstQuery = IteratorWrapper<const_query_iterator>;
+	// 	using Query      = IteratorWrapper<query_iterator>;
+	// 	using ConstQuery = IteratorWrapper<const_query_iterator>;
 
-	using Nearest      = IteratorWrapper<nearest_iterator>;
-	using ConstNearest = IteratorWrapper<const_nearest_iterator>;
+	// 	using Nearest      = IteratorWrapper<nearest_iterator>;
+	// 	using ConstNearest = IteratorWrapper<const_nearest_iterator>;
 
-	using QueryNearest      = IteratorWrapper<query_nearest_iterator>;
-	using ConstQueryNearest = IteratorWrapper<const_query_nearest_iterator>;
+	// 	using QueryNearest      = IteratorWrapper<query_nearest_iterator>;
+	// 	using ConstQueryNearest = IteratorWrapper<const_query_nearest_iterator>;
 
 	//
 	// Friend iterators
@@ -153,22 +135,22 @@ class TreeSetOrMap
 	friend iterator;
 	friend const_iterator;
 
-	friend query_iterator;
-	friend const_query_iterator;
-	template <class>
-	friend class detail::TreeSetOrMapQueryIteratorHelper;
-	template <class, class>
-	friend class detail::TreeSetOrMapQueryIterator;
+	// 	friend query_iterator;
+	// 	friend const_query_iterator;
+	// 	template <class>
+	// 	friend class detail::TreeMapQueryIteratorHelper;
+	// 	template <class, class>
+	// 	friend class detail::TreeMapQueryIterator;
 
-	friend nearest_iterator;
-	friend const_nearest_iterator;
+	// 	friend nearest_iterator;
+	// 	friend const_nearest_iterator;
 
-	friend query_nearest_iterator;
-	friend const_query_nearest_iterator;
-	template <class>
-	friend class detail::TreeSetOrMapQueryNearestIteratorHelper;
-	template <class, class>
-	friend class detail::TreeSetOrMapQueryNearestIterator;
+	// 	friend query_nearest_iterator;
+	// 	friend const_query_nearest_iterator;
+	// 	template <class>
+	// 	friend class detail::TreeMapQueryNearestIteratorHelper;
+	// 	template <class, class>
+	// 	friend class detail::TreeMapQueryNearestIterator;
 
  private:
 	using raw_iterator       = typename std::list<value_type>::iterator;
@@ -181,35 +163,37 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	TreeSetOrMap(length_t leaf_node_length, depth_t num_depth_levels)
+	TreeMap(length_t leaf_node_length = length_t(0.1),
+	        depth_t  num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}
 
 	template <class InputIt>
-	TreeSetOrMap(InputIt first, InputIt last, length_t leaf_node_length,
-	             depth_t num_depth_levels)
-	    : TreeSetOrMap(leaf_node_length, num_depth_levels)
+	TreeMap(InputIt first, InputIt last, length_t leaf_node_length = length_t(0.1),
+	        depth_t num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
+	    : TreeMap(leaf_node_length, num_depth_levels)
 	{
 		insert(first, last);
 	}
 
-	TreeSetOrMap(std::initializer_list<value_type> init, length_t leaf_node_length,
-	             depth_t num_depth_levels)
-	    : TreeSetOrMap(std::begin(init), std::end(init), leaf_node_length, num_depth_levels)
+	TreeMap(std::initializer_list<value_type> init,
+	        length_t                          leaf_node_length = length_t(0.1),
+	        depth_t num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
+	    : TreeMap(std::begin(init), std::end(init), leaf_node_length, num_depth_levels)
 	{
 	}
 
 	template <class Range>
-	TreeSetOrMap(Range const& range, length_t leaf_node_length, depth_t num_depth_levels)
-	    : TreeSetOrMap(std::begin(range), std::end(range), leaf_node_length,
-	                   num_depth_levels)
+	TreeMap(Range const& range, length_t leaf_node_length = length_t(0.1),
+	        depth_t num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
+	    : TreeMap(std::begin(range), std::end(range), leaf_node_length, num_depth_levels)
 	{
 	}
 
-	TreeSetOrMap(TreeSetOrMap const&) = default;
+	TreeMap(TreeMap const&) = default;
 
-	TreeSetOrMap(TreeSetOrMap&&) = default;
+	TreeMap(TreeMap&&) = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -217,7 +201,7 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	~TreeSetOrMap() {}
+	~TreeMap() = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -225,9 +209,9 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	TreeSetOrMap& operator=(TreeSetOrMap const&) = default;
+	TreeMap& operator=(TreeMap const&) = default;
 
-	TreeSetOrMap& operator=(TreeSetOrMap&&) = default;
+	TreeMap& operator=(TreeMap&&) = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -235,12 +219,19 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] iterator       begin() { return {this, Base::index()}; }
-	[[nodiscard]] const_iterator begin() const { return {this, Base::index()}; }
+	[[nodiscard]] iterator begin() { return iterator(this, Base::index()); }
+
+	[[nodiscard]] const_iterator begin() const
+	{
+		return const_iterator(const_cast<TreeMap*>(this), Base::index());
+	}
+
 	[[nodiscard]] const_iterator cbegin() const { return begin(); }
 
-	[[nodiscard]] iterator       end() { return {}; }
-	[[nodiscard]] const_iterator end() const { return {}; }
+	[[nodiscard]] iterator end() { return iterator(); }
+
+	[[nodiscard]] const_iterator end() const { return const_iterator(); }
+
 	[[nodiscard]] const_iterator cend() const { return end(); }
 
 	/**************************************************************************************
@@ -249,27 +240,27 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	template <class Predicate>
-	[[nodiscard]] query_iterator beginQuery(Predicate const& pred)
-	{
-		return {this, Base::index(), pred};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] query_iterator beginQuery(Predicate const& pred)
+	// {
+	// 	return {this, Base::index(), pred};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] const_query_iterator beginQuery(Predicate const& pred) const
-	{
-		return {this, Base::index(), pred};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] const_query_iterator beginQuery(Predicate const& pred) const
+	// {
+	// 	return {this, Base::index(), pred};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] const_query_iterator cbeginQuery(Predicate const& pred) const
-	{
-		return beginQuery(pred);
-	}
+	// template <class Predicate>
+	// [[nodiscard]] const_query_iterator cbeginQuery(Predicate const& pred) const
+	// {
+	// 	return beginQuery(pred);
+	// }
 
-	[[nodiscard]] query_iterator       endQuery() { return {}; }
-	[[nodiscard]] const_query_iterator endQuery() const { return {}; }
-	[[nodiscard]] const_query_iterator cendQuery() const { return endQuery(); }
+	// [[nodiscard]] query_iterator       endQuery() { return {}; }
+	// [[nodiscard]] const_query_iterator endQuery() const { return {}; }
+	// [[nodiscard]] const_query_iterator cendQuery() const { return endQuery(); }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -277,28 +268,28 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] nearest_iterator beginNearest(Point query, float epsilon = 0.0f)
-	{
-		return {this, Base::index(), query, epsilon};
-	}
+	// [[nodiscard]] nearest_iterator beginNearest(Point query, float epsilon = 0.0f)
+	// {
+	// 	return {this, Base::index(), query, epsilon};
+	// }
 
-	[[nodiscard]] const_nearest_iterator beginNearest(Point query,
-	                                                  float epsilon = 0.0f) const
-	{
-		return {this, Base::index(), query, epsilon};
-	}
+	// [[nodiscard]] const_nearest_iterator beginNearest(Point query,
+	//                                                   float epsilon = 0.0f) const
+	// {
+	// 	return {this, Base::index(), query, epsilon};
+	// }
 
-	[[nodiscard]] const_nearest_iterator cbeginNearest(Point query,
-	                                                   float epsilon = 0.0f) const
-	{
-		return beginNearest(query, epsilon);
-	}
+	// [[nodiscard]] const_nearest_iterator cbeginNearest(Point query,
+	//                                                    float epsilon = 0.0f) const
+	// {
+	// 	return beginNearest(query, epsilon);
+	// }
 
-	[[nodiscard]] nearest_iterator endNearest() { return {}; }
+	// [[nodiscard]] nearest_iterator endNearest() { return {}; }
 
-	[[nodiscard]] const_nearest_iterator endNearest() const { return {}; }
+	// [[nodiscard]] const_nearest_iterator endNearest() const { return {}; }
 
-	[[nodiscard]] const_nearest_iterator cendNearest() const { return endNearest(); }
+	// [[nodiscard]] const_nearest_iterator cendNearest() const { return endNearest(); }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -306,37 +297,39 @@ class TreeSetOrMap
 	|                                                                                     |
 	**************************************************************************************/
 
-	template <class Predicate>
-	[[nodiscard]] query_nearest_iterator beginQueryNearest(Point            query,
-	                                                       Predicate const& pred,
-	                                                       float            epsilon = 0.0f)
-	{
-		return {this, Base::index(), query, pred, epsilon};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] query_nearest_iterator beginQueryNearest(Point            query,
+	//                                                        Predicate const& pred,
+	//                                                        float            epsilon =
+	//                                                        0.0f)
+	// {
+	// 	return {this, Base::index(), query, pred, epsilon};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] const_query_nearest_iterator beginQueryNearest(Point            query,
-	                                                             Predicate const& pred,
-	                                                             float epsilon = 0.0f) const
-	{
-		return {this, Base::index(), query, pred, epsilon};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] const_query_nearest_iterator beginQueryNearest(Point            query,
+	//                                                              Predicate const& pred,
+	//                                                              float epsilon = 0.0f)
+	//                                                              const
+	// {
+	// 	return {this, Base::index(), query, pred, epsilon};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
-	    Point query, Predicate const& pred, float epsilon = 0.0f) const
-	{
-		return beginQueryNearest(query, pred, epsilon);
-	}
+	// template <class Predicate>
+	// [[nodiscard]] const_query_nearest_iterator cbeginQueryNearest(
+	//     Point query, Predicate const& pred, float epsilon = 0.0f) const
+	// {
+	// 	return beginQueryNearest(query, pred, epsilon);
+	// }
 
-	[[nodiscard]] query_nearest_iterator endQueryNearest() { return {}; }
+	// [[nodiscard]] query_nearest_iterator endQueryNearest() { return {}; }
 
-	[[nodiscard]] const_query_nearest_iterator endQueryNearest() const { return {}; }
+	// [[nodiscard]] const_query_nearest_iterator endQueryNearest() const { return {}; }
 
-	[[nodiscard]] const_query_nearest_iterator cendQueryNearest() const
-	{
-		return endQueryNearest();
-	}
+	// [[nodiscard]] const_query_nearest_iterator cendQueryNearest() const
+	// {
+	// 	return endQueryNearest();
+	// }
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -382,15 +375,16 @@ class TreeSetOrMap
 		size_ = 0;
 	}
 
+	template <class... Args>
+	void emplace(Point point, Args&&... args)
+	{
+		insert(value_type(point, T(std::forward<Args>(args)...)));
+	}
+
 	void insert(value_type const& value)
 	{
-		Point point;
-		if constexpr (IsMap) {
-			point = value.first;
-		} else {
-			point = value;
-		}
-		Code code = Base::code(point);
+		Point point = value.first;
+		Code  code  = Base::code(point);
 
 		std::array<Index, Base::maxNumDepthLevels()> trail;
 		int const                                    root_depth = Base::depth();
@@ -415,13 +409,8 @@ class TreeSetOrMap
 
 	void insert(value_type&& value)
 	{
-		Point point;
-		if constexpr (IsMap) {
-			point = value.first;
-		} else {
-			point = value;
-		}
-		Code code = Base::code(point);
+		Point point = value.first;
+		Code  code  = Base::code(point);
 
 		std::array<Index, Base::maxNumDepthLevels()> trail;
 		int const                                    root_depth = Base::depth();
@@ -447,17 +436,13 @@ class TreeSetOrMap
 	template <class InputIt>
 	void insert(InputIt first, InputIt last)
 	{
-		using non_const_value_type = std::conditional_t<IsMap, std::pair<Point, T>, Point>;
+		using non_const_value_type = std::pair<Point, T>;
 
 		std::vector<std::pair<Code, non_const_value_type>> code_and_value;
 		code_and_value.reserve(std::distance(first, last));
 
 		for (; last != first; ++first) {
-			if constexpr (IsMap) {
-				code_and_value.emplace_back(Base::code(first->first), *first);
-			} else {
-				code_and_value.emplace_back(Base::code(*first), *first);
-			}
+			code_and_value.emplace_back(Base::code(first->first), *first);
 		}
 
 		std::sort(std::begin(code_and_value), std::end(code_and_value),
@@ -490,12 +475,7 @@ class TreeSetOrMap
 			}
 			values(trail[0]).push_back(value);
 
-			Point point;
-			if constexpr (IsMap) {
-				point = value.first;
-			} else {
-				point = value;
-			}
+			Point point = value.first;
 
 			Point& min = boundsMin(trail[0]);
 			Point& max = boundsMax(trail[0]);
@@ -531,6 +511,60 @@ class TreeSetOrMap
 		insert(std::begin(range), std::end(range));
 	}
 
+	size_type erase(value_type const& value)
+	{
+		Code code = Base::code(value.first);
+
+		std::array<Index, Base::maxNumDepthLevels()> trail;
+		int const                                    root_depth = Base::depth();
+		trail[root_depth]                                       = Base::index();
+		for (auto depth = root_depth; 0 < depth; --depth) {
+			if (Base::isLeaf(trail[depth])) {
+				return 0;
+			}
+			trail[depth - 1] = Base::child(trail[depth], code.offset(depth - 1));
+		}
+
+		auto&     v           = values(trail[0]);
+		size_type num_removed = v.size();
+		v.remove_if([&value](auto const& x) {
+			return equal(x.first, value.first) && x.second == value.second;
+		});
+		num_removed -= v.size();
+
+		size_ -= num_removed;
+
+		Point min(std::numeric_limits<typename Point::scalar_t>::max());
+		Point max(std::numeric_limits<typename Point::scalar_t>::lowest());
+		for (auto const& [p, _] : v) {
+			for (int i{}; Point::size() > i; ++i) {
+				min[i] = UFO_MIN(min[i], p[i]);
+				max[i] = UFO_MAX(max[i], p[i]);
+			}
+		}
+		boundsMin(trail[0]) = min;
+		boundsMax(trail[0]) = max;
+
+		// Propagate
+		for (int i = 1; root_depth >= i; ++i) {
+			auto  block = trail[i - 1].pos;
+			Point min   = boundsMin(Index(block, 0));
+			Point max   = boundsMax(Index(block, 0));
+			for (int o = 1; Base::branchingFactor() > o; ++o) {
+				Point t_min = boundsMin(Index(block, o));
+				Point t_max = boundsMax(Index(block, o));
+				for (int j{}; Point::size() > j; ++j) {
+					min[j] = UFO_MIN(min[j], t_min[j]);
+					max[j] = UFO_MAX(max[j], t_max[j]);
+				}
+			}
+			boundsMin(trail[i]) = min;
+			boundsMax(trail[i]) = max;
+		}
+
+		return num_removed;
+	}
+
 	iterator erase(iterator pos)
 	{
 		auto it = pos.iterator();
@@ -547,53 +581,53 @@ class TreeSetOrMap
 		return {this, pos};
 	}
 
-	query_iterator erase(query_iterator pos)
-	{
-		auto it = pos.iterator();
-		++pos;
-		erase(it);
-		return pos;
-	}
+	// query_iterator erase(query_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return pos;
+	// }
 
-	query_iterator erase(const_query_iterator pos)
-	{
-		auto it = pos.iterator();
-		++pos;
-		erase(it);
-		return {this, pos};
-	}
+	// query_iterator erase(const_query_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return {this, pos};
+	// }
 
-	nearest_iterator erase(nearest_iterator pos)
-	{
-		auto it = pos.iterator();
-		++pos;
-		erase(it);
-		return pos;
-	}
+	// nearest_iterator erase(nearest_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return pos;
+	// }
 
-	nearest_iterator erase(const_nearest_iterator pos)
-	{
-		auto it = pos.iterator();
-		++pos;
-		erase(it);
-		return {this, pos};
-	}
+	// nearest_iterator erase(const_nearest_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return {this, pos};
+	// }
 
-	query_nearest_iterator erase(query_nearest_iterator pos)
-	{
-		auto it = pos.iterator();
-		++pos;
-		erase(it);
-		return pos;
-	}
+	// query_nearest_iterator erase(query_nearest_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return pos;
+	// }
 
-	query_nearest_iterator erase(const_query_nearest_iterator pos)
-	{
-		auto it = pos.iterator();
-		++pos;
-		erase(it);
-		return {this, pos};
-	}
+	// query_nearest_iterator erase(const_query_nearest_iterator pos)
+	// {
+	// 	auto it = pos.iterator();
+	// 	++pos;
+	// 	erase(it);
+	// 	return {this, pos};
+	// }
 
 	iterator erase(iterator first, iterator last)
 	{
@@ -615,93 +649,95 @@ class TreeSetOrMap
 		return {this, first};
 	}
 
-	query_iterator erase(query_iterator first, query_iterator last)
-	{
-		while (last != first) {
-			auto it = first.iterator();
-			++first;
-			erase(it);
-		}
-		return first;
-	}
+	// query_iterator erase(query_iterator first, query_iterator last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return first;
+	// }
 
-	query_iterator erase(const_query_iterator first, const_query_iterator last)
-	{
-		while (last != first) {
-			auto it = first.iterator();
-			++first;
-			erase(it);
-		}
-		return {this, first};
-	}
+	// query_iterator erase(const_query_iterator first, const_query_iterator last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return {this, first};
+	// }
 
-	query_iterator erase(Query query) { return erase(std::begin(query), std::end(query)); }
+	// query_iterator erase(Query query) { return erase(std::begin(query), std::end(query));
+	// }
 
-	query_iterator erase(ConstQuery query)
-	{
-		return erase(std::begin(query), std::end(query));
-	}
+	// query_iterator erase(ConstQuery query)
+	// {
+	// 	return erase(std::begin(query), std::end(query));
+	// }
 
-	nearest_iterator erase(nearest_iterator first, nearest_iterator last)
-	{
-		while (last != first) {
-			auto it = first.iterator();
-			++first;
-			erase(it);
-		}
-		return first;
-	}
+	// nearest_iterator erase(nearest_iterator first, nearest_iterator last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return first;
+	// }
 
-	nearest_iterator erase(const_nearest_iterator first, const_nearest_iterator last)
-	{
-		while (last != first) {
-			auto it = first.iterator();
-			++first;
-			erase(it);
-		}
-		return {this, first};
-	}
+	// nearest_iterator erase(const_nearest_iterator first, const_nearest_iterator last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return {this, first};
+	// }
 
-	nearest_iterator erase(Nearest nearest)
-	{
-		return erase(std::begin(nearest), std::end(nearest));
-	}
+	// nearest_iterator erase(Nearest nearest)
+	// {
+	// 	return erase(std::begin(nearest), std::end(nearest));
+	// }
 
-	nearest_iterator erase(ConstNearest nearest)
-	{
-		return erase(std::begin(nearest), std::end(nearest));
-	}
+	// nearest_iterator erase(ConstNearest nearest)
+	// {
+	// 	return erase(std::begin(nearest), std::end(nearest));
+	// }
 
-	query_nearest_iterator erase(query_nearest_iterator first, query_nearest_iterator last)
-	{
-		while (last != first) {
-			auto it = first.iterator();
-			++first;
-			erase(it);
-		}
-		return first;
-	}
+	// query_nearest_iterator erase(query_nearest_iterator first, query_nearest_iterator
+	// last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return first;
+	// }
 
-	query_nearest_iterator erase(const_query_nearest_iterator first,
-	                             const_query_nearest_iterator last)
-	{
-		while (last != first) {
-			auto it = first.iterator();
-			++first;
-			erase(it);
-		}
-		return {this, first};
-	}
+	// query_nearest_iterator erase(const_query_nearest_iterator first,
+	//                              const_query_nearest_iterator last)
+	// {
+	// 	while (last != first) {
+	// 		auto it = first.iterator();
+	// 		++first;
+	// 		erase(it);
+	// 	}
+	// 	return {this, first};
+	// }
 
-	query_nearest_iterator erase(QueryNearest query)
-	{
-		return erase(std::begin(query), std::end(query));
-	}
+	// query_nearest_iterator erase(QueryNearest query)
+	// {
+	// 	return erase(std::begin(query), std::end(query));
+	// }
 
-	query_nearest_iterator erase(ConstQueryNearest query)
-	{
-		return erase(std::begin(query), std::end(query));
-	}
+	// query_nearest_iterator erase(ConstQueryNearest query)
+	// {
+	// 	return erase(std::begin(query), std::end(query));
+	// }
 
 	size_type erase(Point point)
 	{
@@ -719,32 +755,17 @@ class TreeSetOrMap
 
 		auto&     v           = values(trail[0]);
 		size_type num_removed = v.size();
-		v.remove_if([point](auto const& x) {
-			if constexpr (IsMap) {
-				return equal(x.first, point);
-			} else {
-				return equal(x, point);
-			}
-		});
+		v.remove_if([point](auto const& x) { return equal(x.first, point); });
 		num_removed -= v.size();
 
 		size_ -= num_removed;
 
 		Point min(std::numeric_limits<typename Point::value_type>::max());
 		Point max(std::numeric_limits<typename Point::value_type>::lowest());
-		if constexpr (IsMap) {
-			for (auto const& [p, _] : v) {
-				for (int i{}; Point::size() > i; ++i) {
-					min[i] = UFO_MIN(min[i], p[i]);
-					max[i] = UFO_MAX(max[i], p[i]);
-				}
-			}
-		} else {
-			for (Point p : v) {
-				for (int i{}; Point::size() > i; ++i) {
-					min[i] = UFO_MIN(min[i], p[i]);
-					max[i] = UFO_MAX(max[i], p[i]);
-				}
+		for (auto const& [p, _] : v) {
+			for (int i{}; Point::size() > i; ++i) {
+				min[i] = UFO_MIN(min[i], p[i]);
+				max[i] = UFO_MAX(max[i], p[i]);
 			}
 		}
 		boundsMin(trail[0]) = min;
@@ -775,7 +796,7 @@ class TreeSetOrMap
 	 *
 	 * @param other	container to exchange the contents with
 	 */
-	void swap(TreeSetOrMap& other)
+	void swap(TreeMap& other)
 	{
 		std::swap(size_, other.size_);
 		std::swap(static_cast<Base&>(*this), static_cast<Base&>(other));
@@ -797,13 +818,8 @@ class TreeSetOrMap
 	[[nodiscard]] size_type count(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		return std::count_if(std::begin(v), std::end(v), [point](auto const& x) {
-			if constexpr (IsMap) {
-				return equal(x.first, point);
-			} else {
-				return equal(x, point);
-			}
-		});
+		return std::count_if(std::begin(v), std::end(v),
+		                     [point](auto const& x) { return equal(x.first, point); });
 	}
 
 	/*!
@@ -817,50 +833,45 @@ class TreeSetOrMap
 	{
 		auto const& v = values(Base::index(point));
 		return std::end(v) !=
-		       std::find_if(std::begin(v), std::end(v), [point](auto const& x) {
-			       if constexpr (IsMap) {
-				       return equal(x.first, point);
-			       } else {
-				       return equal(x, point);
-			       }
-		       });
+		       std::find_if(std::begin(v), std::end(v),
+		                    [point](auto const& x) { return equal(x.first, point); });
 	}
 
-	template <class Predicate>
-	[[nodiscard]] Query query(Predicate const& pred)
-	{
-		return {beginQuery(pred), endQuery()};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] Query query(Predicate const& pred)
+	// {
+	// 	return {beginQuery(pred), endQuery()};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] ConstQuery query(Predicate const& pred) const
-	{
-		return {beginQuery(pred), endQuery()};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] ConstQuery query(Predicate const& pred) const
+	// {
+	// 	return {beginQuery(pred), endQuery()};
+	// }
 
-	[[nodiscard]] Nearest nearest(Point query, float epsilon = 0.0f)
-	{
-		return {beginNearest(query, epsilon), endNearest()};
-	}
+	// [[nodiscard]] Nearest nearest(Point query, float epsilon = 0.0f)
+	// {
+	// 	return {beginNearest(query, epsilon), endNearest()};
+	// }
 
-	[[nodiscard]] ConstNearest nearest(Point query, float epsilon = 0.0f) const
-	{
-		return {beginNearest(query, epsilon), endNearest()};
-	}
+	// [[nodiscard]] ConstNearest nearest(Point query, float epsilon = 0.0f) const
+	// {
+	// 	return {beginNearest(query, epsilon), endNearest()};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] QueryNearest queryNearest(Point query, Predicate const& pred,
-	                                        float epsilon = 0.0f)
-	{
-		return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] QueryNearest queryNearest(Point query, Predicate const& pred,
+	//                                         float epsilon = 0.0f)
+	// {
+	// 	return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
+	// }
 
-	template <class Predicate>
-	[[nodiscard]] ConstQueryNearest queryNearest(Point query, Predicate const& pred,
-	                                             float epsilon = 0.0f) const
-	{
-		return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
-	}
+	// template <class Predicate>
+	// [[nodiscard]] ConstQueryNearest queryNearest(Point query, Predicate const& pred,
+	//                                              float epsilon = 0.0f) const
+	// {
+	// 	return {beginQueryNearest(query, pred, epsilon), endQueryNearest()};
+	// }
 
 	template <class Geometry>
 	[[nodiscard]] float nearestDistance(
@@ -875,11 +886,7 @@ class TreeSetOrMap
 		        [this, &query](Index node) {
 			        float dist_sq = std::numeric_limits<float>::infinity();
 			        for (auto e : values(node)) {
-				        if constexpr (IsMap) {
-					        dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
-				        } else {
-					        dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
-				        }
+				        dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
 			        }
 			        return dist_sq;
 		        },
@@ -902,11 +909,7 @@ class TreeSetOrMap
         [this, &query](Index node) {
           float dist_sq = std::numeric_limits<float>::infinity();
           for (auto e : values(node)) {
-            if constexpr (IsMap) {
-              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
-            } else {
-              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
-            }
+            dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
           }
           return dist_sq;
         },
@@ -916,11 +919,7 @@ class TreeSetOrMap
 		value_type* value = nullptr;
 
 		for (auto e : values(node)) {
-			if constexpr (IsMap) {
-				value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
-			} else {
-				value = distanceSquared(query, e) == dist_sq ? &e : nullptr;
-			}
+			value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
 		}
 
 		return {value, max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq)};
@@ -938,11 +937,7 @@ class TreeSetOrMap
         [this, &query](Index node) {
           float dist_sq = std::numeric_limits<float>::infinity();
           for (auto e : values(node)) {
-            if constexpr (IsMap) {
-              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
-            } else {
-              dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
-            }
+            dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e.first));
           }
           return dist_sq;
         },
@@ -952,51 +947,58 @@ class TreeSetOrMap
 		value_type const* value = nullptr;
 
 		for (auto e : values(node)) {
-			if constexpr (IsMap) {
-				value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
-			} else {
-				value = distanceSquared(query, e) == dist_sq ? &e : nullptr;
-			}
+			value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
 		}
 
 		return {value, max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq)};
 	}
 
- protected:
 	/**************************************************************************************
 	|                                                                                     |
-	|                                       Derived                                       |
+	|                                       Bounds                                        |
 	|                                                                                     |
 	**************************************************************************************/
 
 	/*!
-	 * @brief Returns a reference of the derived class.
+	 * @brief Returns the minimum `Bounds` able to contain all values stored
+	 * in the node and all of its children.
 	 *
-	 * @return A reference of the derived class.
+	 * @param node the node to check
+	 * @return The minimum `Bounds` able to contain all values stored in the node.
 	 */
-	[[nodiscard]] constexpr Derived& derived() { return *static_cast<Derived*>(this); }
-
-	/*!
-	 * @brief Returns a reference of the derived class.
-	 *
-	 * @return A reference of the derived class.
-	 */
-	[[nodiscard]] constexpr Derived const& derived() const
+	template <class NodeType,
+	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Bounds& bounds(NodeType node)
 	{
-		return *static_cast<Derived const*>(this);
+		TreeIndex n = Base::index(node);
+		return Base::treeBlock(n).bounds[n.offset];
 	}
 
+	/*!
+	 * @brief Returns the minimum `Bounds` able to contain all values stored
+	 * in the node and all of its children.
+	 *
+	 * @param node the node to check
+	 * @return The minimum `Bounds` able to contain all values stored in the node.
+	 */
+	template <class NodeType,
+	          std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] Bounds const& bounds(NodeType node) const
+	{
+		TreeIndex n = Base::index(node);
+		return Base::treeBlock(n).bounds[n.offset];
+	}
+
+ protected:
 	/**************************************************************************************
 	|                                                                                     |
 	|                               Functions 'Tree" expect                               |
 	|                                                                                     |
 	**************************************************************************************/
 
-	void onClear() {}
+	void onInitRoot() {}
 
-	void onCreateChildren(Index /* node */) {}
-
-	void onFillChildren(Index /* node */, pos_t /* children */) {}
+	void onInitChildren(Index /* node */, pos_t /* children */) {}
 
 	void onPruneChildren(Index /* node */, pos_t /* children */) {}
 
@@ -1025,12 +1027,7 @@ class TreeSetOrMap
 
 	void erase(const_raw_iterator it)
 	{
-		Code code;
-		if constexpr (IsMap) {
-			code = Base::code(it->first);
-		} else {
-			code = Base::code(*it);
-		}
+		Code code = Base::code(it->first);
 
 		std::array<Index, Base::maxNumDepthLevels()> trail;
 		int const                                    root_depth = Base::depth();
@@ -1045,19 +1042,10 @@ class TreeSetOrMap
 
 		Point min(std::numeric_limits<typename Point::value_type>::max());
 		Point max(std::numeric_limits<typename Point::value_type>::lowest());
-		if constexpr (IsMap) {
-			for (auto const& [p, _] : v) {
-				for (int i{}; Point::size() > i; ++i) {
-					min[i] = UFO_MIN(min[i], p[i]);
-					max[i] = UFO_MAX(max[i], p[i]);
-				}
-			}
-		} else {
-			for (Point p : v) {
-				for (int i{}; Point::size() > i; ++i) {
-					min[i] = UFO_MIN(min[i], p[i]);
-					max[i] = UFO_MAX(max[i], p[i]);
-				}
+		for (auto const& [p, _] : v) {
+			for (int i{}; Point::size() > i; ++i) {
+				min[i] = UFO_MIN(min[i], p[i]);
+				max[i] = UFO_MAX(max[i], p[i]);
 			}
 		}
 		boundsMin(trail[0]) = min;
@@ -1102,30 +1090,6 @@ class TreeSetOrMap
 	[[nodiscard]] auto const& values(Index node) const
 	{
 		return Base::treeBlock(node).values[node.offset];
-	}
-
-	/*!
-	 * @brief Returns the minimum `Bounds` able to contain all values stored
-	 * in the node and all of its children.
-	 *
-	 * @param node the node to check
-	 * @return The minimum `Bounds` able to contain all values stored in the node.
-	 */
-	[[nodiscard]] Bounds& bounds(Index node)
-	{
-		return Base::treeBlock(node).bounds[node.offset];
-	}
-
-	/*!
-	 * @brief Returns the minimum `Bounds` able to contain all values stored
-	 * in the node and all of its children.
-	 *
-	 * @param node the node to check
-	 * @return The minimum `Bounds` able to contain all values stored in the node.
-	 */
-	[[nodiscard]] Bounds const& bounds(Index node) const
-	{
-		return Base::treeBlock(node).bounds[node.offset];
 	}
 
 	/*!
@@ -1184,29 +1148,17 @@ class TreeSetOrMap
 	size_type size_{};
 };
 
-/**************************************************************************************
-|                                                                                     |
-|                                       Compare                                       |
-|                                                                                     |
-**************************************************************************************/
+template <class T>
+using BinaryTreeMap = TreeMap<1, T>;
 
-// template <class Derived, template <class, template <TreeType> class> class TTree,
-//           class T = void>
-// [[nodiscard]] constexpr Vec<1, bool> operator==(
-//     TreeSetOrMap<Derived, TTree, T> const& lhs,
-//     TreeSetOrMap<Derived, TTree, T> const& rhs) noexcept
-// {
-// 	// TODO: Implement
-// }
+template <class T>
+using QuadtreeMap = TreeMap<2, T>;
 
-// template <class Derived, template <class, template <TreeType> class> class TTree,
-//           class T = void>
-// [[nodiscard]] constexpr Vec<1, bool> operator!=(
-//     TreeSetOrMap<Derived, TTree, T> const& lhs,
-//     TreeSetOrMap<Derived, TTree, T> const& rhs) noexcept
-// {
-// 	return {lhs.x != rhs.x};
-// }
+template <class T>
+using OctreeMap = TreeMap<3, T>;
+
+template <class T>
+using HextreeMap = TreeMap<4, T>;
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_SET_OR_MAP_HPP
+#endif  // UFO_CONTAINER_TREE_MAP_HPP

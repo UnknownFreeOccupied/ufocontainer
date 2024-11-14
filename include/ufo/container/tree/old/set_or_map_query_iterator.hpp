@@ -118,27 +118,27 @@ class TreeSetOrMapQueryIteratorHelper
 	template <class Predicate>
 	void initPredicate(Predicate& predicate) const
 	{
-		pred::init(predicate, *t_);
+		pred::Filter<Predicate>::init(predicate, *t_);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(Predicate const&  predicate,
-	                               value_type const& value) const
+	[[nodiscard]] bool returnable(Predicate const& predicate, value_type const& value) const
 	{
-		return pred::valueCheck(predicate, value);
+		return pred::Filter<Predicate>::returnable(predicate, value);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(Predicate const& predicate, Index node) const
+	[[nodiscard]] bool returnable(Predicate const& predicate, Index node) const
 	{
 		return t_->isPureLeaf(node) && !t_->empty(node) &&
-		       pred::innerCheck(predicate, *t_, node);
+		       pred::Filter<Predicate>::traversable(predicate, *t_, node);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validInner(Predicate const& predicate, Index node) const
+	[[nodiscard]] bool traversable(Predicate const& predicate, Index node) const
 	{
-		return t_->isParent(node) && pred::innerCheck(predicate, *t_, node);
+		return t_->isParent(node) &&
+		       pred::Filter<Predicate>::traversable(predicate, *t_, node);
 	}
 
  protected:
@@ -204,12 +204,12 @@ class TreeSetOrMapQueryIterator final
 	{
 		Base::initPredicate(predicate_);
 
-		if (Base::validReturn(predicate_, node)) {
+		if (Base::returnable(predicate_, node)) {
 			auto& v = Base::values(node);
 			first_  = std::begin(v);
 			last_   = std::end(v);
-			return Base::validReturn(predicate_, *first_) ? first_ : next();
-		} else if (Base::validInner(predicate_, node)) {
+			return Base::returnable(predicate_, *first_) ? first_ : next();
+		} else if (Base::traversable(predicate_, node)) {
 			inner_nodes_[inner_index_++] = node;
 			return next();
 		}
@@ -220,7 +220,7 @@ class TreeSetOrMapQueryIterator final
 	{
 		if (first_ != last_) {
 			++first_;
-			for (; first_ != last_ && !Base::validReturn(predicate_, *first_); ++first_) {
+			for (; first_ != last_ && !Base::returnable(predicate_, *first_); ++first_) {
 			}
 			if (first_ != last_) {
 				return first_;
@@ -235,9 +235,9 @@ class TreeSetOrMapQueryIterator final
 			for (int i = TreeSetOrMap::branchingFactor() - 1; 0 <= i; --i) {
 				Index node(block, i);
 
-				if (Base::validReturn(predicate_, node)) {
+				if (Base::returnable(predicate_, node)) {
 					return_nodes_[return_index_++] = node;
-				} else if (Base::validInner(predicate_, node)) {
+				} else if (Base::traversable(predicate_, node)) {
 					inner_nodes_[inner_index_++] = node;
 				}
 			}
@@ -248,7 +248,7 @@ class TreeSetOrMapQueryIterator final
 			auto& v    = Base::values(node);
 			first_     = std::begin(v);
 			last_      = std::end(v);
-			return Base::validReturn(predicate_, *first_) ? first_ : next();
+			return Base::returnable(predicate_, *first_) ? first_ : next();
 		} else {
 			first_ = {};
 			last_  = {};

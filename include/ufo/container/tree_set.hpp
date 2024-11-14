@@ -39,15 +39,25 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_OCTREE_SET_HPP
-#define UFO_CONTAINER_OCTREE_SET_HPP
+#ifndef UFO_CONTAINER_TREE_SET_HPP
+#define UFO_CONTAINER_TREE_SET_HPP
 
 // UFO
-#include <ufo/container/tree_set.hpp>
+#include <ufo/container/tree/set/block.hpp>
+#include <ufo/container/tree/tree.hpp>
+
+// STL
+#include <cstddef>
+#include <type_traits>
 
 namespace ufo
 {
-using OctreeSet = TreeSet<3>;
+template <std::size_t Dim>
+class TreeSet
+    : protected Tree<TreeSet<Dim>, Dim, TreeSetBlock<Dim, std::size_t(1) << Dim>>
+{
+	// TODO: Implement
+};
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_OCTREE_SET_HPP
+#endif  // UFO_CONTAINER_TREE_SET_HPP

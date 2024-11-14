@@ -43,13 +43,12 @@
 #define UFO_CONTAINER_BINARY_TREE_MAP_HPP
 
 // UFO
-#include <ufo/container/binary_tree/binary_tree.hpp>
-#include <ufo/container/tree/tree_map.hpp>
+#include <ufo/container/tree_map.hpp>
 
 namespace ufo
 {
 template <class T>
-using BinaryTreeMap = TreeMap<BinaryTree, T>;
+using BinaryTreeMap = TreeMap<1, T>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_BINARY_TREE_MAP_HPP

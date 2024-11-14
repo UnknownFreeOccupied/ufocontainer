@@ -132,27 +132,28 @@ class TreeSetOrMapQueryNearestIteratorHelper
 	template <class Predicate>
 	void initPredicate(Predicate& predicate) const
 	{
-		pred::init(predicate, *t_);
+		pred::Filter<Predicate>::init(predicate, *t_);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(Predicate const&                         predicate,
-	                               typename TreeSetOrMap::value_type const& value) const
+	[[nodiscard]] bool returnable(Predicate const&                         predicate,
+	                              typename TreeSetOrMap::value_type const& value) const
 	{
-		return pred::valueCheck(predicate, value);
+		return pred::Filter<Predicate>::returnable(predicate, value);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validReturn(Predicate const& predicate, Index node) const
+	[[nodiscard]] bool returnable(Predicate const& predicate, Index node) const
 	{
 		return t_->isPureLeaf(node) && !t_->empty(node) &&
-		       pred::innerCheck(predicate, *t_, node);
+		       pred::Filter<Predicate>::traversable(predicate, *t_, node);
 	}
 
 	template <class Predicate>
-	[[nodiscard]] bool validInner(Predicate const& predicate, Index node) const
+	[[nodiscard]] bool traversable(Predicate const& predicate, Index node) const
 	{
-		return t_->isParent(node) && pred::innerCheck(predicate, *t_, node);
+		return t_->isParent(node) &&
+		       pred::Filter<Predicate>::traversable(predicate, *t_, node);
 	}
 
  protected:
@@ -225,10 +226,10 @@ class TreeSetOrMapQueryNearestIterator final
 	{
 		Base::initPredicate(predicate_);
 
-		if (Base::validReturn(predicate_, node)) {
+		if (Base::returnable(predicate_, node)) {
 			auto& v = Base::values(node);
 			for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
-				if (!Base::validReturn(predicate_, *it)) {
+				if (!Base::returnable(predicate_, *it)) {
 					continue;
 				}
 
@@ -257,7 +258,7 @@ class TreeSetOrMapQueryNearestIterator final
 				v.distance = std::sqrt(v.distance);
 				return v;
 			}
-		} else if (Base::validInner(predicate_, node)) {
+		} else if (Base::traversable(predicate_, node)) {
 			// Distance does not matter here
 			inner_queue_.emplace(node, 0.0f);
 			return next();
@@ -281,10 +282,10 @@ class TreeSetOrMapQueryNearestIterator final
 			for (int i = 0; TreeSetOrMap::branchingFactor() > i; ++i) {
 				Index node(block, i);
 
-				if (Base::validReturn(predicate_, node)) {
+				if (Base::returnable(predicate_, node)) {
 					auto& v = Base::values(node);
 					for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
-						if (!Base::validReturn(predicate_, *it)) {
+						if (!Base::returnable(predicate_, *it)) {
 							continue;
 						}
 
@@ -305,7 +306,7 @@ class TreeSetOrMapQueryNearestIterator final
 						}
 						value_queue_.emplace(node, it, dist_sq);
 					}
-				} else if (Base::validInner(predicate_, node)) {
+				} else if (Base::traversable(predicate_, node)) {
 					auto  min = Base::boundsMin(node);
 					auto  max = Base::boundsMax(node);
 					Point p;
