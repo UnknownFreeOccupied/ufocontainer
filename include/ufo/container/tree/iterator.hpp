@@ -160,20 +160,19 @@ class TreeIterator
 	[[nodiscard]] bool exists(TreeIndex node) const { return tree_->exists(node); }
 
 	template <class Predicate>
-	constexpr void initPredicate(Predicate& predicate) const
+	constexpr void initPredicate(Predicate& pred) const
 	{
-		pred::Filter<Predicate>::init(predicate, *tree_);
+		pred::Filter<Predicate>::init(pred, *tree_);
 	}
 
 	template <bool OnlyExists, class TNode, class Predicate>
-	[[nodiscard]] bool traversable(TNode const& node, Predicate const& predicate) const
+	[[nodiscard]] bool traversable(TNode const& node, Predicate const& pred) const
 	{
 		if constexpr (OnlyExists) {
-			return isParent(node) &&
-			       pred::Filter<Predicate>::traversable(predicate, *tree_, node);
+			return isParent(node) && pred::Filter<Predicate>::traversable(pred, *tree_, node);
 		} else {
 			return !isPureLeaf(node) &&
-			       pred::Filter<Predicate>::traversable(predicate, *tree_, node);
+			       pred::Filter<Predicate>::traversable(pred, *tree_, node);
 		}
 	}
 
@@ -356,7 +355,7 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 
  private:
 	// Predicate that nodes has to fulfill
-	Predicate const predicate_{};
+	Predicate predicate_{};
 
 	// To be processed inner nodes
 	std::array<Node, Tree::branchingFactor() * Tree::maxNumDepthLevels()> inner_nodes_;
@@ -513,11 +512,11 @@ class TreeNearestIterator final : public TreeIterator<Tree, Node>
 	using Queue =
 	    std::priority_queue<value_type, std::vector<value_type>, std::greater<value_type>>;
 
-	Predicate const predicate_{};   // Predicate that nodes has to fulfill
-	Geometry const  geometry_;      // Geometry to find nearest to
-	double const    epsilon_{};     // Epsilon for approximate search
-	Queue           inner_nodes_;   // To be processed inner nodes
-	Queue           return_nodes_;  // To be processed return nodes
+	Predicate      predicate_{};   // Predicate that nodes has to fulfill
+	Geometry const geometry_;      // Geometry to find nearest to
+	double const   epsilon_{};     // Epsilon for approximate search
+	Queue          inner_nodes_;   // To be processed inner nodes
+	Queue          return_nodes_;  // To be processed return nodes
 };
 
 // template <class Tree, typename T>
