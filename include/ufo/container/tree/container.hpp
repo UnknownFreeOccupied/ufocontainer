@@ -490,12 +490,35 @@ class TreeContainer
 		free_blocks_.clear();
 	}
 
+	void reserve(pos_t cap)
+	{
+		// FIXME: Can be improved
+		pos_t first = bucketPos(size_);
+		pos_t last  = bucketPos(cap);
+		for (; last >= first; ++first) {
+			if (nullptr == buckets_[first]) {
+				// Create bucket
+				buckets_[first] = new value_type();
+				break;
+			}
+		}
+
+		// We know that the rest of the buckets do not exist yet
+
+		for (; last >= first; ++first) {
+			// Create bucket
+			buckets_[first] = new value_type();
+		}
+	}
+
 	void shrinkToFit()
 	{
 		// TODO: Implement
 	}
 
 	[[nodiscard]] bool empty() const { return 0 == size_; }
+
+	[[nodiscard]] pos_t size() const { return size_; }
 
 	template <class T>
 	[[nodiscard]] constexpr size_type serializedBucketSize() const
