@@ -10,28 +10,28 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(1stparty)
 
-add_library(ufocontainer INTERFACE)
-add_library(UFO::Container ALIAS ufocontainer)
+add_library(Container INTERFACE)
+add_library(UFO::Container ALIAS Container)
 
-set_target_properties(ufocontainer PROPERTIES
+set_target_properties(Container PROPERTIES
 	VERSION ${PROJECT_VERSION}
 	SOVERSION ${PROJECT_VERSION_MAJOR}
 	CXX_STANDARD 17
 	CXX_EXTENSIONS OFF
 )
 
-target_link_libraries(ufocontainer INTERFACE UFO::Geometry UFO::Morton UFO::Utility)
+target_link_libraries(Container INTERFACE UFO::Geometry UFO::Morton UFO::Utility)
 
-target_compile_options(ufocontainer INTERFACE
+target_compile_options(Container INTERFACE
 	-fPIC
 )
 
-target_include_directories(ufocontainer INTERFACE
+target_include_directories(Container INTERFACE
 	$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
 	$<INSTALL_INTERFACE:include>
 )
 
-target_compile_features(ufocontainer INTERFACE cxx_std_17)
+target_compile_features(Container INTERFACE cxx_std_17)
 
 include(GNUInstallDirs)
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/
@@ -42,7 +42,7 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
   add_subdirectory(tests)
 endif()
 
-install(TARGETS ufocontainer
+install(TARGETS Container
 	EXPORT ufocontainerTargets
 	LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
 	ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
