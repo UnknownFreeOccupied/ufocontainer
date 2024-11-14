@@ -504,7 +504,7 @@ struct is_pred : std::false_type {
 template <class Pred, class Tree, class Node>
 struct is_pred<
     Pred, Tree, Node,
-    std::void_t<decltype(Filter<Pred>::init(std::declval<Pred>(), std::declval<Tree>())),
+    std::void_t<decltype(Filter<Pred>::init(std::declval<Pred&>(), std::declval<Tree>())),
                 decltype(Filter<Pred>::returnable(
                     std::declval<Pred>(), std::declval<Tree>(), std::declval<Node>())),
                 decltype(Filter<Pred>::traversable(
