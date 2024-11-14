@@ -106,16 +106,31 @@ struct Spatial {
 };
 
 template <class Geometry>
-using Contains = Spatial<Geometry, SpatialTag::CONTAINS, false>;
+[[nodiscard]] Spatial<Geometry, SpatialTag::CONTAINS, false> Contains(
+    Geometry geometry = {})
+{
+	return Spatial<Geometry, SpatialTag::CONTAINS, false>(geometry);
+}
 
 template <class Geometry>
-using Disjoint = Spatial<Geometry, SpatialTag::DISJOINT, false>;
+[[nodiscard]] Spatial<Geometry, SpatialTag::DISJOINT, false> Disjoint(
+    Geometry geometry = {})
+{
+	return Spatial<Geometry, SpatialTag::DISJOINT, false>(geometry);
+}
 
 template <class Geometry>
-using Intersects = Spatial<Geometry, SpatialTag::INTERSECTS, false>;
+[[nodiscard]] Spatial<Geometry, SpatialTag::INTERSECTS, false> Intersects(
+    Geometry geometry = {})
+{
+	return Spatial<Geometry, SpatialTag::INTERSECTS, false>(geometry);
+}
 
 template <class Geometry>
-using Inside = Spatial<Geometry, SpatialTag::INSIDE, false>;
+[[nodiscard]] Spatial<Geometry, SpatialTag::INSIDE, false> Inside(Geometry geometry = {})
+{
+	return Spatial<Geometry, SpatialTag::INSIDE, false>(geometry);
+}
 
 //
 // Spatial negate
