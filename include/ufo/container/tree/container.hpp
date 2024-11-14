@@ -43,619 +43,490 @@
 #define UFO_CONTAINER_TREE_CONTAINER_HPP
 
 // UFO
+#include <ufo/container/tree/code.hpp>
+#include <ufo/container/tree/container_bucket_iterator.hpp>
 #include <ufo/container/tree/container_iterator.hpp>
+#include <ufo/container/tree/index.hpp>
 #include <ufo/utility/execution.hpp>
+#include <ufo/utility/iterator_wrapper.hpp>
+#include <ufo/utility/spinlock.hpp>
 
 // STL
 #include <atomic>
 #include <cstddef>
 #include <cstring>
-#include <iterator>
+#include <deque>
 #include <memory>
-#include <stdexcept>
-#include <type_traits>
+#include <mutex>
 
 namespace ufo
 {
-// NOTE: Can use placement new to seperate allocation of memory and construction of
-// objects, making it possible to release the requirement of T being default constructable
-
-template <class T, std::size_t NumBuckets = std::size_t(1) << (32 - 20),
-          std::size_t NumBlocksPerBucket = std::size_t(1) << 20>
+template <class... Ts>
 class TreeContainer
 {
  private:
-	using Bucket = std::unique_ptr<T[]>;
+	static constexpr std::size_t const NUM                   = 14;
+	static constexpr std::size_t const NUM_BUCKETS           = std::size_t(1) << (32 - NUM);
+	static constexpr std::size_t const NUM_BLOCKS_PER_BUCKET = std::size_t(1) << NUM;
 
  public:
-	// types
-	using value_type      = T;
-	using pointer         = value_type*;
-	using const_pointer   = value_type const*;
-	using reference       = value_type&;
-	using const_reference = value_type const&;
-	using size_type       = std::size_t;
-	using difference_type = std::ptrdiff_t;
+	//
+	// Tags
+	//
 
-	class const_iterator
-	{
-		friend TreeContainer;
+	template <class T>
+	using Data = std::array<T, NUM_BLOCKS_PER_BUCKET>;
 
-	 public:
-		// Tags
-		using iterator_category = std::random_access_iterator_tag;
-		using difference_type   = std::ptrdiff_t;
-		using value_type        = typename TreeContainer::value_type;
-		using pointer           = typename TreeContainer::pointer;
-		using const_pointer     = typename TreeContainer::const_pointer;
-		using reference         = typename TreeContainer::reference;
-		using const_reference   = typename TreeContainer::const_reference;
-
-		const_iterator() = default;
-
-		const_iterator& operator++()
-		{
-			++idx_;
-			return *this;
-		}
-
-		const_iterator& operator--()
-		{
-			--idx_;
-			return *this;
-		}
-
-		const_iterator operator++(int)
-		{
-			const_iterator tmp(*this);
-			++idx_;
-			return tmp;
-		}
-
-		const_iterator operator--(int)
-		{
-			const_iterator tmp(*this);
-			--idx_;
-			return tmp;
-		}
-
-		const_iterator operator+(difference_type n)
-		{
-			const_iterator tmp(*this);
-			tmp.idx_ += n;
-			return tmp;
-		}
-
-		const_iterator operator-(difference_type n)
-		{
-			const_iterator tmp(*this);
-			tmp.idx_ -= n;
-			return tmp;
-		}
-
-		const_iterator& operator+=(difference_type n)
-		{
-			idx_ += n;
-			return *this;
-		}
-
-		const_iterator& operator-=(difference_type n)
-		{
-			idx_ -= n;
-			return *this;
-		}
-
-		[[nodiscard]] const_reference operator[](difference_type pos) const
-		{
-			return (*data_)[idx_ + pos];
-		}
-
-		[[nodiscard]] const_reference operator*() const { return operator[](0); }
-
-		[[nodiscard]] const_pointer operator->() const { return &(operator[](0)); }
-
-		difference_type operator-(const_iterator const& rhs) const { return idx_ - rhs.idx_; }
-
-		[[nodiscard]] bool operator==(const_iterator other) const
-		{
-			return idx_ == other.idx_ && data_ == other.data_;
-		}
-
-		[[nodiscard]] bool operator!=(const_iterator other) const
-		{
-			return !(*this == other);
-		}
-
-		[[nodiscard]] bool operator<(const_iterator other) const { return idx_ < other.idx_; }
-
-		[[nodiscard]] bool operator<=(const_iterator other) const
-		{
-			return idx_ <= other.idx_;
-		}
-
-		[[nodiscard]] bool operator>(const_iterator other) const { return idx_ > other.idx_; }
-
-		[[nodiscard]] bool operator>=(const_iterator other) const
-		{
-			return idx_ >= other.idx_;
-		}
-
-	 protected:
-		const_iterator(TreeContainer* data, size_type idx) : data_(data), idx_(idx) {}
-
-	 protected:
-		TreeContainer* data_{};
-		size_type      idx_{};
+	template <class T>
+	struct alignas(8) S {
+		Data<T> data;
+		alignas(8) bool modified = false;
 	};
 
-	class iterator : public const_iterator
+	using value_type = std::tuple<S<Ts>...>;
+	// TODO: Need to add destructor?
+	using Bucket = std::atomic<value_type*>;
+
+	template <class T>
+	using bucket_type = S<T>;
+	using size_type   = std::size_t;
+	using pos_t       = TreeIndex::pos_t;
+
+	template <class T>
+	using iterator = TreeContainterIterator<T, false, Ts...>;
+	template <class T>
+	using const_iterator = TreeContainterIterator<T, true, Ts...>;
+	template <class T>
+	using reverse_iterator = std::reverse_iterator<iterator<T>>;
+	template <class T>
+	using const_reverse_iterator = std::reverse_iterator<const_iterator<T>>;
+
+	template <class T>
+	using bucket_iterator = TreeContainterBucketIterator<T, false, Ts...>;
+	template <class T>
+	using const_bucket_iterator = TreeContainterBucketIterator<T, true, Ts...>;
+	template <class T>
+	using reverse_bucket_iterator = std::reverse_iterator<bucket_iterator<T>>;
+	template <class T>
+	using const_reverse_bucket_iterator = std::reverse_iterator<const_bucket_iterator<T>>;
+
+ public:
+	template <class T>
+	[[nodiscard]] iterator<T> begin()
 	{
-		friend TreeContainer;
-
-	 public:
-		iterator() = default;
-
-		iterator& operator++()
-		{
-			++this->idx_;
-			return *this;
-		}
-
-		iterator& operator--()
-		{
-			--this->idx_;
-			return *this;
-		}
-
-		iterator operator++(int)
-		{
-			iterator tmp(*this);
-			++this->idx_;
-			return tmp;
-		}
-
-		iterator operator--(int)
-		{
-			iterator tmp(*this);
-			--this->idx_;
-			return tmp;
-		}
-
-		iterator operator+(difference_type n)
-		{
-			iterator tmp(*this);
-			tmp.idx_ += n;
-			return tmp;
-		}
-
-		iterator operator-(difference_type n)
-		{
-			iterator tmp(*this);
-			tmp.idx_ -= n;
-			return tmp;
-		}
-
-		iterator& operator+=(difference_type n)
-		{
-			this->idx_ += n;
-			return *this;
-		}
-
-		iterator& operator-=(difference_type n)
-		{
-			this->idx_ -= n;
-			return *this;
-		}
-
-		[[nodiscard]] reference operator[](difference_type pos)
-		{
-			return (*this->data_)[this->idx_ + pos];
-		}
-
-		[[nodiscard]] reference operator*() { return operator[](0); }
-
-		[[nodiscard]] pointer operator->() { return &(operator[](0)); }
-
-		difference_type operator-(iterator const& rhs) const { return this->idx_ - rhs.idx_; }
-
-		[[nodiscard]] bool operator==(iterator other) const
-		{
-			return this->idx_ == other.idx_ && this->data_ == other.data_;
-		}
-
-		[[nodiscard]] bool operator!=(iterator other) const { return !(*this == other); }
-
-		[[nodiscard]] bool operator<(iterator other) const { return this->idx_ < other.idx_; }
-
-		[[nodiscard]] bool operator<=(iterator other) const
-		{
-			return this->idx_ <= other.idx_;
-		}
-
-		[[nodiscard]] bool operator>(iterator other) const { return this->idx_ > other.idx_; }
-
-		[[nodiscard]] bool operator>=(iterator other) const
-		{
-			return this->idx_ >= other.idx_;
-		}
-
-	 protected:
-		iterator(TreeContainer* data, size_type idx) : const_iterator(data, idx) {}
-	};
-
-	using reverse_iterator       = std::reverse_iterator<iterator>;
-	using const_reverse_iterator = std::reverse_iterator<const_iterator>;
-
-	// construct/copy/destroy
-	// constexpr vector() noexcept(noexcept(Allocator())) : vector(Allocator()) {}
-	// constexpr explicit vector(const Allocator&) noexcept;
-	// constexpr explicit vector(size_type n, const Allocator& = Allocator());
-	// constexpr vector(size_type n, const T& value, const Allocator& = Allocator());
-	// template <class InputIt>
-	// constexpr vector(InputIt first, InputIt last, const Allocator& = Allocator());
-	// template <__container_compatible_range<T> R>
-	// constexpr vector(from_range_t, R&& rg, const Allocator& = Allocator());
-	// constexpr vector(const vector& x);
-	// constexpr vector(vector&&) noexcept;
-	// constexpr vector(const vector&, const type_identity_t<Allocator>&);
-	// constexpr vector(vector&&, const type_identity_t<Allocator>&);
-	// constexpr vector& operator=(const vector& x);
-	// constexpr vector& operator=(vector&& x) noexcept(
-	//     allocator_traits<Allocator>::propagate_on_container_move_assignment::value ||
-	//     allocator_traits<Allocator>::is_always_equal::value);
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                    Constructors                                     |
-	|                                                                                     |
-	**************************************************************************************/
-
-	TreeContainer() = default;
-
-	TreeContainer(TreeContainer const& other) : size_(other.size_)
-	{
-		for (std::size_t i{}; other.num_buckets() > i; ++i) {
-			createBucket(buckets_[i]);
-			std::copy(other.buckets_[i].get(), other.buckets_[i].get() + NumBlocksPerBucket,
-			          buckets_[i].get());
-		}
+		return iterator<T>(this, 0);
 	}
 
-	TreeContainer(TreeContainer&&) = default;
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                 Assignment operator                                 |
-	|                                                                                     |
-	**************************************************************************************/
-
-	constexpr TreeContainer& operator=(TreeContainer const& rhs)
+	template <class T>
+	[[nodiscard]] const_iterator<T> begin() const
 	{
-		size_ = rhs.size_;
-		for (std::size_t i{}; rhs.num_buckets() > i; ++i) {
-			createBucket(buckets_[i]);
-			std::copy(rhs.buckets_[i].get(), rhs.buckets_[i].get() + NumBlocksPerBucket,
-			          buckets_[i].get());
+		return const_iterator<T>(const_cast<TreeContainer*>(this), 0);
+	}
+
+	template <class T>
+	[[nodiscard]] const_iterator<T> cbegin() const
+	{
+		return begin<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] iterator<T> end()
+	{
+		return iterator<T>(this, size_);
+	}
+
+	template <class T>
+	[[nodiscard]] const_iterator<T> end() const
+	{
+		return const_iterator<T>(const_cast<TreeContainer*>(this), size_);
+	}
+
+	template <class T>
+	[[nodiscard]] const_iterator<T> cend() const
+	{
+		return end<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] reverse_iterator<T> rbegin()
+	{
+		return std::make_reverse_iterator(end<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_iterator<T> rbegin() const
+	{
+		return std::make_reverse_iterator(end<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_iterator<T> crbegin() const
+	{
+		return rbegin<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] reverse_iterator<T> rend()
+	{
+		return std::make_reverse_iterator(begin<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_iterator<T> rend() const
+	{
+		return std::make_reverse_iterator(begin<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_iterator<T> crend() const
+	{
+		return rend<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<iterator<T>> iter()
+	{
+		return IteratorWrapper<iterator<T>>(begin<T>(), end<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<const_iterator<T>> iter() const
+	{
+		return IteratorWrapper<const_iterator<T>>(begin<T>(), end<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<reverse_iterator<T>> riter()
+	{
+		return IteratorWrapper<reverse_iterator<T>>(rbegin<T>(), rend<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<const_reverse_iterator<T>> riter() const
+	{
+		return IteratorWrapper<const_reverse_iterator<T>>(rbegin<T>(), rend<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] bucket_iterator<T> beginBucket()
+	{
+		return bucket_iterator<T>(this, 0);
+	}
+
+	template <class T>
+	[[nodiscard]] const_bucket_iterator<T> beginBucket() const
+	{
+		return const_bucket_iterator<T>(const_cast<TreeContainer*>(this), 0);
+	}
+
+	template <class T>
+	[[nodiscard]] const_bucket_iterator<T> cbeginBucket() const
+	{
+		return beginBucket<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] bucket_iterator<T> endBucket()
+	{
+		return bucket_iterator<T>(this, numBuckets());
+	}
+
+	template <class T>
+	[[nodiscard]] const_bucket_iterator<T> endBucket() const
+	{
+		return const_bucket_iterator<T>(const_cast<TreeContainer*>(this), numBuckets());
+	}
+
+	template <class T>
+	[[nodiscard]] const_bucket_iterator<T> cendBucket() const
+	{
+		return endBucket<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] reverse_bucket_iterator<T> rbeginBucket()
+	{
+		return std::make_reverse_iterator(endBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_bucket_iterator<T> rbeginBucket() const
+	{
+		return std::make_reverse_iterator(endBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_bucket_iterator<T> crbeginBucket() const
+	{
+		return rbeginBucket<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] reverse_bucket_iterator<T> rendBucket()
+	{
+		return std::make_reverse_iterator(beginBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_bucket_iterator<T> rendBucket() const
+	{
+		return std::make_reverse_iterator(beginBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] const_reverse_bucket_iterator<T> crendBucket() const
+	{
+		return rendBucket<T>();
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<bucket_iterator<T>> iterBucket()
+	{
+		return IteratorWrapper<bucket_iterator<T>>(beginBucket<T>(), endBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<const_bucket_iterator<T>> iterBucket() const
+	{
+		return IteratorWrapper<const_bucket_iterator<T>>(beginBucket<T>(), endBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<reverse_bucket_iterator<T>> riterBucket()
+	{
+		return IteratorWrapper<reverse_bucket_iterator<T>>(rbeginBucket<T>(),
+		                                                   rendBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] IteratorWrapper<const_reverse_bucket_iterator<T>> riterBucket() const
+	{
+		return IteratorWrapper<const_reverse_bucket_iterator<T>>(rbeginBucket<T>(),
+		                                                         rendBucket<T>());
+	}
+
+	template <class T>
+	[[nodiscard]] S<T>& bucket(std::size_t idx)
+	{
+		return std::get<S<T>>(bucket(idx));
+	}
+
+	template <class T>
+	[[nodiscard]] S<T> const& bucket(std::size_t idx) const
+	{
+		return std::get<S<T>>(bucket(idx));
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] auto& bucket(std::size_t idx)
+	{
+		return std::get<I>(bucket(idx));
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] auto const& bucket(std::size_t idx) const
+	{
+		return std::get<I>(bucket(idx));
+	}
+
+	template <class T>
+	[[nodiscard]] bool& bucketModified(std::size_t idx)
+	{
+		return bucket<T>(idx).modified;
+	}
+
+	template <class T>
+	[[nodiscard]] bool bucketModified(std::size_t idx) const
+	{
+		return bucket<T>(idx).modified;
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] bool& bucketModified(std::size_t idx)
+	{
+		return bucket<I>(idx).modified;
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] bool bucketModified(std::size_t idx) const
+	{
+		return bucket<I>(idx).modified;
+	}
+
+	template <class T>
+	[[nodiscard]] Data<T>& bucketData(std::size_t idx)
+	{
+		auto& x    = bucket<T>(idx);
+		x.modified = true;
+		return x.data;
+	}
+
+	template <class T>
+	[[nodiscard]] Data<T> const& bucketData(std::size_t idx) const
+	{
+		return bucket<T>(idx).data;
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] auto& bucketData(std::size_t idx)
+	{
+		auto& x    = bucket<I>(idx);
+		x.modified = true;
+		return x.data;
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] auto const& bucketData(std::size_t idx) const
+	{
+		return bucket<I>(idx).data;
+	}
+
+	template <class T>
+	[[nodiscard]] T& get(pos_t pos)
+	{
+		return bucketData<T>(pos)[blockPos(pos)];
+	}
+
+	template <class T>
+	[[nodiscard]] T const& get(pos_t pos) const
+	{
+		return bucketData<T>(pos)[blockPos(pos)];
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] auto& get(pos_t pos)
+	{
+		return bucketData<I>(pos)[blockPos(pos)];
+	}
+
+	template <std::size_t I>
+	[[nodiscard]] auto const& get(pos_t pos) const
+	{
+		return bucketData<I>(pos)[blockPos(pos)];
+	}
+
+	[[nodiscard]] constexpr pos_t numBuckets() const noexcept
+	{
+		return empty() ? 0 : bucketPos(size_ - 1) + 1;
+	}
+
+	[[nodiscard]] constexpr pos_t numBlocksPerBucket() const noexcept
+	{
+		return NUM_BLOCKS_PER_BUCKET;
+	}
+
+	[[nodiscard]] constexpr pos_t bucketPos(pos_t pos) const noexcept
+	{
+		return pos / NUM_BLOCKS_PER_BUCKET;
+	}
+
+	[[nodiscard]] constexpr pos_t blockPos(pos_t pos) const noexcept
+	{
+		return pos % NUM_BLOCKS_PER_BUCKET;
+	}
+
+	[[nodiscard]] pos_t create()
+	{
+		if (!free_blocks_.empty()) {
+			pos_t idx = free_blocks_.front();
+			free_blocks_.pop_front();
+			return idx;
 		}
-		return *this;
+
+		pos_t idx = size_++;
+
+		pos_t bucket = bucketPos(idx);
+
+		if (nullptr == buckets_[bucket]) {
+			// Create bucket
+			buckets_[bucket] = new value_type();
+		}
+
+		return idx;
 	}
 
-	constexpr TreeContainer& operator=(TreeContainer&&) = default;
-
-	// iterators
-	iterator begin() noexcept { return iterator(this, 0); }
-
-	const_iterator begin() const noexcept
+	[[nodiscard]] pos_t createThreadSafe()
 	{
-		return const_iterator(const_cast<TreeContainer*>(this), 0);
-	}
-
-	iterator end() noexcept { return iterator(this, size_); }
-
-	const_iterator end() const noexcept
-	{
-		return const_iterator(const_cast<TreeContainer*>(this), size_);
-	}
-
-	reverse_iterator rbegin() noexcept { return std::make_reverse_iterator(end()); }
-
-	const_reverse_iterator rbegin() const noexcept
-	{
-		return std::make_reverse_iterator(end());
-	}
-
-	reverse_iterator rend() noexcept { return std::make_reverse_iterator(begin()); }
-
-	const_reverse_iterator rend() const noexcept
-	{
-		return std::make_reverse_iterator(begin());
-	}
-
-	const_iterator cbegin() const noexcept { return begin(); }
-
-	const_iterator cend() const noexcept { return end(); }
-
-	const_reverse_iterator crbegin() const noexcept { return rbegin(); }
-
-	const_reverse_iterator crend() const noexcept { return rend(); }
-
-	// capacity
-	[[nodiscard]] constexpr bool empty() const noexcept { return 0 == size_; }
-
-	[[nodiscard]] constexpr size_type size() const noexcept { return size_; }
-
-	[[nodiscard]] size_type cap() const noexcept
-	{
-		return cap_.load(std::memory_order_acquire);
-	}
-
-	[[nodiscard]] constexpr size_type max_size() const noexcept
-	{
-		return NumBuckets * NumBlocksPerBucket;
-	}
-
-	// TODO: Make private
-	void setSize(size_type size) { size_ = size; }
-
-	void reserve(size_type cap)
-	{
-		size_type last = bucket_pos(cap - 1);
-		for (size_type i{}; last >= i; ++i) {
-			auto& bucket = buckets_[i];
-			if (nullptr == bucket) {
-				bucket = std::make_unique<T[]>(NumBlocksPerBucket);
+		if (!free_blocks_.empty()) {
+			if (std::unique_lock lock{free_blocks_mutex_, std::try_to_lock};
+			    lock && !free_blocks_.empty()) {
+				pos_t idx = free_blocks_.front();
+				free_blocks_.pop_front();
+				return idx;
 			}
 		}
-		cap_ = (last + 1) * NumBlocksPerBucket;
-	}
 
-	constexpr void resize(size_type sz)
-	{
-		if (0 == sz) {
-			clear();
-			return;
-		}
+		pos_t idx = size_++;
 
-		// TODO: Implement correctly
-		// if (size_ > sz) {
-		// 	size_type cur_last = bucket_pos(size_ - 1);
-		// 	size_type new_last = bucket_pos(sz - 1);
-		// 	for (size_type i = new_last + 1; cur_last >= i; ++i) {
-		// 		buckets_.reset();
-		// 	}
-		// 	auto b    = buckets_[new_last];
-		// 	auto last = cur_last == new_last ? block_pos(size_) : NumBlocksPerBucket;
-		// 	for (size_type i = block_pos(sz); last != i; ++i) {
-		// 		b[i] = T();
-		// 	}
-		// } else if (size_ < sz) {
-		// 	// TODO: Optimize
-		// 	while (size_ != sz) {
-		// 		emplace_back();
-		// 	}
-		// }
-		// size_ = sz;
-	}
+		pos_t bucket = bucketPos(idx);
+		pos_t block  = blockPos(idx);
 
-	constexpr void resize(size_type sz, T const& c)
-	{
-		if (0 == sz) {
-			clear();
-			return;
-		}
-
-		// TODO: Implement correctly
-		if (size_ > sz) {
-			size_type cur_last = bucket_pos(size_ - 1);
-			size_type new_last = bucket_pos(sz - 1);
-			for (size_type i = new_last + 1; cur_last >= i; ++i) {
-				buckets_.reset();
+		if (0 == block) {
+			// This will create bucket if it does not exist
+			if (nullptr == buckets_[bucket]) {
+				// Create bucket
+				buckets_[bucket] = new value_type();
 			}
-			auto b    = buckets_[new_last];
-			auto last = cur_last == new_last ? block_pos(size_) : NumBlocksPerBucket;
-			for (size_type i = block_pos(sz); last != i; ++i) {
-				b[i] = T();
-			}
-		} else if (size_ < sz) {
-			// TODO: Optimize
-			while (size_ != sz) {
-				push_back(c);
+		} else {
+			// This will wait for someone else to create the bucket if it does not exist
+			while (nullptr == buckets_[bucket]) {
+				// Wait
 			}
 		}
-		size_ = sz;
+
+		return idx;
 	}
 
-	// element access
-	reference operator[](size_type n) { return block(n); }
-
-	const_reference operator[](size_type n) const { return block(n); }
-
-	const_reference at(size_type n) const
+	void eraseBlock(pos_t block)
 	{
-		if (size() <= n) {
-			// TODO: Add error message
-			throw std::out_of_range("Out of range");
-		}
-		return block(n);
-	}
-
-	reference at(size_type n)
-	{
-		if (size() <= n) {
-			// TODO: Add error message
-			throw std::out_of_range("Out of range");
-		}
-		return block(n);
-	}
-
-	reference front() { return operator[](0); }
-
-	const_reference front() const { return operator[](0); }
-
-	reference back() { return operator[](size() - 1); }
-
-	const_reference back() const { return operator[](size() - 1); }
-
-	// modifiers
-	template <class... Args>
-	reference emplace_back(Args&&... args)
-	{
-		size_type s = size_;
-		Bucket&   b = bucket(s);
-		if (nullptr == b) {
-			createBucket(b);
-		}
-		block(b, s) = T(std::forward<Args>(args)...);
-		++size_;
-		// size_ = NumBlocksPerBucket;
-		return block(b, s);
-	}
-
-	void push_back(T const& x)
-	{
-		size_type s = size_;
-		Bucket&   b = bucket(s);
-		if (nullptr == b) {
-			createBucket(b);
-		}
-		block(b, s) = x;
-		++size_;
-	}
-
-	void push_back(T&& x)
-	{
-		size_type s = size_;
-		Bucket&   b = bucket(s);
-		if (nullptr == b) {
-			createBucket(b);
-		}
-		block(b, s) = std::move(x);
-		++size_;
-	}
-
-	void pop_back()
-	{
-		--size_;
-		if (bucket_pos(size_) != bucket_pos(size_ - 1)) {
-			// TODO: Delete bucket
-		}
-	}
-
-	friend void swap(TreeContainer& lhs, TreeContainer& rhs)
-	{
-		std::swap(lhs.buckets_, rhs.buckets_);
-		// TODO: std::swap(lhs.size_, rhs.size_);
+		std::scoped_lock lock(free_blocks_mutex_);
+		free_blocks_.push_front(block);
 	}
 
 	void clear()
 	{
-		// TODO: Look at
-		// size_type last = bucket_pos(size_);
-		// for (size_type i{}; last >= i; ++i) {
-		// 	buckets_[i].reset();
-		// }
 		size_ = 0;
+		std::scoped_lock lock(free_blocks_mutex_);
+		free_blocks_.clear();
 	}
 
-	[[nodiscard]] constexpr size_type serialized_size() const
+	void shrinkToFit()
 	{
-		return num_buckets() * NumBlocksPerBucket * sizeof(T);
+		// TODO: Implement
 	}
 
-	template <class OutputIt>
-	OutputIt copy(OutputIt d_first) const
+	[[nodiscard]] bool empty() const { return 0 == size_; }
+
+	template <class T>
+	[[nodiscard]] constexpr size_type serializedBucketSize() const
 	{
-		return copy(execution::seq, d_first);
+		// return sizeof(Data<T>);
+		return NUM_BLOCKS_PER_BUCKET * sizeof(T);
 	}
 
-	template <
-	    class ExecutionPolicy, class ForwardIt,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-	ForwardIt copy(ExecutionPolicy&& policy, ForwardIt d_first) const
+	[[nodiscard]] constexpr size_type serializedSize() const
 	{
-		if (empty()) {
-			return d_first;
-		}
-
-		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-			auto n = num_buckets() - 1;
-			for (std::size_t i{}; n != i; ++i) {
-				d_first = std::copy(std::begin(buckets_[i]), std::end(buckets_[i]), d_first);
-			}
-
-			// Handle last bucket
-			return std::copy(std::begin(buckets_[n]),
-			                 std::next(std::begin(buckets_[n]), block_pos(size_)), d_first);
-		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
-			auto n = num_buckets() - 1;
-			for (std::size_t i{}; n != i; ++i) {
-				d_first =
-				    std::copy(policy, std::begin(buckets_[i]), std::end(buckets_[i]), d_first);
-			}
-
-			// Handle last bucket
-			return std::copy(policy, std::begin(buckets_[n]),
-			                 std::next(std::begin(buckets_[n]), block_pos(size_)), d_first);
-		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
-			// TODO: Implement
-		} else {
-			// TODO: Error
-		}
+		return numBuckets() * serializedBucketSize();
 	}
 
  private:
-	[[nodiscard]] constexpr size_type num_buckets() const noexcept
+	[[nodiscard]] value_type& bucket(std::size_t idx)
 	{
-		return empty() ? 0 : bucket_pos(size_ - 1) + 1;
+		return *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
 	}
 
-	[[nodiscard]] constexpr size_type bucket_pos(size_type n) const noexcept
+	[[nodiscard]] value_type const& bucket(std::size_t idx) const
 	{
-		// FIXME: Is this correct?
-		return n / NumBlocksPerBucket;
-		// return n >> Exp;
-	}
-
-	[[nodiscard]] constexpr size_type block_pos(size_type n) const noexcept
-	{
-		// FIXME: Is this correct?
-		return n % NumBlocksPerBucket;
-		// return n & BlockMask;
-	}
-
-	[[nodiscard]] Bucket& bucket(size_type n) { return buckets_[bucket_pos(n)]; }
-
-	[[nodiscard]] Bucket const& bucket(size_type n) const
-	{
-		return buckets_[bucket_pos(n)];
-	}
-
-	[[nodiscard]] reference block(Bucket& bucket, size_type n)
-	{
-		return bucket[block_pos(n)];
-	}
-
-	[[nodiscard]] const_reference block(Bucket const& bucket, size_type n) const
-	{
-		return bucket[block_pos(n)];
-	}
-
-	[[nodiscard]] reference block(size_type n) { return block(bucket(n), n); }
-
-	[[nodiscard]] const_reference block(size_type n) const { return block(bucket(n), n); }
-
-	void createBucket(Bucket& bucket)
-	{
-		bucket = std::make_unique<T[]>(NumBlocksPerBucket);
-		cap_ += NumBlocksPerBucket;
+		return *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
 	}
 
  private:
-	// TODO: Add indicator for if bucket has change
-	// TODO: Add functions to upload (changed) buckets to GPU
-	std::unique_ptr<Bucket[]> buckets_ = std::make_unique<Bucket[]>(NumBuckets);
-	std::atomic<size_type>    size_{};
-	std::atomic<size_type>    cap_{};
+	std::unique_ptr<Bucket[]> buckets_ = std::make_unique<Bucket[]>(NUM_BUCKETS);
+
+	Spinlock          free_blocks_mutex_;
+	std::deque<pos_t> free_blocks_;
+
+	std::atomic<pos_t> size_{};
 };
 }  // namespace ufo
 

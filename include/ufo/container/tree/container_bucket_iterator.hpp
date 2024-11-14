@@ -39,8 +39,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_CONTAINER_ITERATOR_HPP
-#define UFO_CONTAINER_TREE_CONTAINER_ITERATOR_HPP
+#ifndef UFO_CONTAINER_TREE_CONTAINER_BUCKET_ITERATOR_HPP
+#define UFO_CONTAINER_TREE_CONTAINER_BUCKET_ITERATOR_HPP
 
 // STL
 #include <iterator>
@@ -53,14 +53,14 @@ template <class... Ts>
 class TreeContainer;
 
 template <class T, bool Const, class... Ts>
-class TreeContainterIterator
+class TreeContainterBucketIterator
 {
  private:
 	//
 	// Friends
 	//
 
-	friend class TreeContainterIterator<T, !Const, Ts...>;
+	friend class TreeContainterBucketIterator<T, !Const, Ts...>;
 
 	friend class TreeContainer<Ts...>;
 
@@ -71,138 +71,147 @@ class TreeContainterIterator
 
 	using iterator_category = std::random_access_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = T;
-	using pointer           = std::conditional_t<Const, T const*, T*>;
-	using reference         = std::conditional_t<Const, T const&, T&>;
+	using value_type        = typename TreeContainer<Ts...>::template bucket_type<T>;
+	using pointer           = std::conditional_t<Const, value_type const*, value_type*>;
+	using reference         = std::conditional_t<Const, value_type const&, value_type&>;
 
-	TreeContainterIterator() = default;
+	TreeContainterBucketIterator() = default;
 
-	TreeContainterIterator(TreeContainterIterator const&) = default;
+	TreeContainterBucketIterator(TreeContainterBucketIterator const&) = default;
 
 	template <bool Const2, class = std::enable_if_t<Const && !Const2>>
-	TreeContainterIterator(TreeContainterIterator<T, Const2, Ts...> const& other)
+	TreeContainterBucketIterator(
+	    TreeContainterBucketIterator<T, Const2, Ts...> const& other)
 	    : container_(other.container_), idx_(other.idx_)
 	{
 	}
 
-	TreeContainterIterator& operator++()
+	TreeContainterBucketIterator& operator++()
 	{
 		++idx_;
 		return *this;
 	}
 
-	TreeContainterIterator& operator--()
+	TreeContainterBucketIterator& operator--()
 	{
 		--idx_;
 		return *this;
 	}
 
-	TreeContainterIterator operator++(int)
+	TreeContainterBucketIterator operator++(int)
 	{
-		TreeContainterIterator tmp(*this);
+		TreeContainterBucketIterator tmp(*this);
 		++*this;
 		return tmp;
 	}
 
-	TreeContainterIterator operator--(int)
+	TreeContainterBucketIterator operator--(int)
 	{
-		TreeContainterIterator tmp(*this);
+		TreeContainterBucketIterator tmp(*this);
 		--*this;
 		return tmp;
 	}
 
-	TreeContainterIterator& operator+=(difference_type n)
+	TreeContainterBucketIterator& operator+=(difference_type n)
 	{
 		idx_ += n;
 		return *this;
 	}
 
-	TreeContainterIterator& operator-=(difference_type n)
+	TreeContainterBucketIterator& operator-=(difference_type n)
 	{
 		idx_ -= n;
 		return *this;
 	}
 
-	TreeContainterIterator operator+(difference_type n)
+	TreeContainterBucketIterator operator+(difference_type n)
 	{
-		TreeContainterIterator tmp(*this);
+		TreeContainterBucketIterator tmp(*this);
 		tmp += n;
 		return tmp;
 	}
 
-	TreeContainterIterator operator-(difference_type n)
+	TreeContainterBucketIterator operator-(difference_type n)
 	{
-		TreeContainterIterator tmp(*this);
+		TreeContainterBucketIterator tmp(*this);
 		tmp -= n;
 		return tmp;
 	}
 
 	reference operator[](difference_type pos) const
 	{
-		return container_->template get<T>(idx_ + pos);
+		return container_->template bucket<T>((idx_ + pos) *
+		                                      container_->numBlocksPerBucket());
 	}
 
-	reference operator*() const { return container_->template get<T>(idx_); }
+	reference operator*() const
+	{
+		return container_->template bucket<T>(idx_ * container_->numBlocksPerBucket());
+	}
 
-	pointer operator->() const { return &(container_->template get<T>(idx_)); }
+	pointer operator->() const
+	{
+		return &(container_->template bucket<T>(idx_ * container_->numBlocksPerBucket()));
+	}
 
 	template <bool Const1, bool Const2>
-	friend difference_type operator-(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                                 TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend difference_type operator-(
+	    TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	    TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ - rhs.idx_;
 	}
 
 	template <bool Const1, bool Const2>
-	friend bool operator==(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                       TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend bool operator==(TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	                       TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ == rhs.idx_;
 	}
 
 	template <bool Const1, bool Const2>
-	friend bool operator!=(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                       TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend bool operator!=(TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	                       TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ != rhs.idx_;
 	}
 
 	template <bool Const1, bool Const2>
-	friend bool operator<(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                      TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend bool operator<(TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	                      TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ < rhs.idx_;
 	}
 
 	template <bool Const1, bool Const2>
-	friend bool operator<=(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                       TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend bool operator<=(TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	                       TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ <= rhs.idx_;
 	}
 
 	template <bool Const1, bool Const2>
-	friend bool operator>(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                      TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend bool operator>(TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	                      TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ > rhs.idx_;
 	}
 
 	template <bool Const1, bool Const2>
-	friend bool operator>=(TreeContainterIterator<T, Const1, Ts...> const& lhs,
-	                       TreeContainterIterator<T, Const2, Ts...> const& rhs)
+	friend bool operator>=(TreeContainterBucketIterator<T, Const1, Ts...> const& lhs,
+	                       TreeContainterBucketIterator<T, Const2, Ts...> const& rhs)
 	{
 		return lhs.idx_ >= rhs.idx_;
 	}
 
  protected:
-	TreeContainterIterator(TreeContainer<Ts...>* container, difference_type idx)
+	TreeContainterBucketIterator(TreeContainer<Ts...>* container, difference_type idx)
 	    : container_(container), idx_(idx)
 	{
 	}
 
-	TreeContainterIterator(TreeContainer<Ts...>& container, difference_type idx)
-	    : TreeContainterIterator(&container, idx)
+	TreeContainterBucketIterator(TreeContainer<Ts...>& container, difference_type idx)
+	    : TreeContainterBucketIterator(&container, idx)
 	{
 	}
 
@@ -213,4 +222,4 @@ class TreeContainterIterator
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_CONTAINER_ITERATOR_HPP
+#endif  // UFO_CONTAINER_TREE_CONTAINER_BUCKET_ITERATOR_HPP
