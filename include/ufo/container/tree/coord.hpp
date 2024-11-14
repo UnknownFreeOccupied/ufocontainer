@@ -47,6 +47,7 @@
 
 // STL
 #include <cstddef>
+#include <ostream>
 #include <type_traits>
 
 namespace ufo
@@ -94,6 +95,12 @@ struct TreeCoord : public Vec<Dim, T> {
 	{
 	}
 };
+
+template <std::size_t Dim, class T>
+std::ostream& operator<<(std::ostream& out, TreeCoord<Dim, T> const& tc)
+{
+	return out << static_cast<Vec<Dim, T> const&>(tc) << " d: " << tc.depth;
+}
 
 template <class T = float>
 using Coord1 = TreeCoord<1, T>;
