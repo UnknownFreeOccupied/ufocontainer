@@ -43,16 +43,16 @@
 #define UFO_CONTAINER_BINARY_TREE_HPP
 
 // UFO
-#include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/type.hpp>
+#include <ufo/container/tree/base.hpp>
+#include <ufo/container/tree/detail/tree.hpp>
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class Block>
-class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
+template <class Derived, class... Ts>
+class Tree<Derived, 1, Ts...> : public TreeBase<Derived, 1, Ts...>
 {
  protected:
-	using Base = Tree<Derived, Block<TreeType::BINARY>>;
+	using Base = TreeBase<Derived, 1, Ts...>;
 
 	//
 	// Friends
@@ -88,22 +88,22 @@ class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	BinaryTree(length_t leaf_node_length, depth_t num_depth_levels)
+	Tree(length_t leaf_node_length, depth_t num_depth_levels)
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}
 
-	BinaryTree(BinaryTree const& other) = default;
+	Tree(Tree const& other) = default;
 
-	BinaryTree(BinaryTree&& other) = default;
+	Tree(Tree&& other) = default;
 
-	template <class Derived2>
-	BinaryTree(BinaryTree<Derived2, Block> const& other) : Base(other)
+	template <class Derived2, class... Ts2>
+	Tree(Tree<Derived2, 1, Ts2...> const& other) : Base(other)
 	{
 	}
 
-	template <class Derived2>
-	BinaryTree(BinaryTree<Derived2, Block>&& other) : Base(std::move(other))
+	template <class Derived2, class... Ts2>
+	Tree(Tree<Derived2, 1, Ts2...>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -113,7 +113,7 @@ class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	~BinaryTree() {}
+	~Tree() = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -121,33 +121,22 @@ class BinaryTree : public Tree<Derived, Block<TreeType::BINARY>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	BinaryTree& operator=(BinaryTree const& rhs) = default;
+	Tree& operator=(Tree const& rhs) = default;
 
-	BinaryTree& operator=(BinaryTree&& rhs) = default;
+	Tree& operator=(Tree&& rhs) = default;
 
-	template <class Derived2>
-	BinaryTree& operator=(BinaryTree<Derived2, Block> const& rhs)
+	template <class Derived2, class... Ts2>
+	Tree& operator=(Tree<Derived2, 1, Ts2...> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
-	template <class Derived2>
-	BinaryTree& operator=(BinaryTree<Derived2, Block>&& rhs)
+	template <class Derived2, class... Ts2>
+	Tree& operator=(Tree<Derived2, 1, Ts2...>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;
-	}
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                         Swap                                        |
-	|                                                                                     |
-	**************************************************************************************/
-
-	friend void swap(BinaryTree& lhs, BinaryTree& rhs)
-	{
-		Base::swap(static_cast<Base&>(lhs), static_cast<Base&>(rhs));
 	}
 };
 }  // namespace ufo

@@ -45,7 +45,6 @@
 // UFO
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
-#include <ufo/container/tree/type.hpp>
 #include <ufo/geometry/shape/aabb.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
@@ -57,13 +56,8 @@
 
 namespace ufo
 {
-template <TreeType TT, bool WithCenter = false>
+template <std::size_t Dim, std::size_t BF, bool WithCenter = false>
 struct TreeBlock {
-	static constexpr TreeType const tree_type = TT;
-
-	static constexpr std::size_t const BF  = branchingFactor<TT>();
-	static constexpr std::size_t const Dim = dimensions<TT>();
-
 	static constexpr bool const HasCenter = WithCenter;
 
 	using Code     = TreeCode<Dim>;
@@ -158,18 +152,15 @@ struct TreeBlock {
  private:
 	// Position of the parent block
 	TreeIndex::pos_t parent_block_ = TreeIndex::NULL_POS;
+	// FIXME: Adding padding for GPU
+	float _pad0;
 	// Code to the first node of the block
 	Code code_ = Code::invalid();
 };
 
-template <TreeType TT>
-struct TreeBlock<TT, true> : TreeBlock<TT, false> {
-	using Base = TreeBlock<TT, false>;
-
-	static constexpr TreeType const tree_type = TT;
-
-	static constexpr std::size_t const BF  = branchingFactor<TT>();
-	static constexpr std::size_t const Dim = dimensions<TT>();
+template <std::size_t Dim, std::size_t BF>
+struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
+	using Base = TreeBlock<Dim, BF, false>;
 
 	static constexpr bool const HasCenter = true;
 

@@ -43,18 +43,18 @@
 #define UFO_CONTAINER_QUADTREE_HPP
 
 // UFO
-#include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/type.hpp>
+#include <ufo/container/tree/base.hpp>
+#include <ufo/container/tree/detail/tree.hpp>
 #include <ufo/vision/camera.hpp>
 #include <ufo/vision/image.hpp>
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class Block>
-class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
+template <class Derived, class... Ts>
+class Tree<Derived, 2, Ts...> : public TreeBase<Derived, 2, Ts...>
 {
  protected:
-	using Base = Tree<Derived, Block<TreeType::QUAD>>;
+	using Base = TreeBase<Derived, 2, Ts...>;
 
 	//
 	// Friends
@@ -128,8 +128,7 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
-	                     bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
 	            InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
@@ -139,8 +138,7 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
-	                     bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, Camera const& camera,
 	                              std::size_t rows, std::size_t cols, InnerFun inner_f,
 	                              HitFun hit_f, T const& miss) const
@@ -179,22 +177,22 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	Quadtree(length_t leaf_node_length, depth_t num_depth_levels)
+	Tree(length_t leaf_node_length, depth_t num_depth_levels)
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}
 
-	Quadtree(Quadtree const& other) = default;
+	Tree(Tree const& other) = default;
 
-	Quadtree(Quadtree&& other) = default;
+	Tree(Tree&& other) = default;
 
-	template <class Derived2>
-	Quadtree(Quadtree<Derived2, Block> const& other) : Base(other)
+	template <class Derived2, class... Ts2>
+	Tree(Tree<Derived2, 2, Ts2...> const& other) : Base(other)
 	{
 	}
 
-	template <class Derived2>
-	Quadtree(Quadtree<Derived2, Block>&& other) : Base(std::move(other))
+	template <class Derived2, class... Ts2>
+	Tree(Tree<Derived2, 2, Ts2...>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -204,7 +202,7 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	~Quadtree() {}
+	~Tree() = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -212,33 +210,22 @@ class Quadtree : public Tree<Derived, Block<TreeType::QUAD>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	Quadtree& operator=(Quadtree const& rhs) = default;
+	Tree& operator=(Tree const& rhs) = default;
 
-	Quadtree& operator=(Quadtree&& rhs) = default;
+	Tree& operator=(Tree&& rhs) = default;
 
-	template <class Derived2>
-	Quadtree& operator=(Quadtree<Derived2, Block> const& rhs)
+	template <class Derived2, class... Ts2>
+	Tree& operator=(Tree<Derived2, 2, Ts2...> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
-	template <class Derived2>
-	Quadtree& operator=(Quadtree<Derived2, Block>&& rhs)
+	template <class Derived2, class... Ts2>
+	Tree& operator=(Tree<Derived2, 2, Ts2...>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;
-	}
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                         Swap                                        |
-	|                                                                                     |
-	**************************************************************************************/
-
-	friend void swap(Quadtree& lhs, Quadtree& rhs)
-	{
-		Base::swap(static_cast<Base&>(lhs), static_cast<Base&>(rhs));
 	}
 
 	/**************************************************************************************

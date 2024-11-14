@@ -39,13 +39,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_TREE_HPP
-#define UFO_CONTAINER_TREE_TREE_HPP
+#ifndef UFO_CONTAINER_TREE_DETAIL_TREE_HPP
+#define UFO_CONTAINER_TREE_DETAIL_TREE_HPP
 
-// UFO
-#include <ufo/container/tree/binary_tree.hpp>
-#include <ufo/container/tree/hextree.hpp>
-#include <ufo/container/tree/octree.hpp>
-#include <ufo/container/tree/quadtree.hpp>
+// STL
+#include <cstddef>
 
-#endif  // UFO_CONTAINER_TREE_TREE_HPP
+namespace ufo
+{
+template <class Derived, std::size_t Dim, class... Ts>
+class Tree;
+}
+
+#endif  // UFO_CONTAINER_TREE_DETAIL_TREE_HPP

@@ -46,16 +46,17 @@
 #include <ufo/container/tree/node.hpp>
 
 // STL
+#include <cstddef>
 #include <functional>
 
 namespace ufo
 {
-template <class Code>
-struct TreeNodeNearest : public TreeNode<Code> {
+template <std::size_t Dim>
+struct TreeNodeNearest : public TreeNode<Dim> {
 	float distance;
 
-	constexpr TreeNodeNearest(TreeNode<Code> const& node, float distance = 0.0f)
-	    : TreeNode<Code>(node), distance(distance)
+	constexpr TreeNodeNearest(TreeNode<Dim> const& node, float distance = 0.0f)
+	    : TreeNode<Dim>(node), distance(distance)
 	{
 	}
 
@@ -63,7 +64,7 @@ struct TreeNodeNearest : public TreeNode<Code> {
 	                                               TreeNodeNearest const& b)
 	{
 		return a.distance == b.distance &&
-		       static_cast<TreeNode<Code> const&>(a) == static_cast<TreeNode<Code> const&>(b);
+		       static_cast<TreeNode<Dim> const&>(a) == static_cast<TreeNode<Dim> const&>(b);
 	}
 
 	[[nodiscard]] friend constexpr bool operator!=(TreeNodeNearest const& a,
@@ -98,11 +99,11 @@ struct TreeNodeNearest : public TreeNode<Code> {
 };
 }  // namespace ufo
 
-template <class Code>
-struct std::hash<ufo::TreeNodeNearest<Code>> {
-	std::size_t operator()(ufo::TreeNodeNearest<Code> const& node) const
+template <std::size_t Dim>
+struct std::hash<ufo::TreeNodeNearest<Dim>> {
+	std::size_t operator()(ufo::TreeNodeNearest<Dim> const& node) const
 	{
-		return hash<Code>()(node.code());
+		return hash<typename ufo::TreeNodeNearest<Dim>::Code>()(node.code());
 	}
 };
 

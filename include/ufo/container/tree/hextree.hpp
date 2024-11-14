@@ -43,18 +43,18 @@
 #define UFO_CONTAINER_HEXTREE_HPP
 
 // UFO
-#include <ufo/container/tree/tree.hpp>
-#include <ufo/container/tree/type.hpp>
+#include <ufo/container/tree/base.hpp>
+#include <ufo/container/tree/detail/tree.hpp>
 #include <ufo/vision/camera.hpp>
 #include <ufo/vision/image.hpp>
 
 namespace ufo
 {
-template <class Derived, template <TreeType> class Block>
-class Hextree : public Tree<Derived, Block<TreeType::HEX>>
+template <class Derived, class... Ts>
+class Tree<Derived, 4, Ts...> : public TreeBase<Derived, 4, Ts...>
 {
  protected:
-	using Base = Tree<Derived, Block<TreeType::HEX>>;
+	using Base = TreeBase<Derived, 4, Ts...>;
 
 	//
 	// Friends
@@ -85,10 +85,10 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 
  public:
 	/**************************************************************************************
-	|                                                                                     |
-	|                                       Render                                        |
-	|                                                                                     |
-	**************************************************************************************/
+	 |                                                                                     |
+	 |                                       Render                                        |
+	 |                                                                                     |
+	 **************************************************************************************/
 
 	template <class InnerFun, class HitFun, class T>
 	void render(float w, Camera const& camera, Image<T>& image, InnerFun inner_f,
@@ -134,8 +134,7 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
-	                     bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	void render(ExecutionPolicy&& policy, float w, Camera const& camera, Image<T>& image,
 	            InnerFun inner_f, HitFun hit_f, T const& miss) const
 	{
@@ -145,8 +144,7 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 
 	template <
 	    class ExecutionPolicy, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>,
-	                     bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	[[nodiscard]] Image<T> render(ExecutionPolicy&& policy, float w, Camera const& camera,
 	                              std::size_t rows, std::size_t cols, InnerFun inner_f,
 	                              HitFun hit_f, T const& miss) const
@@ -187,27 +185,27 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 
  protected:
 	/**************************************************************************************
-	|                                                                                     |
-	|                                    Constructors                                     |
-	|                                                                                     |
-	**************************************************************************************/
+	 |                                                                                     |
+	 |                                    Constructors                                     |
+	 |                                                                                     |
+	 **************************************************************************************/
 
-	Hextree(length_t leaf_node_length, depth_t num_depth_levels)
+	Tree(length_t leaf_node_length, depth_t num_depth_levels)
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}
 
-	Hextree(Hextree const& other) = default;
+	Tree(Tree const& other) = default;
 
-	Hextree(Hextree&& other) = default;
+	Tree(Tree&& other) = default;
 
-	template <class Derived2>
-	Hextree(Hextree<Derived2, Block> const& other) : Base(other)
+	template <class Derived2, class... Ts2>
+	Tree(Tree<Derived2, 4, Ts2...> const& other) : Base(other)
 	{
 	}
 
-	template <class Derived2>
-	Hextree(Hextree<Derived2, Block>&& other) : Base(std::move(other))
+	template <class Derived2, class... Ts2>
+	Tree(Tree<Derived2, 4, Ts2...>&& other) : Base(std::move(other))
 	{
 	}
 
@@ -217,7 +215,7 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	~Hextree() {}
+	~Tree() = default;
 
 	/**************************************************************************************
 	|                                                                                     |
@@ -225,33 +223,22 @@ class Hextree : public Tree<Derived, Block<TreeType::HEX>>
 	|                                                                                     |
 	**************************************************************************************/
 
-	Hextree& operator=(Hextree const& rhs) = default;
+	Tree& operator=(Tree const& rhs) = default;
 
-	Hextree& operator=(Hextree&& rhs) = default;
+	Tree& operator=(Tree&& rhs) = default;
 
-	template <class Derived2>
-	Hextree& operator=(Hextree<Derived2, Block> const& rhs)
+	template <class Derived2, class... Ts2>
+	Tree& operator=(Tree<Derived2, 4, Ts2...> const& rhs)
 	{
 		Base::operator=(rhs);
 		return *this;
 	}
 
-	template <class Derived2>
-	Hextree& operator=(Hextree<Derived2, Block>&& rhs)
+	template <class Derived2, class... Ts2>
+	Tree& operator=(Tree<Derived2, 4, Ts2...>&& rhs)
 	{
 		Base::operator=(std::move(rhs));
 		return *this;
-	}
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                         Swap                                        |
-	|                                                                                     |
-	**************************************************************************************/
-
-	friend void swap(Hextree& lhs, Hextree& rhs)
-	{
-		Base::swap(static_cast<Base&>(lhs), static_cast<Base&>(rhs));
 	}
 };
 }  // namespace ufo

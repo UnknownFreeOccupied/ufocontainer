@@ -43,11 +43,13 @@
 #define UFO_CONTAINER_TREE_NODE_HPP
 
 // UFO
+#include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
 
 // STL
 #include <cstddef>
 #include <functional>
+#include <ostream>
 
 namespace ufo
 {
@@ -55,14 +57,16 @@ namespace ufo
  * @brief A wrapper around a UFOMap inner/leaf node.
  *
  */
-template <class Code>
+template <std::size_t Dim>
 struct TreeNode {
 	// Friends
 
-	template <class Derived, class Block>
-	friend class Tree;
+	template <class Derived, std::size_t Dim2, class Block, class... Blocks>
+	friend class TreeBase;
 
  public:
+	using Code = TreeCode<Dim>;
+
 	//
 	// Constructor
 	//
@@ -146,6 +150,12 @@ struct TreeNode {
 
 	[[nodiscard]] constexpr bool valid() const noexcept { return index_.valid(); }
 
+	template <std::size_t Dim2>
+	friend std::ostream& operator<<(std::ostream& os, TreeNode<Dim2> const& node)
+	{
+		return os << "Code: (" << node.code() << "), Index: (" << node.index() << ')';
+	}
+
  protected:
 	constexpr TreeNode(Code code, TreeIndex index) noexcept : code_(code), index_(index) {}
 
@@ -173,11 +183,11 @@ struct TreeNode {
 
 namespace std
 {
-template <class Code>
-struct hash<ufo::TreeNode<Code>> {
-	std::size_t operator()(ufo::TreeNode<Code> node) const
+template <std::size_t Dim>
+struct hash<ufo::TreeNode<Dim>> {
+	std::size_t operator()(ufo::TreeNode<Dim> const& node) const
 	{
-		return hash<Code>()(node.code());
+		return hash<typename ufo::TreeNode<Dim>::Code>()(node.code());
 	}
 };
 }  // namespace std
