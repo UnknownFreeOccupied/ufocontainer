@@ -184,6 +184,13 @@ class TreeBase
 	[[nodiscard]] std::size_t size() const { return block_.size() * BF; }
 
 	/*!
+	 * @brief Increase the capacity of the tree to at least hold `num_nodes` nodes.
+	 *
+	 * @param num_nodes The new capacity.
+	 */
+	void reserve(std::size_t num_nodes) { block_.reserve(num_nodes / BF); }
+
+	/*!
 	 * @brief Erases all nodes from the tree.
 	 */
 	void clear()
@@ -2974,24 +2981,6 @@ class TreeBase
 		// Important that derived is pruned first in case they use parent code
 		treeBlock(children) = Block();
 		block_.eraseBlock(children);
-	}
-
-	//
-	// Reserve
-	//
-
-	void reserve(std::size_t cap)
-	{
-		// Important that derived is done first in case of parallel
-		derived().onReserve(cap);
-		block_.reserve(cap);
-	}
-
-	void setSize(std::size_t size)
-	{
-		// Important that derived is done first in case of parallel
-		derived().onSetSize(size);
-		block_.setSize(size);
 	}
 
 	//
