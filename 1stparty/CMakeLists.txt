@@ -1,3 +1,3 @@
-include(ufogeometry/ufogeometry.cmake)
-include(ufomorton/ufomorton.cmake)
-include(ufoutility/ufoutility.cmake)
+include(geometry/geometry.cmake)
+include(morton/morton.cmake)
+include(utility/utility.cmake)
