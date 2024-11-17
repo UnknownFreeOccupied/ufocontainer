@@ -8,15 +8,6 @@ target_link_libraries(Container
 		UFO::Utility
 )
 
-set_target_properties(Container 
-	PROPERTIES
-		INTERFACE_VERSION ${PROJECT_VERSION}
-		INTERFACE_SOVERSION ${PROJECT_VERSION_MAJOR}
-		INTERFACE_CXX_STANDARD 17
-		INTERFACE_CXX_EXTENSIONS OFF
-		OUTPUT_NAME "UFOContainer"
-)
-
 include(GNUInstallDirs)
 
 target_include_directories(Container 
