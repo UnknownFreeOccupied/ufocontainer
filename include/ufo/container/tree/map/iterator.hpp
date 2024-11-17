@@ -189,7 +189,7 @@ class TreeMapIterator
 				}
 			}
 
-			assert(BF != cur.offset);
+			assert(BF != cur_.offset);
 		}
 
 		// We are now at depth 0 (aka return depth)
@@ -203,7 +203,7 @@ class TreeMapIterator
 		}
 
 		// Should never be able to get here
-		assert(BF != cur.offset);
+		assert(BF != cur_.offset);
 	}
 
  private:
@@ -224,7 +224,7 @@ class TreeMapIterator
 				}
 			}
 
-			assert(BF != cur.offset);
+			assert(BF != cur_.offset);
 		}
 
 		// We are now at depth 0 (aka return depth)
@@ -238,7 +238,7 @@ class TreeMapIterator
 		}
 
 		// Should never be able to get here
-		assert(BF != cur.offset);
+		assert(BF != cur_.offset);
 	}
 
 	TreeMapIterator(Container& tm, TreeIndex node) : TreeMapIterator(&tm, node) {}
