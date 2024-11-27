@@ -285,7 +285,8 @@ class TreeForwardIterator final : public TreeIterator<Tree, Node>
 
 		// Skip forward to next valid return node
 		while (0 == return_index_ && inner_index_) {
-			auto current = this->template child<OnlyExists>(inner_nodes_[--inner_index_], 7);
+			auto current = this->template child<OnlyExists>(inner_nodes_[--inner_index_],
+			                                                Tree::branchingFactor() - 1);
 
 			// Go down the tree
 			for (offset_t i{Tree::branchingFactor()}; 0 != i;) {
