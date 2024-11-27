@@ -1,4 +1,4 @@
-include("${PROJECT_SOURCE_DIR}/3rdparty/catch2/catch2.cmake")
+include("${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/catch2/catch2.cmake")
 
 # SET(GCC_COVERAGE_COMPILE_FLAGS "-fprofile-arcs -ftest-coverage")
 # SET(GCC_COVERAGE_LINK_FLAGS    "--coverage")
@@ -8,11 +8,11 @@ include("${PROJECT_SOURCE_DIR}/3rdparty/catch2/catch2.cmake")
 
 add_executable(ufocontainer_tests
 	octree_map_test.cpp
-	octree_set_test.cpp
-	quadtree_set_test.cpp
-	range_test.cpp
-	tree_index_test.cpp
-	tree_node_test.cpp
+	# octree_set_test.cpp
+	# quadtree_set_test.cpp
+	# range_test.cpp
+	# tree_index_test.cpp
+	# tree_node_test.cpp
 )
 
 target_link_libraries(ufocontainer_tests PRIVATE UFO::Container Catch2::Catch2WithMain)

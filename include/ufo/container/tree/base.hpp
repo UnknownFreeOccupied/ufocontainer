@@ -993,7 +993,7 @@ class TreeBase
 		}
 	}
 
-	template <class Range>
+	template <class Range, std::enable_if_t<!is_node_type_v<Range>, bool> = true>
 	std::vector<Index> create(Range const& r)
 	{
 		using std::begin;

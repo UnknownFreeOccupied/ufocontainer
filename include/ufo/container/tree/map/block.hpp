@@ -61,20 +61,21 @@ template <std::size_t Dim, std::size_t BF, class T>
 struct TreeMapBlock : public TreeBlock<Dim, BF> {
 	using Base = TreeBlock<Dim, BF>;
 
-	using Code        = TreeCode<Dim>;
-	using length_t    = typename Base::length_t;
-	using Point       = typename Base::Point;
-	using Bounds      = AABB<Dim, typename Point::value_type>;
-	using scalar_type = typename Point::value_type;
-	using value_type  = std::pair<Point const, T>;
+	using Code           = TreeCode<Dim>;
+	using length_t       = typename Base::length_t;
+	using Point          = typename Base::Point;
+	using Bounds         = AABB<Dim, typename Point::value_type>;
+	using scalar_type    = typename Point::value_type;
+	using value_type     = std::pair<Point const, T>;
+	using container_type = std::list<value_type>;
 
 	static constexpr auto const MIN =
 	    Point(std::numeric_limits<typename Point::value_type>::lowest());
 	static constexpr auto const MAX =
 	    Point(std::numeric_limits<typename Point::value_type>::max());
 
-	std::array<Bounds, BF>                bounds = createArray<BF>(Bounds(MAX, MIN));
-	std::array<std::list<value_type>, BF> values;
+	std::array<Bounds, BF>         bounds = createArray<BF>(Bounds(MAX, MIN));
+	std::array<container_type, BF> values;
 
 	constexpr TreeMapBlock()                    = default;
 	constexpr TreeMapBlock(TreeMapBlock const&) = default;

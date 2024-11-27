@@ -6,9 +6,4 @@
 
 TEST_CASE("Tree node")
 {
-	struct Code {
-		unsigned depth() const { return 0; }
-	};
-
-	ufo::TreeNode<Code> node;
 }

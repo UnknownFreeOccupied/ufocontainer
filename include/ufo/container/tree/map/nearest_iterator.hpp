@@ -44,11 +44,13 @@
 
 // UFO
 #include <ufo/container/tree/index.hpp>
+#include <ufo/geometry/distance.hpp>
 
 // STL
 #include <cassert>
 #include <cstddef>
 #include <iterator>
+#include <queue>
 #include <type_traits>
 
 namespace ufo
@@ -70,49 +72,61 @@ class TreeMapNearestIterator
 	friend class TreeMap<Dim, T>;
 
  private:
-	using Container = TreeMap<Dim, T>;
+	static constexpr std::size_t const BF = TreeMap<Dim, T>::branchingFactor();
 
-	static constexpr std::size_t const BF = Container::branchingFactor();
+	using RawIterator =
+	    std::conditional_t<Const, typename TreeMap<Dim, T>::container_type::const_iterator,
+	                       typename TreeMap<Dim, T>::container_type::iterator>;
 
-	using RawIterator = std::conditional_t<Const, typename Container::const_raw_iterator,
-	                                       typename Container::raw_iterator>;
+	using Point = typename TreeMap<Dim, T>::Point;
+
+	struct S {
+		float       dist_sq;
+		TreeIndex   node;
+		RawIterator it;
+
+		S(float dist_sq, TreeIndex node, RawIterator it = {}) noexcept
+		    : dist_sq(dist_sq), node(node), it(it)
+		{
+		}
+
+		bool operator>(S rhs) const noexcept { return dist_sq > rhs.dist_sq; }
+	};
+
+	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
 
  public:
 	//
 	// Tags
 	//
 
+	// TODO: Make it so this also returns the distance?
+
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = TreeMapNearest<RawIterator>;
-	using reference         = value_type&;
-	using pointer           = value_type*;
+	using value_type        = typename std::iterator_traits<RawIterator>::value_type;
+	using reference         = typename std::iterator_traits<RawIterator>::reference;
+	using pointer           = typename std::iterator_traits<RawIterator>::pointer;
 
 	TreeMapNearestIterator() = default;
 
 	TreeMapNearestIterator(TreeMapNearestIterator const&) = default;
 
-	template <bool Const2, class = std::enable_if_t<Const && !Const2>>
+	// From non-const to const
+	template <bool Const2, std::enable_if_t<Const && !Const2, bool> = true>
 	TreeMapNearestIterator(TreeMapNearestIterator<Const2, Dim, T> const& other)
-	    : tm_(other.tm_)
-	    , query_(other.query_)
-	    , epsilon_sq_(other.epsilon_sq_)
-	    , cur_(other.cur_)
+	    : tm_(other.tm_), query_(other.query_), epsilon_sq_(other.epsilon_sq_)
 	{
-		auto inner_q = other.inner_queue_;
-		while (!inner_q.empty()) {
-			inner_queue_.emplace(inner_q.top().node, inner_q.top().distance);
-			inner_q.pop();
-		}
-		auto value_q = other.value_queue_;
-		while (!value_q.empty()) {
-			value_queue_.emplace(value_q.top().node, value_q.top().it, value_q.top().distance);
-			value_q.pop();
+		auto queue = other.queue_;
+		while (!queue.empty()) {
+			queue_.emplace(queue.top().dist_sq, queue.top().node, queue.top().it);
+			queue.pop();
 		}
 	}
 
 	TreeMapNearestIterator& operator++()
 	{
+		queue_.pop();
 		next();
 		return *this;
 	}
@@ -124,198 +138,104 @@ class TreeMapNearestIterator
 		return tmp;
 	}
 
-	reference operator*() const { return cur_; }
+	reference operator*() const { return *queue_.top().it; }
 
-	pointer operator->() const { return &cur_; }
+	pointer operator->() const { return &*queue_.top().it; }
 
-	template <bool Const1, bool Const2>
-	friend bool operator==(TreeMapNearestIterator<Const1, Dim, T> const& lhs,
+	template <bool Const2>
+	friend bool operator==(TreeMapNearestIterator const&                 lhs,
 	                       TreeMapNearestIterator<Const2, Dim, T> const& rhs)
 	{
-		return lhs.cur_.it_ == rhs.cur_.it_;
+		return lhs.queue_.empty() == rhs.queue_.empty() &&
+		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
 	}
 
-	template <bool Const1, bool Const2>
-	friend bool operator!=(TreeMapNearestIterator<Const1, Dim, T> const& lhs,
+	template <bool Const2>
+	friend bool operator!=(TreeMapNearestIterator const&                 lhs,
 	                       TreeMapNearestIterator<Const2, Dim, T> const& rhs)
 	{
-		return lhs.cur_.it_ != rhs.cur_.it_;
+		return !(lhs == rhs);
 	}
 
  private:
+	[[nodiscard]] bool returnable(TreeIndex node) const
+	{
+		return tm_->isPureLeaf(node) && !tm_->empty(node);
+	}
+
+	[[nodiscard]] bool returnable(S const& s) const { return RawIterator{} != s.it; }
+
+	[[nodiscard]] bool traversable(TreeIndex node) const { return tm_->isParent(node); }
+
 	void next()
 	{
-		if (!value_queue_.empty()) {
-			value_queue_.pop();
-		}
-
-		// Skip forward to next valid return node
-		while (!inner_queue_.empty() &&
-		       (value_queue_.empty() || value_queue_.top() > inner_queue_.top())) {
-			auto children = t_->children(inner_queue_.top().node);
-
-			inner_queue_.pop();
-
-			for (int i = 0; TreeSetOrMap::branchingFactor() > i; ++i) {
-				Index node(children, i);
-
-				if (t_->isParent(node)) {
-					auto  min = t_->boundsMin(node);
-					auto  max = t_->boundsMax(node);
-					Point p;
-					for (int i{}; Point::size() > i; ++i) {
-						p[i] = UFO_CLAMP(query_[i], min[i], max[i]);
-					}
-					for (int i{}; Point::size() > i; ++i) {
-						p[i] -= query_[i];
-						p[i] *= p[i];
-					}
-					float dist_sq = p[0];
-					for (int i = 1; Point::size() > i; ++i) {
-						dist_sq += p[i];
-					}
-					inner_queue_.emplace(node, dist_sq + epsilon_sq_);
-				} else if (t_->isPureLeaf(node) && !t_->empty(node)) {
-					auto& v = t_->values(node);
-					for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
-						Point p;
-						if constexpr (IsMap) {
-							p = it->first;
-						} else {
-							p = *it;
-						}
-
-						for (int i{}; Point::size() > i; ++i) {
-							p[i] -= query_[i];
-							p[i] *= p[i];
-						}
-						float dist_sq = p[0];
-						for (int i = 1; Point::size() > i; ++i) {
-							dist_sq += p[i];
-						}
-						value_queue_.emplace(node, it, dist_sq);
-					}
-				}
+		while (!queue_.empty()) {
+			auto cur = queue_.top();
+			if (returnable(cur)) {
+				return;
 			}
-		}
 
-		if (!value_queue_.empty()) {
-			cur_          = value_queue_.top();
-			cur_.distance = std::sqrt(cur_.distance);
-		} else {
-			cur_ = {};
+			queue_.pop();
+
+			if (returnable(cur.node)) {
+				auto& v = tm_->values(cur.node);
+				using std::begin;
+				using std::end;
+				for (auto it = begin(v), last = end(v); it != last; ++it) {
+					Point p       = it->first;
+					float dist_sq = distanceSquared(query_, p);
+					queue_.emplace(dist_sq, cur.node, it);
+				}
+				continue;
+			}
+
+			TreeIndex node = tm_->child(cur.node, 0);
+			for (; BF > node.offset; ++node.offset) {
+				if (!traversable(node) && !returnable(node)) {
+					continue;
+				}
+
+				float dist_sq = distanceSquared(query_, tm_->bounds(node)) + epsilon_sq_;
+				queue_.emplace(dist_sq, node);
+			}
 		}
 	}
 
+	[[nodiscard]] RawIterator iterator() { return queue_.top().it; }
+
  private:
-	TreeMapNearestIterator(Container* tm, TreeIndex node, Point query, float epsilon = 0.0f)
+	TreeMapNearestIterator(TreeMap<Dim, T>* tm, TreeIndex node, Point query,
+	                       float epsilon = 0.0f)
 	    : tm_(tm), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
-		if (t_->isParent(node)) {
-			// Distance does not matter here
-			inner_queue_.emplace(node, 0.0f);
+		if (traversable(node) || returnable(node)) {
+			float dist_sq = distanceSquared(query_, tm_->bounds(node));
+			queue_.emplace(dist_sq, node);
 			next();
-		} else if (t_->isPureLeaf(node) && !t_->empty(node)) {
-			auto& v = t_->values(node);
-			for (auto it = std::begin(v), last = std::end(v); last != it; ++it) {
-				Point p;
-				if constexpr (IsMap) {
-					p = it->first;
-				} else {
-					p = *it;
-				}
-
-				for (int i{}; Point::size() > i; ++i) {
-					p[i] -= query_[i];
-					p[i] *= p[i];
-				}
-				float dist_sq = p[0];
-				for (int i = 1; Point::size() > i; ++i) {
-					dist_sq += p[i];
-				}
-				value_queue_.emplace(node, it, dist_sq);
-			}
-			cur_          = value_queue_.top();
-			cur_.distance = std::sqrt(cur_.distance);
 		}
 	}
 
-	TreeMapNearestIterator(Container& t, TreeIndex node, Point query, float epsilon = 0.0f)
-	    : TreeMapNearestIterator(&tm, node, query, epsilon)
+	// From const to non-const
+	template <bool Const2, std::enable_if_t<!Const && Const2, bool> = true>
+	TreeMapNearestIterator(TreeMapNearestIterator<Const2, Dim, T> const& other)
+	    : tm_(other.tm), query_(other.query_), epsilon_sq_(other.epsilon_sq_)
 	{
-	}
-
-	// Go from const to non-const
-
-	template <bool Const2, class = std::enable_if_t<!Const && Const2>>
-	TreeMapNearestIterator(Container*                                    tm,
-	                       TreeMapNearestIterator<Const2, Dim, T> const& other)
-	    : tm_(tm), query_(other.query_), epsilon_sq_(other.epsilon_sq_), cur_(other.cur_)
-	{
-		auto inner_q = other.inner_queue_;
-		while (!inner_q.empty()) {
-			inner_queue_.emplace(inner_q.top().node, inner_q.top().distance);
-			inner_q.pop();
-		}
-		auto value_q = other.value_queue_;
-		while (!value_q.empty()) {
-			// To remove const from other's iterators
-			auto        const_it = value_q.top().it;
-			RawIterator it       = t_->values(value_q.top().node).erase(const_it, const_it);
-			value_queue_.emplace(value_q.top().node, it, value_q.top().distance);
-			value_q.pop();
+		auto queue = other.queue_;
+		while (!queue.empty()) {
+			auto const& cur = queue.top();
+			// Remove const from it
+			queue_.emplace(cur.dist_sq, cur.node, tm_->values(cur.node).erase(cur.it, cur.it));
+			queue.pop();
 		}
 	}
-
-	template <bool Const2, class = std::enable_if_t<!Const && Const2>>
-	TreeMapNearestIterator(Container&                                    tm,
-	                       TreeMapNearestIterator<Const2, Dim, T> const& other)
-	    : TreeMapNearestIterator(&t, other)
-	{
-	}
-
-	[[nodiscard]] RawIterator iterator() const { return value_queue_.top().it_; }
 
  private:
-	struct Value;
-
-	struct Inner {
-		Index node;
-		float distance;
-
-		Inner(Index node, float distance) : node(node), distance(distance) {}
-
-		bool operator>(Inner rhs) const noexcept { return distance > rhs.distance; }
-
-		bool operator<(Value rhs) const noexcept { return distance < rhs.distance; }
-
-		bool operator>(Value rhs) const noexcept { return distance > rhs.distance; }
-	};
-
-	struct Value : value_type {
-		Index node;
-
-		Value(Index node, RawIterator it, float distance)
-		    : node(node), value_type(it, distance)
-		{
-		}
-
-		bool operator>(Value rhs) const noexcept { return this->distance > rhs.distance; }
-
-		bool operator<(Inner rhs) const noexcept { return this->distance < rhs.distance; }
-
-		bool operator>(Inner rhs) const noexcept { return this->distance > rhs.distance; }
-	};
-
-	Container* tm_ = nullptr;
+	TreeMap<Dim, T>* tm_ = nullptr;
 
 	Point query_;
 	float epsilon_sq_;
 
-	mutable value_type cur_;
-
-	std::priority_queue<Inner, std::vector<Inner>, std::greater<Inner>> inner_queue_;
-	std::priority_queue<Value, std::vector<Value>, std::greater<Value>> value_queue_;
+	Queue queue_;
 };
 }  // namespace ufo
 

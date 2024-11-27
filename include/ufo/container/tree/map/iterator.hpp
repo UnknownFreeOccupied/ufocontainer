@@ -70,12 +70,11 @@ class TreeMapIterator
 	friend class TreeMap<Dim, T>;
 
  private:
-	using Container = TreeMap<Dim, T>;
+	static constexpr std::size_t const BF = TreeMap<Dim, T>::branchingFactor();
 
-	static constexpr std::size_t const BF = Container::branchingFactor();
-
-	using RawIterator = std::conditional_t<Const, typename Container::const_raw_iterator,
-	                                       typename Container::raw_iterator>;
+	using RawIterator =
+	    std::conditional_t<Const, typename TreeMap<Dim, T>::container_type::const_iterator,
+	                       typename TreeMap<Dim, T>::container_type::iterator>;
 
  public:
 	//
@@ -92,7 +91,8 @@ class TreeMapIterator
 
 	TreeMapIterator(TreeMapIterator const&) = default;
 
-	template <bool Const2, class = std::enable_if_t<Const && !Const2>>
+	// From non-const to const
+	template <bool Const2, std::enable_if_t<Const && !Const2, bool> = true>
 	TreeMapIterator(TreeMapIterator<Const2, Dim, T> const& other)
 	    : tm_(other.tm_)
 	    , root_(other.root_)
@@ -121,130 +121,93 @@ class TreeMapIterator
 
 	pointer operator->() const { return &*it_; }
 
-	template <bool Const1, bool Const2>
-	friend bool operator==(TreeMapIterator<Const1, Dim, T> const& lhs,
+	template <bool Const2>
+	friend bool operator==(TreeMapIterator const&                 lhs,
 	                       TreeMapIterator<Const2, Dim, T> const& rhs)
 	{
 		return lhs.it_ == rhs.it_;
 	}
 
-	template <bool Const1, bool Const2>
-	friend bool operator!=(TreeMapIterator<Const1, Dim, T> const& lhs,
+	template <bool Const2>
+	friend bool operator!=(TreeMapIterator const&                 lhs,
 	                       TreeMapIterator<Const2, Dim, T> const& rhs)
 	{
 		return lhs.it_ != rhs.it_;
 	}
 
  private:
+	[[nodiscard]] bool returnable(TreeIndex node) const
+	{
+		return tm_->isPureLeaf(node) && !tm_->empty(node);
+	}
+
+	[[nodiscard]] bool traversable(TreeIndex node) const { return tm_->isParent(node); }
+
 	void nextNode()
 	{
-		if (root_ == cur_) {
-			// We have visited all nodes
-			it_   = {};
-			last_ = {};
-			return;
-		}
-
-		// Check if any sibling of cur is also a return node
-		while (BF - 1 > cur_.offset) {
-			++cur_.offset;
-			if (!tm_->empty(cur_)) {
-				// Found new return node
-				it_   = tm_->values(cur_).begin();
-				last_ = tm_->values(cur_).end();
-				return;
-			}
-		}
-
-		// No sibling was a return node, so check a different branch
-
-		// Find next unexplored parent
-		for (bool found_parent = false; !found_parent;) {
-			while (BF - 1 == cur_.offset) {
+		while (root_ != cur_) {
+			if (BF - 1 == cur_.offset) {
 				cur_ = tm_->parent(cur_);
-
-				if (root_ == cur_) {
-					// We have visited all nodes
-					it_   = {};
-					last_ = {};
-					return;
-				}
+				continue;
 			}
 
-			while (BF - 1 > cur_.offset) {
-				++cur_.offset;
-				if (tm_->isParent(cur_)) {
-					found_parent = true;
-					break;
-				}
-			}
-		}
+			++cur_.offset;
 
-		// Go down the tree
-		for (auto depth = tm_->depth(cur_); 0 < depth; --depth) {
-			for (; BF > cur_.offset; ++cur_.offset) {
-				if (tm_->isParent(cur_)) {
-					cur_ = tm_->child(cur_, 0);
-					break;
-				}
-			}
-
-			assert(BF != cur_.offset);
-		}
-
-		// We are now at depth 0 (aka return depth)
-		for (; BF > cur_.offset; ++cur_.offset) {
-			if (!tm_->empty(cur_)) {
-				// Found new return node
-				it_   = tm_->values(cur_).begin();
-				last_ = tm_->values(cur_).end();
+			if (nextNodeDownwards()) {
 				return;
 			}
 		}
 
-		// Should never be able to get here
-		assert(BF != cur_.offset);
+		// We have visited all nodes
+		it_   = {};
+		last_ = {};
 	}
 
- private:
-	TreeMapIterator(Container* tm, TreeIndex node) : tm_(tm), root_(node), cur_(node)
+	/*!
+	 * @brief
+	 *
+	 * @return true if a new node was found, false otherwise.
+	 */
+	bool nextNodeDownwards()
 	{
-		if (!tm_->isParent(root_)) {
+		while (true) {
+			if (returnable(cur_)) {
+				it_   = tm_->values(cur_).begin();
+				last_ = tm_->values(cur_).end();
+				return true;
+			} else if (traversable(cur_)) {
+				cur_ = tm_->child(cur_, 0);
+			} else {
+				break;
+			}
+		}
+		return false;
+	}
+
+	[[nodiscard]] RawIterator iterator() { return it_; }
+
+ private:
+	TreeMapIterator(TreeMap<Dim, T>* tm, TreeIndex node) : tm_(tm), root_(node), cur_(node)
+	{
+		if (nextNodeDownwards()) {
 			return;
 		}
 
-		cur_ = tm_->child(root_, 0);
-
-		// Go down the tree
-		for (auto depth = tm_->depth(cur_); 0 < depth; --depth) {
-			for (; BF > cur_.offset; ++cur_.offset) {
-				if (tm_->isParent(cur_)) {
-					cur_ = tm_->child(cur_, 0);
-					break;
-				}
-			}
-
-			assert(BF != cur_.offset);
-		}
-
-		// We are now at depth 0 (aka return depth)
-		for (; BF > cur_.offset; ++cur_.offset) {
-			if (!tm_->empty(cur_)) {
-				// Found new return node
-				it_   = tm_->values(cur_).begin();
-				last_ = tm_->values(cur_).end();
-				return;
-			}
-		}
-
-		// Should never be able to get here
-		assert(BF != cur_.offset);
+		nextNode();
 	}
 
-	TreeMapIterator(Container& tm, TreeIndex node) : TreeMapIterator(&tm, node) {}
+	// From const to non-const
+	template <bool Const2, std::enable_if_t<!Const && Const2, bool> = true>
+	TreeMapIterator(TreeMapIterator<Const2, Dim, T> const& other)
+	    : tm_(other.tm_), root_(other.root_), cur_(other.cur_)
+	{
+		// Remove const from other.it_ and other.last_
+		it_   = tm_->values(cur_).erase(other.it_, other.it_);
+		last_ = tm_->values(cur_).erase(other.last_, other.last_);
+	}
 
  private:
-	Container* tm_ = nullptr;
+	TreeMap<Dim, T>* tm_ = nullptr;
 
 	TreeIndex root_{};
 	TreeIndex cur_{};
