@@ -57,6 +57,13 @@ namespace ufo
 template <std::size_t Dim>
 class TreeCode
 {
+ private:
+	//
+	// Friends
+	//
+
+	friend class std::hash<TreeCode>;
+
  public:
 	using code_t    = std::uint32_t;
 	using key_t     = typename TreeKey<Dim>::key_t;
@@ -66,6 +73,10 @@ class TreeCode
  private:
 	static constexpr code_t const DEPTHS_PER_IDX = Morton<Dim>::LEVELS_32;
 	static constexpr code_t const OFFSET_MASK    = ~((~code_t(0)) << Dim);
+
+	static constexpr std::array<bool, 3> const ACTIVE{
+	    true, std::numeric_limits<key_t>::digits > DEPTHS_PER_IDX,
+	    std::numeric_limits<key_t>::digits > 2 * DEPTHS_PER_IDX};
 
  public:
 	/**************************************************************************************
@@ -89,9 +100,13 @@ class TreeCode
 	{
 		auto k = key << key.depth();
 
-		code_[0] = Morton<Dim>::encode32(k);
-		code_[1] = Morton<Dim>::encode32(k >> DEPTHS_PER_IDX);
-		code_[2] = Morton<Dim>::encode32(k >> (2 * DEPTHS_PER_IDX));
+		for (std::size_t i{}; code_.size() > i; ++i) {
+			if constexpr (ACTIVE[i]) {
+				code_[i] = Morton<Dim>::encode32(k >> (i * DEPTHS_PER_IDX));
+			} else {
+				code_[i] = {};
+			}
+		}
 	}
 
 	[[nodiscard]] static constexpr TreeCode invalid() noexcept
@@ -117,15 +132,16 @@ class TreeCode
 
 	[[nodiscard]] constexpr explicit operator TreeKey<Dim>() const noexcept
 	{
-		std::array k{Morton<Dim>::decode32(code_[0]), Morton<Dim>::decode32(code_[1]),
-		             Morton<Dim>::decode32(code_[2])};
-
 		typename TreeKey<Dim>::Key key;
 
-		for (std::size_t i{}; Dim > i; ++i) {
-			// TODO: When 2 == Dim then 2 * DEPTHS_PER_IDX will be 32 so the shift is not
-			// allowed this happens at more places
-			key[i] = k[0][i] | (k[1][i] << DEPTHS_PER_IDX) | (k[2][i] << (2 * DEPTHS_PER_IDX));
+		for (std::size_t i{}; code_.size() > i; ++i) {
+			if constexpr (ACTIVE[i]) {
+				auto k = Morton<Dim>::decode32(code_[i]) << (i * DEPTHS_PER_IDX);
+
+				for (std::size_t j{}; Dim > j; ++j) {
+					key[j] |= k[j];
+				}
+			}
 		}
 
 		return TreeKey<Dim>(key >> depth_, depth_);
@@ -141,11 +157,15 @@ class TreeCode
 	{
 		assert(size() > pos);
 
-		std::array k{Morton<Dim>::decode32(code_[0], pos),
-		             Morton<Dim>::decode32(code_[1], pos),
-		             Morton<Dim>::decode32(code_[2], pos)};
+		key_t k{};
 
-		return (k[0] | (k[1] << DEPTHS_PER_IDX) | (k[2] << (2 * DEPTHS_PER_IDX))) >> depth_;
+		for (std::size_t i{}; code_.size() > i; ++i) {
+			if constexpr (ACTIVE[i]) {
+				k |= Morton<Dim>::decode32(code_[1], pos) << (i * DEPTHS_PER_IDX);
+			}
+		}
+
+		return k >> depth_;
 	}
 
 	/**************************************************************************************
@@ -186,7 +206,13 @@ class TreeCode
 
 	[[nodiscard]] static constexpr depth_t maxDepth() noexcept
 	{
-		return 3 * DEPTHS_PER_IDX;
+		depth_t max_depth{};
+		for (std::size_t i{}; ACTIVE.size() > i; ++i) {
+			if constexpr (ACTIVE[i]) {
+				max_depth += DEPTHS_PER_IDX;
+			}
+		}
+		return max_depth;
 	}
 
 	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
@@ -366,26 +392,33 @@ class TreeCode
 
 	friend constexpr bool operator<(TreeCode const& lhs, TreeCode const& rhs) noexcept
 	{
-		// TODO: Implement
-		return lhs.code() < rhs.code();
+		return lhs.code_ < rhs.code_;
 	}
 
 	friend constexpr bool operator<=(TreeCode const& lhs, TreeCode const& rhs) noexcept
 	{
-		// TODO: Implement
-		return lhs.code() <= rhs.code();
+		return lhs.code_ <= rhs.code_;
 	}
 
 	friend constexpr bool operator>(TreeCode const& lhs, TreeCode const& rhs) noexcept
 	{
-		// TODO: Implement
-		return lhs.code() > rhs.code();
+		return lhs.code_ > rhs.code_;
 	}
 
 	friend constexpr bool operator>=(TreeCode const& lhs, TreeCode const& rhs) noexcept
 	{
-		// TODO: Implement
-		return lhs.code() >= rhs.code();
+		return lhs.code_ >= rhs.code_;
+	}
+
+	friend std::ostream& operator<<(std::ostream& os, TreeCode const& code)
+	{
+		os << "code: ";
+		for (std::size_t i{}; code.code_.size() > i; ++i) {
+			if constexpr (ACTIVE[i]) {
+				os << code.code_[i] << " ";
+			}
+		}
+		return os << " depth: " << code.depth();
 	}
 
  private:
@@ -398,12 +431,6 @@ using QuadCode   = TreeCode<2>;
 using OctCode    = TreeCode<3>;
 using HexCode    = TreeCode<4>;
 
-template <std::size_t Dim>
-std::ostream& operator<<(std::ostream& os, TreeCode<Dim> const& code)
-{
-	// TODO: Implement
-	return os << "code: " << code.code() << " depth: " << code.depth();
-}
 }  // namespace ufo
 
 namespace std
@@ -412,7 +439,19 @@ template <std::size_t Dim>
 struct hash<ufo::TreeCode<Dim>> {
 	std::size_t operator()(ufo::TreeCode<Dim> code) const
 	{
-		return static_cast<std::size_t>(code.code());
+		// Code size
+		static constexpr std::size_t const CS =
+		    std::numeric_limits<typename ufo::TreeCode<Dim>::code_t>::digits;
+		// Hash size
+		static constexpr std::size_t const HS = std::numeric_limits<std::size_t>::digits;
+
+		std::size_t h{};
+		for (std::size_t i{}; code.code_.size() > i; ++i) {
+			if constexpr (ufo::TreeCode<Dim>::ACTIVE[i] && HS > i * CS) {
+				h |= static_cast<std::size_t>(code.code_[i]) << (i * CS);
+			}
+		}
+		return h;
 	}
 };
 }  // namespace std
