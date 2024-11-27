@@ -123,6 +123,8 @@ class TreeCode
 		typename TreeKey<Dim>::Key key;
 
 		for (std::size_t i{}; Dim > i; ++i) {
+			// TODO: When 2 == Dim then 2 * DEPTHS_PER_IDX will be 32 so the shift is not
+			// allowed this happens at more places
 			key[i] = k[0][i] | (k[1][i] << DEPTHS_PER_IDX) | (k[2][i] << (2 * DEPTHS_PER_IDX));
 		}
 
@@ -346,6 +348,46 @@ class TreeCode
 		return ret;
 	}
 
+	/**************************************************************************************
+	|                                                                                     |
+	|                                       Compare                                       |
+	|                                                                                     |
+	**************************************************************************************/
+
+	friend constexpr bool operator==(TreeCode const& lhs, TreeCode const& rhs) noexcept
+	{
+		return lhs.code_ == rhs.code_ && lhs.depth_ == rhs.depth_;
+	}
+
+	friend constexpr bool operator!=(TreeCode const& lhs, TreeCode const& rhs) noexcept
+	{
+		return !(lhs == rhs);
+	}
+
+	friend constexpr bool operator<(TreeCode const& lhs, TreeCode const& rhs) noexcept
+	{
+		// TODO: Implement
+		return lhs.code() < rhs.code();
+	}
+
+	friend constexpr bool operator<=(TreeCode const& lhs, TreeCode const& rhs) noexcept
+	{
+		// TODO: Implement
+		return lhs.code() <= rhs.code();
+	}
+
+	friend constexpr bool operator>(TreeCode const& lhs, TreeCode const& rhs) noexcept
+	{
+		// TODO: Implement
+		return lhs.code() > rhs.code();
+	}
+
+	friend constexpr bool operator>=(TreeCode const& lhs, TreeCode const& rhs) noexcept
+	{
+		// TODO: Implement
+		return lhs.code() >= rhs.code();
+	}
+
  private:
 	std::array<code_t, 3> code_{};
 	depth_t               depth_{};
@@ -361,54 +403,6 @@ std::ostream& operator<<(std::ostream& os, TreeCode<Dim> const& code)
 {
 	// TODO: Implement
 	return os << "code: " << code.code() << " depth: " << code.depth();
-}
-
-/**************************************************************************************
-|                                                                                     |
-|                                       Compare                                       |
-|                                                                                     |
-**************************************************************************************/
-
-template <std::size_t Dim>
-[[nodiscard]] constexpr bool operator==(TreeCode<Dim> const& lhs,
-                                        TreeCode<Dim> const& rhs) noexcept
-{
-	return lhs.code() == rhs.code() && lhs.depth() == rhs.depth();
-}
-
-template <std::size_t Dim>
-[[nodiscard]] constexpr bool operator!=(TreeCode<Dim> const& lhs,
-                                        TreeCode<Dim> const& rhs) noexcept
-{
-	return !(lhs == rhs);
-}
-
-template <std::size_t Dim>
-[[nodiscard]] constexpr bool operator<(TreeCode<Dim> const& lhs,
-                                       TreeCode<Dim> const& rhs) noexcept
-{
-	return lhs.code() < rhs.code();
-}
-
-template <std::size_t Dim>
-[[nodiscard]] constexpr bool operator<=(TreeCode<Dim> const& lhs,
-                                        TreeCode<Dim> const& rhs) noexcept
-{
-	return lhs.code() <= rhs.code();
-}
-
-template <std::size_t Dim>
-[[nodiscard]] constexpr bool operator>(TreeCode<Dim> const& lhs,
-                                       TreeCode<Dim> const& rhs) noexcept
-{
-	return lhs.code() > rhs.code();
-}
-
-template <std::size_t Dim>
-[[nodiscard]] constexpr bool operator>=(TreeCode<Dim> const& lhs,
-                                        TreeCode<Dim> const& rhs) noexcept
-{
-	return lhs.code() >= rhs.code();
 }
 }  // namespace ufo
 
