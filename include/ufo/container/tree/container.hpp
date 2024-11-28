@@ -111,6 +111,18 @@ class TreeContainer
 	using const_reverse_bucket_iterator = std::reverse_iterator<const_bucket_iterator<T>>;
 
  public:
+	TreeContainer() = default;
+
+	TreeContainer(TreeContainer const& other)
+	{
+		// TODO: Implement
+	}
+
+	TreeContainer& operator=(TreeContainer const& rhs)
+	{
+		// TODO: Implement
+	}
+
 	template <class T>
 	[[nodiscard]] iterator<T> begin()
 	{
