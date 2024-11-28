@@ -8,7 +8,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/catch2/catch2.cmake")
 
 add_executable(ufocontainer_tests
 	octree_map_test.cpp
-	# octree_set_test.cpp
+	octree_set_test.cpp
 	# quadtree_set_test.cpp
 	# range_test.cpp
 	# tree_index_test.cpp
@@ -16,6 +16,8 @@ add_executable(ufocontainer_tests
 )
 
 target_link_libraries(ufocontainer_tests PRIVATE UFO::Container Catch2::Catch2WithMain)
+
+target_compile_features(ufocontainer_tests PRIVATE cxx_std_17)
 
 list(APPEND CMAKE_MODULE_PATH ${catch2_SOURCE_DIR}/extras)
 include(CTest)

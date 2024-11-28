@@ -45,9 +45,4 @@
 // UFO
 #include <ufo/container/tree_set.hpp>
 
-namespace ufo
-{
-using OctreeSet = TreeSet<3>;
-}  // namespace ufo
-
 #endif  // UFO_CONTAINER_OCTREE_SET_HPP

@@ -39,8 +39,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_MAP_QUERY_NEAREST_ITERATOR_HPP
-#define UFO_CONTAINER_TREE_MAP_QUERY_NEAREST_ITERATOR_HPP
+#ifndef UFO_CONTAINER_TREE_SET_QUERY_NEAREST_ITERATOR_HPP
+#define UFO_CONTAINER_TREE_SET_QUERY_NEAREST_ITERATOR_HPP
 
 // UFO
 #include <ufo/container/tree/index.hpp>
@@ -57,31 +57,30 @@
 namespace ufo
 {
 // Forward declare
-template <std::size_t Dim, class T>
-class TreeMap;
+template <std::size_t Dim>
+class TreeSet;
 
-template <bool Const, std::size_t Dim, class T,
-          class Predicate = pred::Predicate<TreeMap<Dim, T>>>
-class TreeMapQueryNearestIterator
+template <bool Const, std::size_t Dim, class Predicate = pred::Predicate<TreeSet<Dim>>>
+class TreeSetQueryNearestIterator
 {
  private:
 	//
 	// Friends
 	//
 
-	template <bool, std::size_t, class, class>
-	friend class TreeMapQueryNearestIterator;
+	template <bool, std::size_t, class>
+	friend class TreeSetQueryNearestIterator;
 
-	friend class TreeMap<Dim, T>;
+	friend class TreeSet<Dim>;
 
  private:
-	static constexpr std::size_t const BF = TreeMap<Dim, T>::branchingFactor();
+	static constexpr std::size_t const BF = TreeSet<Dim>::branchingFactor();
 
 	using RawIterator =
-	    std::conditional_t<Const, typename TreeMap<Dim, T>::container_type::const_iterator,
-	                       typename TreeMap<Dim, T>::container_type::iterator>;
+	    std::conditional_t<Const, typename TreeSet<Dim>::container_type::const_iterator,
+	                       typename TreeSet<Dim>::container_type::iterator>;
 
-	using Point = typename TreeMap<Dim, T>::Point;
+	using Point = typename TreeSet<Dim>::Point;
 
 	struct S {
 		float       dist_sq;
@@ -111,9 +110,9 @@ class TreeMapQueryNearestIterator
 	using reference         = typename std::iterator_traits<RawIterator>::reference;
 	using pointer           = typename std::iterator_traits<RawIterator>::pointer;
 
-	TreeMapQueryNearestIterator() = default;
+	TreeSetQueryNearestIterator() = default;
 
-	TreeMapQueryNearestIterator(TreeMapQueryNearestIterator const&) = default;
+	TreeSetQueryNearestIterator(TreeSetQueryNearestIterator const&) = default;
 
 	// From non-const to const or change of predicate type
 	template <
@@ -121,7 +120,8 @@ class TreeMapQueryNearestIterator
 	    std::enable_if_t<(Const && !Const2) ||
 	                         (Const == Const2 && !std::is_same_v<Predicate, Predicate2>),
 	                     bool> = true>
-	TreeMapQueryNearestIterator(TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& other)
+	TreeSetQueryNearestIterator(
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& other)
 	    : tm_(other.tm_)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
@@ -134,16 +134,16 @@ class TreeMapQueryNearestIterator
 		}
 	}
 
-	TreeMapQueryNearestIterator& operator++()
+	TreeSetQueryNearestIterator& operator++()
 	{
 		queue_.pop();
 		next();
 		return *this;
 	}
 
-	TreeMapQueryNearestIterator operator++(int)
+	TreeSetQueryNearestIterator operator++(int)
 	{
-		TreeMapQueryNearestIterator tmp(*this);
+		TreeSetQueryNearestIterator tmp(*this);
 		++*this;
 		return tmp;
 	}
@@ -153,18 +153,16 @@ class TreeMapQueryNearestIterator
 	pointer operator->() const { return &*queue_.top().it; }
 
 	template <bool Const2, class Predicate2>
-	friend bool operator==(
-	    TreeMapQueryNearestIterator const&                             lhs,
-	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& rhs)
+	friend bool operator==(TreeSetQueryNearestIterator const&                          lhs,
+	                       TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& rhs)
 	{
 		return lhs.queue_.empty() == rhs.queue_.empty() &&
 		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
 	}
 
 	template <bool Const2, class Predicate2>
-	friend bool operator!=(
-	    TreeMapQueryNearestIterator const&                             lhs,
-	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& rhs)
+	friend bool operator!=(TreeSetQueryNearestIterator const&                          lhs,
+	                       TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& rhs)
 	{
 		return !(lhs == rhs);
 	}
@@ -205,7 +203,7 @@ class TreeMapQueryNearestIterator
 					if (!returnable(*it)) {
 						continue;
 					}
-					Point p       = it->first;
+					Point p       = *it;
 					float dist_sq = distanceSquared(query_, p);
 					queue_.emplace(dist_sq, cur.node, it);
 				}
@@ -227,7 +225,7 @@ class TreeMapQueryNearestIterator
 	[[nodiscard]] RawIterator iterator() { return queue_.top().it; }
 
  private:
-	TreeMapQueryNearestIterator(TreeMap<Dim, T>* tm, TreeIndex node, Predicate const& pred,
+	TreeSetQueryNearestIterator(TreeSet<Dim>* tm, TreeIndex node, Predicate const& pred,
 	                            Point query, float epsilon = 0.0f)
 	    : tm_(tm), pred_(pred), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
@@ -241,8 +239,10 @@ class TreeMapQueryNearestIterator
 	}
 
 	// From const to non-const
-	template <bool Const2, class Predicate2, std::enable_if_t<!Const && Const2, bool> = true>
-	TreeMapQueryNearestIterator(TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& other)
+	template <bool Const2, class Predicate2,
+	          std::enable_if_t<!Const && Const2, bool> = true>
+	TreeSetQueryNearestIterator(
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& other)
 	    : tm_(other.tm)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
@@ -258,7 +258,7 @@ class TreeMapQueryNearestIterator
 	}
 
  private:
-	TreeMap<Dim, T>* tm_ = nullptr;
+	TreeSet<Dim>* tm_ = nullptr;
 
 	Predicate pred_{};
 
@@ -269,4 +269,4 @@ class TreeMapQueryNearestIterator
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_MAP_QUERY_ITERATOR_HPP
+#endif  // UFO_CONTAINER_TREE_SET_QUERY_ITERATOR_HPP

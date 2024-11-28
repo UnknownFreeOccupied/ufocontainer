@@ -192,7 +192,7 @@ class TreeMap
 	TreeMap(std::initializer_list<value_type> init,
 	        length_t                          leaf_node_length = length_t(0.1),
 	        depth_t num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
-	    : TreeMap(std::begin(init), std::end(init), leaf_node_length, num_depth_levels)
+	    : TreeMap(init.begin(), init.end(), leaf_node_length, num_depth_levels)
 	{
 	}
 
@@ -494,7 +494,7 @@ class TreeMap
 		auto&     v           = values(node);
 		size_type num_removed = v.size();
 		v.remove_if([&value](auto const& x) {
-			return equal(x.first, value.first) && x.second == value.second;
+			return x.first == value.first && x.second == value.second;
 		});
 		num_removed -= v.size();
 
@@ -698,7 +698,7 @@ class TreeMap
 
 		auto&     v           = values(node);
 		size_type num_removed = v.size();
-		v.remove_if([point](auto const& x) { return equal(x.first, point); });
+		v.remove_if([point](auto const& x) { return x.first == point; });
 		num_removed -= v.size();
 
 		size_ -= num_removed;
@@ -735,8 +735,8 @@ class TreeMap
 	[[nodiscard]] size_type count(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		return std::count_if(std::begin(v), std::end(v),
-		                     [point](auto const& x) { return equal(x.first, point); });
+		return std::count_if(v.begin(), v.end(),
+		                     [point](auto const& x) { return x.first == point; });
 	}
 
 	/*!
@@ -749,9 +749,9 @@ class TreeMap
 	[[nodiscard]] bool contains(Point point) const
 	{
 		auto const& v = values(Base::index(point));
-		return std::end(v) !=
-		       std::find_if(std::begin(v), std::end(v),
-		                    [point](auto const& x) { return equal(x.first, point); });
+		return std::end(v) != std::find_if(v.begin(), v.end(), [point](auto const& x) {
+			       return x.first == point;
+		       });
 	}
 
 	template <class Predicate>
