@@ -100,12 +100,12 @@ class TreeCode
 	{
 		auto k = key << key.depth();
 
-		for (std::size_t i{}; code_.size() > i; ++i) {
-			if constexpr (ACTIVE[i]) {
-				code_[i] = Morton<Dim>::encode32(k >> (i * DEPTHS_PER_IDX));
-			} else {
-				code_[i] = {};
-			}
+		code_[0] = Morton<Dim>::encode32(k);
+		if constexpr (ACTIVE[1]) {
+			code_[1] = Morton<Dim>::encode32(k >> DEPTHS_PER_IDX);
+		}
+		if constexpr (ACTIVE[2]) {
+			code_[2] = Morton<Dim>::encode32(k >> (2 * DEPTHS_PER_IDX));
 		}
 	}
 
@@ -132,15 +132,18 @@ class TreeCode
 
 	[[nodiscard]] constexpr explicit operator TreeKey<Dim>() const noexcept
 	{
-		typename TreeKey<Dim>::Key key;
+		typename TreeKey<Dim>::Key key = Morton<Dim>::decode32(code_[0]);
 
-		for (std::size_t i{}; code_.size() > i; ++i) {
-			if constexpr (ACTIVE[i]) {
-				auto k = Morton<Dim>::decode32(code_[i]) << (i * DEPTHS_PER_IDX);
-
-				for (std::size_t j{}; Dim > j; ++j) {
-					key[j] |= k[j];
-				}
+		if constexpr (ACTIVE[1]) {
+			auto k = Morton<Dim>::decode32(code_[1]) << DEPTHS_PER_IDX;
+			for (std::size_t j{}; Dim > j; ++j) {
+				key[j] |= k[j];
+			}
+		}
+		if constexpr (ACTIVE[2]) {
+			auto k = Morton<Dim>::decode32(code_[2]) << (2 * DEPTHS_PER_IDX);
+			for (std::size_t j{}; Dim > j; ++j) {
+				key[j] |= k[j];
 			}
 		}
 
@@ -157,12 +160,13 @@ class TreeCode
 	{
 		assert(size() > pos);
 
-		key_t k{};
+		key_t k = Morton<Dim>::decode32(code_[0], pos);
 
-		for (std::size_t i{}; code_.size() > i; ++i) {
-			if constexpr (ACTIVE[i]) {
-				k |= Morton<Dim>::decode32(code_[1], pos) << (i * DEPTHS_PER_IDX);
-			}
+		if constexpr (ACTIVE[1]) {
+			k |= Morton<Dim>::decode32(code_[1], pos) << DEPTHS_PER_IDX;
+		}
+		if constexpr (ACTIVE[2]) {
+			k |= Morton<Dim>::decode32(code_[2], pos) << (2 * DEPTHS_PER_IDX);
 		}
 
 		return k >> depth_;
@@ -206,11 +210,12 @@ class TreeCode
 
 	[[nodiscard]] static constexpr depth_t maxDepth() noexcept
 	{
-		depth_t max_depth{};
-		for (std::size_t i{}; ACTIVE.size() > i; ++i) {
-			if constexpr (ACTIVE[i]) {
-				max_depth += DEPTHS_PER_IDX;
-			}
+		depth_t max_depth = DEPTHS_PER_IDX;
+		if constexpr (ACTIVE[1]) {
+			max_depth += DEPTHS_PER_IDX;
+		}
+		if constexpr (ACTIVE[2]) {
+			max_depth += DEPTHS_PER_IDX;
 		}
 		return max_depth;
 	}
@@ -412,13 +417,14 @@ class TreeCode
 
 	friend std::ostream& operator<<(std::ostream& os, TreeCode const& code)
 	{
-		os << "code: ";
-		for (std::size_t i{}; code.code_.size() > i; ++i) {
-			if constexpr (ACTIVE[i]) {
-				os << code.code_[i] << " ";
-			}
+		os << "code: " << code.code_[0] << " ";
+		if constexpr (ACTIVE[1]) {
+			os << code.code_[1] << " ";
 		}
-		return os << " depth: " << code.depth();
+		if constexpr (ACTIVE[2]) {
+			os << code.code_[2] << " ";
+		}
+		return os << "depth: " << code.depth();
 	}
 
  private:
@@ -445,11 +451,12 @@ struct hash<ufo::TreeCode<Dim>> {
 		// Hash size
 		static constexpr std::size_t const HS = std::numeric_limits<std::size_t>::digits;
 
-		std::size_t h{};
-		for (std::size_t i{}; code.code_.size() > i; ++i) {
-			if constexpr (ufo::TreeCode<Dim>::ACTIVE[i] && HS > i * CS) {
-				h |= static_cast<std::size_t>(code.code_[i]) << (i * CS);
-			}
+		std::size_t h = static_cast<std::size_t>(code.code_[0]);
+		if constexpr (ufo::TreeCode<Dim>::ACTIVE[1] && HS > CS) {
+			h |= static_cast<std::size_t>(code.code_[1]) << CS;
+		}
+		if constexpr (ufo::TreeCode<Dim>::ACTIVE[2] && HS > 2 * CS) {
+			h |= static_cast<std::size_t>(code.code_[2]) << (2 * CS);
 		}
 		return h;
 	}
