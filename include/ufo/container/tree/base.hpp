@@ -74,9 +74,7 @@
 #include <fstream>
 #include <iostream>
 #include <iterator>
-#include <mutex>
 #include <optional>
-#include <queue>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -966,28 +964,51 @@ class TreeBase
 		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
-			// FIXME: Optimize
-
 			std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
-				// TODO: Fix, wrong use of thread_local
-				// thread_local Index node = this->index();
-				// thread_local Code  code = this->code();
+				thread_local Index node = this->index();
 
-				// Code    e            = this->code(x);
-				// depth_t wanted_depth = this->depth(e);
-				// depth_t depth        = Code::depthWhereEqual(code, e);
-				// code                 = e;
+				node      = valid(node) ? node : this->index();
+				Code code = this->code(node);
 
-				Index   node         = this->index();
-				depth_t depth        = this->depth();
-				Code    code         = this->code(x);
-				depth_t wanted_depth = this->depth(code);
+				Code    e            = this->code(x);
+				depth_t wanted_depth = this->depth(e);
+				depth_t depth        = Code::depthWhereEqual(code, e);
+				code                 = e;
+
+				node = ancestor(node, depth);
 				for (; wanted_depth < depth; --depth) {
 					node = createChildThreadSafe(node, code.offset(depth - 1));
 				}
 
 				return node;
 			});
+
+			// static std::size_t CALLS = 0;
+			// ++CALLS;
+
+			// std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
+			// 	thread_local Index       node;
+			// 	thread_local Code        code;
+			// 	thread_local std::size_t calls = 0;
+
+			// 	if (CALLS != calls) {
+			// 		calls = CALLS;
+			// 		node  = this->index();
+			// 		code  = this->code();
+			// 	}
+
+			// 	Code    e            = this->code(x);
+			// 	depth_t wanted_depth = this->depth(e);
+			// 	depth_t depth        = Code::depthWhereEqual(code, e);
+			// 	code                 = e;
+
+			// 	node = ancestor(node, depth);
+			// 	for (; wanted_depth < depth; --depth) {
+			// 		node = createChildThreadSafe(node, code.offset(depth - 1));
+			// 	}
+
+			// 	return node;
+			// });
 
 			return nodes;
 		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
@@ -1333,6 +1354,7 @@ class TreeBase
 			assert(valid(node));
 			return {children(node), child_index};
 		} else if constexpr (std::is_same_v<T, Node>) {
+			// TODO: Wrong if node.index points to something else
 			return Node(child(node.code(), child_index), child(node.index(), child_index));
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.child(child_index);
@@ -1376,6 +1398,7 @@ class TreeBase
 		if constexpr (std::is_same_v<T, Index>) {
 			return {node.pos, sibling_index};
 		} else if constexpr (std::is_same_v<T, Node>) {
+			// TODO: Wrong if node.index points to something else
 			return {sibling(node.code(), sibling_index), sibling(node.index(), sibling_index)};
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.sibling(sibling_index);
