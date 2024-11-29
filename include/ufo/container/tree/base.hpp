@@ -967,6 +967,9 @@ class TreeBase
 			std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
 				thread_local Index node = this->index();
 
+				// NOTE: `node` can be from last call to `create` (if the same thread still
+				// persists), so we need to check if the node is valid. If not, set it to the
+				// root.
 				node          = valid(node) ? node : this->index();
 				Code cur_code = this->code(node);
 
