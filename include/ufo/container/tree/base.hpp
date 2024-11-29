@@ -967,13 +967,12 @@ class TreeBase
 			std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
 				thread_local Index node = this->index();
 
-				node      = valid(node) ? node : this->index();
-				Code code = this->code(node);
+				node          = valid(node) ? node : this->index();
+				Code cur_code = this->code(node);
 
-				Code    e            = this->code(x);
-				depth_t wanted_depth = this->depth(e);
-				depth_t depth        = Code::depthWhereEqual(code, e);
-				code                 = e;
+				Code    code         = this->code(x);
+				depth_t wanted_depth = this->depth(code);
+				depth_t depth        = Code::depthWhereEqual(code, cur_code);
 
 				node = ancestor(node, depth);
 				for (; wanted_depth < depth; --depth) {
@@ -982,6 +981,8 @@ class TreeBase
 
 				return node;
 			});
+
+			// NOTE: Below is a little bit faster but weird
 
 			// static std::size_t CALLS = 0;
 			// ++CALLS;
