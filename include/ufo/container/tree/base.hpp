@@ -968,8 +968,8 @@ class TreeBase
 				thread_local Index node = this->index();
 
 				// NOTE: `node` can be from last call to `create` (if the same thread still
-				// persists), so we need to check if the node is valid. If not, set it to the
-				// root.
+				// persists), so we need to check if the node is valid (i.e., has not been
+				// deleted). If it has been deleted, we set it to the root node.
 				node          = valid(node) ? node : this->index();
 				Code cur_code = this->code(node);
 
