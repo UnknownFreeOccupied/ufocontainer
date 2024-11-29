@@ -114,13 +114,25 @@ class TreeContainer
 	TreeContainer() = default;
 
 	TreeContainer(TreeContainer const& other)
+	    : free_blocks_(other.free_blocks_), size_(other.size_.load())
 	{
-		// TODO: Implement
+		auto num_buckets = other.numBuckets();
+		for (std::size_t i{}; num_buckets > i; ++i) {
+			buckets_[i] = new value_type(*other.buckets_[i]);
+		}
 	}
 
 	TreeContainer& operator=(TreeContainer const& rhs)
 	{
-		// TODO: Implement
+		auto num_buckets = rhs.numBuckets();
+		for (std::size_t i{}; num_buckets > i; ++i) {
+			buckets_[i] = new value_type(*rhs.buckets_[i]);
+		}
+
+		free_blocks_ = rhs.free_blocks_;
+		size_        = rhs.size_.load();
+
+		return *this;
 	}
 
 	template <class T>

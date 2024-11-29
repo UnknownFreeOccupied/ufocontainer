@@ -203,28 +203,6 @@ class TreeSet
 	{
 	}
 
-	TreeSet(TreeSet const&) = default;
-
-	TreeSet(TreeSet&&) = default;
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                     Destructor                                      |
-	|                                                                                     |
-	**************************************************************************************/
-
-	~TreeSet() = default;
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                 Assignment operator                                 |
-	|                                                                                     |
-	**************************************************************************************/
-
-	TreeSet& operator=(TreeSet const&) = default;
-
-	TreeSet& operator=(TreeSet&&) = default;
-
 	/**************************************************************************************
 	|                                                                                     |
 	|                                      Iterators                                      |
@@ -958,7 +936,7 @@ class TreeSet
 	{
 		Point min(std::numeric_limits<typename Point::value_type>::max());
 		Point max(std::numeric_limits<typename Point::value_type>::lowest());
-		for (auto const& [p, _] : values(node)) {
+		for (auto const& p : values(node)) {
 			min = ufo::min(min, p);
 			max = ufo::max(max, p);
 		}

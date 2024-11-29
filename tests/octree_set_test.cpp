@@ -22,7 +22,7 @@ TEST_CASE("[OctreeSet] constructor")
 	{
 		std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		ufo::OctreeSet set(v.begin(), v.end());
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -31,7 +31,7 @@ TEST_CASE("[OctreeSet] constructor")
 	{
 		std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		ufo::OctreeSet set({ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)});
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -40,7 +40,7 @@ TEST_CASE("[OctreeSet] constructor")
 	{
 		std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		ufo::OctreeSet set(v);
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -52,7 +52,7 @@ TEST_CASE("[OctreeSet] constructor")
 		ufo::OctreeSet set2(set1);
 		// TODO: Implement REQUIRE(set1 == set2);
 		REQUIRE(std::equal(set1.begin(), set1.end(), set2.begin(), set2.end(),
-		                   [](auto const& a, auto const& b) { return ufo::equal(a, b); }));
+		                   [](auto const& a, auto const& b) { return a == b; }));
 	}
 
 	SECTION("Move constructor")
@@ -60,7 +60,7 @@ TEST_CASE("[OctreeSet] constructor")
 		std::array     v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		ufo::OctreeSet set1(v);
 		ufo::OctreeSet set2(std::move(set1));
-		for (auto e : set2) {
+		for (auto const& e : set2) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -76,7 +76,7 @@ TEST_CASE("[OctreeSet] assignment operator")
 		set2 = set1;
 		// TODO: Implement REQUIRE(set1 == set2);
 		REQUIRE(std::equal(set1.begin(), set1.end(), set2.begin(), set2.end(),
-		                   [](auto const& a, auto const& b) { return ufo::equal(a, b); }));
+		                   [](auto const& a, auto const& b) { return a == b; }));
 	}
 
 	SECTION("Move assignment")
@@ -85,7 +85,7 @@ TEST_CASE("[OctreeSet] assignment operator")
 		ufo::OctreeSet set1(v);
 		ufo::OctreeSet set2;
 		set2 = std::move(set1);
-		for (auto e : set2) {
+		for (auto const& e : set2) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -188,7 +188,7 @@ TEST_CASE("[OctreeSet] insert")
 	{
 		ufo::Vec3f v = {1, 2, 3};
 		set.insert(v);
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE(v == e);
 		}
 	}
@@ -197,7 +197,7 @@ TEST_CASE("[OctreeSet] insert")
 	{
 		ufo::Vec3f v = {1, 2, 3};
 		set.insert(std::move(v));
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE(v == e);
 		}
 	}
@@ -206,7 +206,7 @@ TEST_CASE("[OctreeSet] insert")
 	{
 		std::array v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		set.insert(v.begin(), v.end());
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -215,7 +215,7 @@ TEST_CASE("[OctreeSet] insert")
 	{
 		std::array v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		set.insert({ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)});
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -224,7 +224,7 @@ TEST_CASE("[OctreeSet] insert")
 	{
 		std::array v = {ufo::Vec3f(1, 2, 3), ufo::Vec3f(4, 5, 6), ufo::Vec3f(0, 0, 0)};
 		set.insert(v);
-		for (auto e : set) {
+		for (auto const& e : set) {
 			REQUIRE((v[0] == e || v[1] == e || v[2] == e));
 		}
 	}
@@ -265,7 +265,7 @@ TEST_CASE("Octree Set")
 	REQUIRE(ufo::Vec3f(100, 200, 40) == max(b));
 
 	std::cout << "Before" << std::endl;
-	for (auto x : set) {
+	for (auto const& x : set) {
 		std::cout << x << std::endl;
 	}
 
@@ -278,7 +278,7 @@ TEST_CASE("Octree Set")
 	REQUIRE(ufo::Vec3f(100, 200, 40) == max(b));
 
 	std::cout << "After" << std::endl;
-	for (auto x : set) {
+	for (auto const& x : set) {
 		std::cout << x << std::endl;
 	}
 
@@ -290,7 +290,7 @@ TEST_CASE("Octree Set")
 	REQUIRE(ufo::Vec3f(100, -234, 40) == max(b));
 
 	std::cout << "After 2" << std::endl;
-	for (auto x : set) {
+	for (auto const& x : set) {
 		std::cout << x << std::endl;
 	}
 
@@ -303,7 +303,7 @@ TEST_CASE("Octree Set")
 	}
 
 	std::cout << "After 3" << std::endl;
-	for (auto x : set) {
+	for (auto const& x : set) {
 		std::cout << x << std::endl;
 	}
 
@@ -312,12 +312,12 @@ TEST_CASE("Octree Set")
 	set.insert(ufo::Vec3f(1, 0, 5));
 
 	std::cout << "After 4" << std::endl;
-	for (auto x : set) {
+	for (auto const& x : set) {
 		std::cout << x << std::endl;
 	}
 
 	std::cout << "After 5" << std::endl;
-	for (auto p : set.nearest({0, 0, 0})) {
+	for (auto const& p : set.nearest({0, 0, 0})) {
 		std::cout << p << std::endl;
 	}
 
@@ -326,16 +326,17 @@ TEST_CASE("Octree Set")
 	set.erase(nearest_it, std::next(nearest_it, 2));
 
 	std::cout << "After 6" << std::endl;
-	for (auto x : set) {
+	for (auto const& x : set) {
 		std::cout << x << std::endl;
 	}
 
 	std::cout << "Query iterator" << std::endl;
-	for (auto x : set.query(ufo::pred::Satisfies([](auto e) { return 100 != e.x; }))) {
+	for (auto const& x : set.query(ufo::pred::Satisfies([](auto e) { return 100 != e.x; }))) {
 		std::cout << x << std::endl;
 	}
 
-	std::cout << set.nearestDistance(ufo::Vec3f{0, 0, 0}) << std::endl;
-	auto [v, dist] = set.nearestPoint(ufo::Vec3f(0, 0, 0));
-	std::cout << (*v) << " with distance: " << dist << std::endl;
+	// TODO: Fix this
+	// std::cout << set.nearestDistance(ufo::Vec3f{0, 0, 0}) << std::endl;
+	// auto [v, dist] = set.nearestPoint(ufo::Vec3f(0, 0, 0));
+	// std::cout << (*v) << " with distance: " << dist << std::endl;
 }

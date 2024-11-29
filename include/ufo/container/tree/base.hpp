@@ -197,8 +197,7 @@ class TreeBase
 	{
 		block_.clear();
 		createRoot();
-		// TODO: Remove?
-		derived().onClear();
+		derived().onInitRoot();
 	}
 
 	//
@@ -943,41 +942,46 @@ class TreeBase
 		if constexpr (std::is_same_v<Index, value_type>) {
 			return std::vector<Index>(first, last);
 		} else if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-			std::vector<Index> nodes(std::distance(first, last));
+			std::vector<Index> nodes;
 
-			std::transform(first, last, nodes.begin(), [this](auto const& x) {
-				thread_local Index   node  = this->index();
-				thread_local Code    code  = this->code();
-				thread_local depth_t depth = this->depth();
+			Index node = this->index();
+			Code  code = this->code();
 
-				Code    e            = this->code(x);
-				depth_t wanted_depth = this->depth(e);
-				depth                = Code::depthWhereEqual(code, e);
-				code                 = e;
+			std::transform(first, last, std::back_inserter(nodes),
+			               [this, &node, &code](auto const& x) {
+				               Code    e            = this->code(x);
+				               depth_t wanted_depth = this->depth(e);
+				               depth_t depth        = Code::depthWhereEqual(code, e);
+				               code                 = e;
 
-				node = ancestor(node, depth);
-				for (; wanted_depth < depth; --depth) {
-					node = createChild(node, code.offset(depth - 1));
-				}
+				               node = ancestor(node, depth);
+				               for (; wanted_depth < depth; --depth) {
+					               node = createChild(node, code.offset(depth - 1));
+				               }
 
-				return node;
-			});
+				               return node;
+			               });
 
 			return nodes;
 		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
+			// FIXME: Optimize
+
 			std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
-				thread_local Index   node  = this->index();
-				thread_local Code    code  = this->code();
-				thread_local depth_t depth = this->depth();
+				// TODO: Fix, wrong use of thread_local
+				// thread_local Index node = this->index();
+				// thread_local Code  code = this->code();
 
-				Code    e            = this->code(x);
-				depth_t wanted_depth = this->depth(e);
-				depth                = Code::depthWhereEqual(code, e);
-				code                 = e;
+				// Code    e            = this->code(x);
+				// depth_t wanted_depth = this->depth(e);
+				// depth_t depth        = Code::depthWhereEqual(code, e);
+				// code                 = e;
 
-				node = ancestor(node, depth);
+				Index   node         = this->index();
+				depth_t depth        = this->depth();
+				Code    code         = this->code(x);
+				depth_t wanted_depth = this->depth(code);
 				for (; wanted_depth < depth; --depth) {
 					node = createChildThreadSafe(node, code.offset(depth - 1));
 				}
@@ -1167,7 +1171,8 @@ class TreeBase
 	{
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			return TreeIndex::NULL_POS == children(node);
+			// NOTE: PROCESSING_POS is one less than NULL_POS
+			return TreeIndex::PROCESSING_POS <= children(node);
 		} else {
 			return isLeaf(index(node));
 		}
@@ -2821,7 +2826,8 @@ class TreeBase
 
 		return std::all_of(treeBlock(block).children.begin(), treeBlock(block).children.end(),
 		                   [](auto const& e) {
-			                   return Index::NULL_POS == e.load(std::memory_order_relaxed);
+			                   return Index::PROCESSING_POS <=
+			                          e.load(std::memory_order_relaxed);
 		                   });
 	}
 
@@ -2837,7 +2843,8 @@ class TreeBase
 
 		return std::any_of(treeBlock(block).children.begin(), treeBlock(block).children.end(),
 		                   [](auto const& e) {
-			                   return Index::NULL_POS == e.load(std::memory_order_relaxed);
+			                   return Index::PROCESSING_POS <=
+			                          e.load(std::memory_order_relaxed);
 		                   });
 	}
 
@@ -2853,7 +2860,8 @@ class TreeBase
 
 		return std::none_of(treeBlock(block).children.begin(),
 		                    treeBlock(block).children.end(), [](auto const& e) {
-			                    return Index::NULL_POS == e.load(std::memory_order_relaxed);
+			                    return Index::PROCESSING_POS <=
+			                           e.load(std::memory_order_relaxed);
 		                    });
 	}
 
@@ -2869,8 +2877,8 @@ class TreeBase
 		bool leaf   = false;
 		bool parent = false;
 		for (auto e : children(block)) {
-			leaf   = leaf || Index::NULL_POS == e;
-			parent = parent || Index::NULL_POS != e;
+			leaf   = leaf || Index::PROCESSING_POS <= e;
+			parent = parent || Index::PROCESSING_POS > e;
 		}
 		return leaf && parent;
 	}
