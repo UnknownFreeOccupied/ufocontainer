@@ -556,7 +556,14 @@ class TreeContainer
 
 	void shrinkToFit()
 	{
-		// TODO: Implement
+		for (std::size_t i = numBuckets(); NUM_BUCKETS > i; ++i) {
+			if (nullptr == buckets_[i]) {
+				break;
+			}
+
+			delete buckets_[i];
+			buckets_[i] = nullptr;
+		}
 	}
 
 	[[nodiscard]] bool empty() const { return 0 == size_; }
