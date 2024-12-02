@@ -126,7 +126,6 @@ class TreeQueryIterator
 
 	TreeQueryIterator& operator++()
 	{
-		// TODO: Create a non-const version where this is done
 		if (!only_exists_) {
 			auto min_depth = t_->depth(cur_.code);
 			auto depth     = t_->depth(cur_.index);
