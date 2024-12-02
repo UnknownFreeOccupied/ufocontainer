@@ -52,12 +52,14 @@
 #include <ufo/utility/spinlock.hpp>
 
 // STL
+#include <algorithm>
 #include <atomic>
 #include <cstddef>
 #include <cstring>
 #include <deque>
 #include <memory>
 #include <mutex>
+#include <utility>
 
 namespace ufo
 {
@@ -582,6 +584,17 @@ class TreeContainer
 		return numBuckets() * serializedBucketSize();
 	}
 
+	void swap(TreeContainer& other)
+	{
+		using std::swap;
+		swap(buckets_, other.buckets_);
+		swap(free_blocks_, other.free_blocks_);
+		
+		pos_t const tmp = size_;
+		size_           = other.size_.load();
+		other.size_     = tmp;
+	}
+
  private:
 	[[nodiscard]] value_type& bucket(std::size_t idx)
 	{
@@ -601,6 +614,12 @@ class TreeContainer
 
 	std::atomic<pos_t> size_{};
 };
+
+template <class... Ts>
+void swap(TreeContainer<Ts...>& lhs, TreeContainer<Ts...>& rhs)
+{
+	lhs.swap(rhs);
+}
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_CONTAINER_HPP
