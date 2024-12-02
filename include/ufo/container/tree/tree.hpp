@@ -567,7 +567,12 @@ class Tree
 				return center(treeBlock(node).code(node.offset));
 			}
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return center(node.code);
+			if constexpr (Block::HasCenter) {
+				// LOOKAT: Check performance
+				return center(index(node));
+			} else {
+				return center(code(node));
+			}
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return center(key(node));
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -637,8 +642,7 @@ class Tree
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] coord_t centerAxis(NodeType node, std::size_t axis) const
 	{
-		// TODO: Implement
-
+		assert(valid(node));
 		assert(Dim > axis);
 
 		key_t   k;
@@ -654,43 +658,39 @@ class Tree
 				return centerAxis(treeBlock(node).code(node.offset), axis);
 			}
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return centerAxis(code(node), axis);
+			if constexpr (Block::HasCenter) {
+				// LOOKAT: Check performance
+				return centerAxis(index(node), axis);
+			} else {
+				return centerAxis(code(node), axis);
+			}
 		} else if constexpr (std::is_same_v<T, Code>) {
-			assert(valid(node));
 			k = node[axis];
 			d = node.depth();
 		} else if constexpr (std::is_same_v<T, Key>) {
-			assert(valid(node));
 			k = node[axis];
 			d = node.depth();
-		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
-			assert(valid(node));
-
-			d      = depth(node);
-			auto p = node[axis];
-
-			// LOOKAT: Check performance, might be a lot faster to have float here
-			length_t lr = lengthReciprocal(0);
-
-			k = static_cast<key_t>(static_cast<std::make_signed_t<key_t>>(
-			        std::floor(static_cast<length_t>(p) * lr))) +
-			    half_max_value_;
-
-			k >>= d;
-		} else if constexpr (is_one_of_v<T, Point, Point2>) {
-			assert(valid(node));
-
-			d      = 0;
-			auto p = node[axis];
-
-			// LOOKAT: Check performance, might be a lot faster to have float here
-			length_t lr = lengthReciprocal(0);
-
-			k = static_cast<key_t>(static_cast<std::make_signed_t<key_t>>(
-			        std::floor(static_cast<length_t>(p) * lr))) +
-			    half_max_value_;
 		} else {
-			static_assert(is_node_type_v<NodeType>, "Not one of the node types");
+			if constexpr (is_one_of_v<T, Coord, Coord2>) {
+				d = depth(node);
+			} else if constexpr (is_one_of_v<T, Point, Point2>) {
+				d = 0;
+			} else {
+				static_assert(is_node_type_v<NodeType>, "Not one of the node types");
+			}
+
+			auto p = node[axis];
+
+			// LOOKAT: Check performance, might be a lot faster to have float here
+			length_t lr = lengthReciprocal(0);
+
+			k = static_cast<key_t>(static_cast<std::make_signed_t<key_t>>(
+			        std::floor(static_cast<length_t>(p) * lr))) +
+			    half_max_value_;
+
+			if constexpr (is_one_of_v<T, Coord, Coord2>) {
+				k >>= d;
+			}
 		}
 
 		if (depth() == d) {
