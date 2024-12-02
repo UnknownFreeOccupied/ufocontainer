@@ -43,7 +43,6 @@
 #define UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP
 
 // UFO
-#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
@@ -67,25 +66,25 @@ struct Filter<Modified<Negated>> {
 	{
 	}
 
-	template <class Tree>
+	template <class Tree, class Node>
 	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               TreeIndex const& n)
+	                                               Node const& n)
 	{
 		if constexpr (Negated) {
-			return !t.modified(n);
+			return !t.modified(n.index);
 		} else {
-			return t.modified(n);
+			return t.modified(n.index);
 		}
 	}
 
-	template <class Tree>
+	template <class Tree, class Node>
 	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                TreeIndex const& n)
+	                                                Node const& n)
 	{
 		if constexpr (Negated) {
 			return true;
 		} else {
-			return t.modified(n);
+			return t.modified(n.index);
 		}
 	}
 };
