@@ -50,9 +50,12 @@
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/iterator.hpp>
 #include <ufo/container/tree/key.hpp>
+#include <ufo/container/tree/nearest_iterator.hpp>
 #include <ufo/container/tree/node.hpp>
 #include <ufo/container/tree/node_nearest.hpp>
 #include <ufo/container/tree/predicate.hpp>
+#include <ufo/container/tree/query_iterator.hpp>
+#include <ufo/container/tree/query_nearest_iterator.hpp>
 #include <ufo/geometry/shape/aabb.hpp>
 #include <ufo/math/math.hpp>
 #include <ufo/math/vec.hpp>
@@ -133,13 +136,35 @@ class TreeBase
 	using key_t    = typename Key::key_t;
 	using code_t   = typename Code::code_t;
 
-	using const_iterator               = TreeIteratorWrapper<Derived, Node>;
-	using const_nearest_iterator       = TreeIteratorWrapper<Derived, NodeNearest>;
-	using const_query_iterator         = const_iterator;
-	using const_nearest_query_iterator = const_nearest_iterator;
+	// Iterators
 
-	using Query        = IteratorWrapper<const_query_iterator>;
-	using QueryNearest = IteratorWrapper<const_nearest_query_iterator>;
+	using const_iterator = TreeIterator<Derived>;
+
+	template <class Predicate>
+	using const_query_iterator_pred = TreeQueryIterator<Derived, Predicate>;
+	using const_query_iterator      = TreeQueryIterator<Derived>;
+
+	template <class Geometry>
+	using const_nearest_iterator_geom = TreeNearestIterator<Derived, Geometry>;
+	using const_nearest_iterator      = TreeNearestIterator<Derived>;
+
+	template <class Predicate, class Geometry>
+	using const_query_nearest_iterator_pred_geom =
+	    TreeQueryNearestIterator<Derived, Predicate, Geometry>;
+	using const_query_nearest_iterator = TreeQueryNearestIterator<Derived>;
+
+	template <class Predicate>
+	using ConstQuery =
+	    IteratorWrapper<const_query_iterator_pred<Predicate>, const_query_iterator>;
+
+	template <class Geometry>
+	using ConstNearest =
+	    IteratorWrapper<const_nearest_iterator_geom<Geometry>, const_nearest_iterator>;
+
+	template <class Predicate, class Geometry>
+	using ConstQueryNearest =
+	    IteratorWrapper<const_query_nearest_iterator_pred_geom<Predicate, Geometry>,
+	                    const_query_nearest_iterator>;
 
 	template <class T>
 	struct is_node_type
@@ -268,7 +293,7 @@ class TreeBase
 		if constexpr (std::is_same_v<T, Index>) {
 			return depth(node.pos);
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return node.depth();
+			return depth(node.code);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.depth();
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -757,16 +782,16 @@ class TreeBase
 		} else if constexpr (std::is_same_v<T, Node>) {
 			// TODO: Benchmark if this is actually faster than going down the tree
 
-			if (!valid(node.index()) || depth(node.index()) < depth(node) ||
-			    !Code::equalAtDepth(code(node.index()), node.code(), depth(node.index()))) {
-				return index(node.code());
+			if (!valid(node.index) || depth(node.index) < depth(node) ||
+			    !Code::equalAtDepth(code(node.index), node.code, depth(node.index))) {
+				return index(node.code);
 			}
 
-			if (code(node.index()) == node.code() || isLeaf(node.index())) {
-				return node.index();
+			if (code(node.index) == node.code || isLeaf(node.index)) {
+				return node.index;
 			}
 
-			return fun(node.code(), node.index());
+			return fun(node.code, node.index);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return fun(node, index());
 		} else {
@@ -799,7 +824,7 @@ class TreeBase
 			assert(valid(node));
 			return Node(code(node), node);
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return Node(node.code(), index(node));
+			return Node(node.code, index(node));
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return Node(node, index(node));
 		} else {
@@ -840,7 +865,7 @@ class TreeBase
 			assert(valid(node));
 			return treeBlock(node).code(node.offset);
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return node.code();
+			return node.code;
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node;
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -869,7 +894,7 @@ class TreeBase
 		if constexpr (std::is_same_v<T, Index>) {
 			return key(treeBlock(node).code(node.offset));
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return key(node.code());
+			return key(node.code);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return Key(node);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -970,6 +995,7 @@ class TreeBase
 				// NOTE: `node` can be from last call to `create` (if the same thread still
 				// persists), so we need to check if the node is valid (i.e., has not been
 				// deleted). If it has been deleted, we set it to the root node.
+				// FIXME: Note sure if `valid` is thread safe
 				node          = valid(node) ? node : this->index();
 				Code cur_code = this->code(node);
 
@@ -991,20 +1017,20 @@ class TreeBase
 			// ++CALLS;
 
 			// std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
-			// 	thread_local Index       node;
-			// 	thread_local Code        code;
-			// 	thread_local std::size_t calls = 0;
+			// 	thread_local std::size_t THREAD_CALLS = 0;
 
-			// 	if (CALLS != calls) {
-			// 		calls = CALLS;
-			// 		node  = this->index();
-			// 		code  = this->code();
+			// 	thread_local Index node;
+			// 	thread_local Code  cur_code;
+
+			// 	if (CALLS != THREAD_CALLS) {
+			// 		THREAD_CALLS = CALLS;
+			// 		node         = this->index();
+			// 		cur_code     = this->code();
 			// 	}
 
-			// 	Code    e            = this->code(x);
-			// 	depth_t wanted_depth = this->depth(e);
-			// 	depth_t depth        = Code::depthWhereEqual(code, e);
-			// 	code                 = e;
+			// 	Code    code         = this->code(x);
+			// 	depth_t wanted_depth = this->depth(code);
+			// 	depth_t depth        = Code::depthWhereEqual(code, cur_code);
 
 			// 	node = ancestor(node, depth);
 			// 	for (; wanted_depth < depth; --depth) {
@@ -1238,7 +1264,7 @@ class TreeBase
 		if constexpr (std::is_same_v<T, Index>) {
 			return index() == node;
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return isRoot(node.code());
+			return isRoot(node.code);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return code() == node;
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1356,10 +1382,14 @@ class TreeBase
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
-			return {children(node), child_index};
+			return Index(children(node), child_index);
 		} else if constexpr (std::is_same_v<T, Node>) {
 			// TODO: Wrong if node.index points to something else
-			return Node(child(node.code(), child_index), child(node.index(), child_index));
+			return Node(
+			    child(node.code, child_index),
+			    (valid(node.index) && isParent(node.index) && code(node.index) == node.code)
+			        ? child(node.index, child_index)
+			        : node.index);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.child(child_index);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1400,10 +1430,13 @@ class TreeBase
 
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			return {node.pos, sibling_index};
+			return Index(node.pos, sibling_index);
 		} else if constexpr (std::is_same_v<T, Node>) {
 			// TODO: Wrong if node.index points to something else
-			return {sibling(node.code(), sibling_index), sibling(node.index(), sibling_index)};
+			return Node(sibling(node.code, sibling_index),
+			            (valid(node.index) && code(node.index) == node.code)
+			                ? sibling(node.index, sibling_index)
+			                : node.index);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.sibling(sibling_index);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1438,7 +1471,10 @@ class TreeBase
 			return treeBlock(node).parent();
 			// return index(block_[node.pos].parentCode());
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return this->node(parent(node.code()));
+			// TODO: Look at
+			return Node(parent(node.code), (valid(node.index) && code(node.index) == node.code)
+			                                   ? parent(node.index)
+			                                   : node.index);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.parent();
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1479,7 +1515,11 @@ class TreeBase
 			}
 			return treeBlock(block).parent();
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return this->node(ancestor(node.code(), depth));
+			// TODO: Look at
+			return Node(ancestor(node.code, depth),
+			            (valid(node.index) && code(node.index) == node.code)
+			                ? ancestor(node.index, depth)
+			                : node.index);
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.toDepth(depth);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1539,30 +1579,32 @@ class TreeBase
 	 * @param node The node where to start the traversal.
 	 * @param f The callback function to be called for each node traversed.
 	 */
-	template <class UnaryFun,
+	template <class NodeType, class UnaryFun,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>                     = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Index>, bool> = true>
-	void traverse(Index node, UnaryFun f) const
+	void traverse(NodeType node, UnaryFun f) const
 	{
-		if (!f(node) || isLeaf(node)) {
+		if (!exists(node)) {
 			return;
 		}
 
-		std::array<Index, maxNumDepthLevels()> nodes;
-		nodes[1] = child(node, 0);
-		for (std::size_t i{1}; 0 != i;) {
-			node = nodes[i];
-			i -= BF <= ++nodes[i].offset;
-			if (f(node) && isParent(node)) {
-				nodes[++i] = child(node, 0);
-			}
-		}
-	}
+		Index cur = index(node);
 
-	template <class UnaryFun,
-	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(Index node, UnaryFun f, bool only_exists = true) const
-	{
-		traverse(this->node(node), f, only_exists);
+		// TODO: Implement
+
+		// if (!f(node) || isLeaf(node)) {
+		// 	return;
+		// }
+
+		// std::array<Index, maxNumDepthLevels()> nodes;
+		// nodes[1] = child(node, 0);
+		// for (std::size_t i{1}; 0 != i;) {
+		// 	node = nodes[i];
+		// 	i -= BF <= ++nodes[i].offset;
+		// 	if (f(node) && isParent(node)) {
+		// 		nodes[++i] = child(node, 0);
+		// 	}
+		// }
 	}
 
 	/*!
@@ -1573,90 +1615,52 @@ class TreeBase
 	 * @param node The node where to start the traversal.
 	 * @param f The callback function to be called for each node traversed.
 	 */
-	template <class UnaryFun,
+	template <class NodeType, class UnaryFun,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>                    = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(Node node, UnaryFun f, bool only_exists = true) const
+	void traverse(NodeType node, UnaryFun f, bool only_exists = true) const
 	{
-		std::array<Node, maxNumDepthLevels()> nodes;
-		nodes[0] = node;
-
-		if (only_exists) {
-			if (!exists(node)) {
-				return;
-			}
-			for (int depth{}; 0 <= depth;) {
-				node        = nodes[depth];
-				auto offset = nodes[depth].offset();
-				if (BF - 1 > offset) {
-					nodes[depth] = sibling(nodes[depth], offset + 1);
-				} else {
-					--depth;
-				}
-				if (f(node) && isParent(node)) {
-					nodes[++depth] = child(node, 0);
-				}
-			}
-		} else {
-			for (int depth{}; 0 <= depth;) {
-				node        = nodes[depth];
-				auto offset = nodes[depth].offset();
-				if (BF - 1 > offset) {
-					nodes[depth] = sibling(nodes[depth], offset + 1);
-				} else {
-					--depth;
-				}
-				if (f(node) && !isPureLeaf(node)) {
-					nodes[++depth] = child(node, 0);
-				}
-			}
+		if (only_exists && !exists(node)) {
+			return;
 		}
-	}
 
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node corresponding to the
-	 * code. The function 'f' will be called for each node traverse. If 'f' returns true
-	 * then the children of the node will also be traverse, otherwise they will not.
-	 *
-	 * @param node The code to the node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <class UnaryFun,
-	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(Code node, UnaryFun f, bool only_exists = true) const
-	{
-		traverse(this->node(node), f, only_exists);
-	}
+		Node cur = this->node(node);
 
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node corresponding to the
-	 * key. The function 'f' will be called for each node traverse. If 'f' returns true
-	 * then the children of the node will also be traverse, otherwise they will not.
-	 *
-	 * @param node The key to the node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <class UnaryFun,
-	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(Key node, UnaryFun f, bool only_exists = true) const
-	{
-		traverse(this->node(node), f, only_exists);
-	}
+		// TODO: Implement
 
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node corresponding to the
-	 * coordinate at a specified depth. The function 'f' will be called for each node
-	 * traverse. If 'f' returns true then the children of the node will also be traverse,
-	 * otherwise they will not.
-	 *
-	 * @param coord The coord to the node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 * @param depth The depth of the node.
-	 */
-	template <class UnaryFun,
-	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(Coord node, UnaryFun f, bool only_exists = true) const
-	{
-		traverse(this->node(node), f, only_exists);
+		// std::array<Node, maxNumDepthLevels()> nodes;
+		// nodes[0] = node;
+
+		// if (only_exists) {
+		// 	if (!exists(node)) {
+		// 		return;
+		// 	}
+		// 	for (int depth{}; 0 <= depth;) {
+		// 		node        = nodes[depth];
+		// 		auto offset = nodes[depth].offset();
+		// 		if (BF - 1 > offset) {
+		// 			nodes[depth] = sibling(nodes[depth], offset + 1);
+		// 		} else {
+		// 			--depth;
+		// 		}
+		// 		if (f(node) && isParent(node)) {
+		// 			nodes[++depth] = child(node, 0);
+		// 		}
+		// 	}
+		// } else {
+		// 	for (int depth{}; 0 <= depth;) {
+		// 		node        = nodes[depth];
+		// 		auto offset = nodes[depth].offset();
+		// 		if (BF - 1 > offset) {
+		// 			nodes[depth] = sibling(nodes[depth], offset + 1);
+		// 		} else {
+		// 			--depth;
+		// 		}
+		// 		if (f(node) && !isPureLeaf(node)) {
+		// 			nodes[++depth] = child(node, 0);
+		// 		}
+		// 	}
+		// }
 	}
 
 	/*! TODO: Update info for all nearest
@@ -1684,11 +1688,18 @@ class TreeBase
 	 * @param f The callback function to be called for each node traversed.
 	 */
 	template <
-	    class Geometry, class UnaryFun,
+	    class NodeType, class Geometry, class UnaryFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>                           = true,
 	    std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, NodeNearest>, bool> = true>
-	void traverseNearest(Node node, Geometry const& g, UnaryFun f,
+	void traverseNearest(NodeType node, Geometry const& g, UnaryFun f,
 	                     bool only_exists = true) const
 	{
+		if (only_exists && !exists(node)) {
+			return;
+		}
+
+		Node cur = this->node(node);
+
 		// TODO: Implement
 
 		// std::priority_queue<NodeNearest, std::vector<NodeNearest>,
@@ -1727,60 +1738,6 @@ class TreeBase
 		// }
 	}
 
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node corresponding to the
-	 * code. The function 'f' will be called for each node traverse. If 'f' returns true
-	 * then the children of the node will also be traverse, otherwise they will not.
-	 *
-	 * @param node The code to the node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <
-	    class Geometry, class UnaryFun,
-	    std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, NodeNearest>, bool> = true>
-	void traverseNearest(Code node, Geometry const& g, UnaryFun f,
-	                     bool only_exists = true) const
-	{
-		traverseNearest(this->node(node), g, f, only_exists);
-	}
-
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node corresponding to the
-	 * key. The function 'f' will be called for each node traverse. If 'f' returns true
-	 * then the children of the node will also be traverse, otherwise they will not.
-	 *
-	 * @param node The key to the node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <
-	    class Geometry, class UnaryFun,
-	    std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, NodeNearest>, bool> = true>
-	void traverseNearest(Key node, Geometry const& g, UnaryFun f,
-	                     bool only_exists = true) const
-	{
-		traverseNearest(this->node(node), g, f, only_exists);
-	}
-
-	/*!
-	 * @brief Depth first traversal of the tree.
-	 *
-	 * Depth first traversal of the tree, starting at the node corresponding to the
-	 * coordinate. The function 'f' will be called for each node
-	 * traverse. If 'f' returns true then the children of the node will also be traverse,
-	 * otherwise they will not.
-	 *
-	 * @param node The node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <
-	    class Geometry, class UnaryFun,
-	    std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, NodeNearest>, bool> = true>
-	void traverseNearest(Coord node, Geometry const& g, UnaryFun f,
-	                     bool only_exists = true) const
-	{
-		traverseNearest(this->node(node), g, f, only_exists);
-	}
-
 	/**************************************************************************************
 	|                                                                                     |
 	|                                      Iterators                                      |
@@ -1791,62 +1748,21 @@ class TreeBase
 	// Iterator
 	//
 
-	[[nodiscard]] const_iterator begin(bool only_leaves = true, bool only_exists = true,
-	                                   bool early_stopping = false) const
+	[[nodiscard]] const_iterator begin(bool only_leaves = true,
+	                                   bool only_exists = true) const
 	{
-		return begin(node(), only_leaves, only_exists, early_stopping);
+		return begin(node(), only_leaves, only_exists);
 	}
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] const_iterator begin(NodeType node, bool only_leaves = true,
-	                                   bool only_exists    = true,
-	                                   bool early_stopping = false) const
+	                                   bool only_exists = true) const
 	{
-		using T = std::decay_t<NodeType>;
-		if constexpr (std::is_same_v<T, Node>) {
-			return only_leaves ? beginQuery(node, pred::Leaf{}, only_exists, early_stopping)
-			                   : beginQuery(node, pred::True{}, only_exists, early_stopping);
-		} else {
-			return begin(this->node(node), only_leaves, only_exists, early_stopping);
-		}
+		return const_iterator(const_cast<Derived*>(&derived()), this->node(node), only_leaves,
+		                      only_exists);
 	}
 
-	[[nodiscard]] const_iterator end() const { return endQuery(); }
-
-	//
-	// Nearest iterator
-	//
-
-	template <class Geometry>
-	[[nodiscard]] const_nearest_iterator beginNearest(Geometry const& geometry,
-	                                                  double          epsilon     = 0.0,
-	                                                  bool            only_leaves = true,
-	                                                  bool            only_exists = true,
-	                                                  bool early_stopping = false) const
-	{
-		return beginNearest(node(), geometry, epsilon, only_leaves, only_exists,
-		                    early_stopping);
-	}
-
-	template <class NodeType, class Geometry,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] const_nearest_iterator beginNearest(
-	    NodeType node, Geometry const& geometry, double epsilon = 0.0,
-	    bool only_leaves = true, bool only_exists = true, bool early_stopping = false) const
-	{
-		using T = std::decay_t<NodeType>;
-		if constexpr (std::is_same_v<T, Node>) {
-			return only_leaves ? beginQueryNearest(node, geometry, pred::Leaf{}, epsilon,
-			                                       only_exists, early_stopping)
-			                   : beginQueryNearest(node, geometry, pred::True{}, epsilon,
-			                                       only_exists, early_stopping);
-		} else {
-			return beginNearest(this->node(node), geometry, epsilon, only_leaves, only_exists,
-			                    early_stopping);
-		}
-	}
-
-	[[nodiscard]] const_nearest_iterator endNearest() const { return endQueryNearest(); }
+	[[nodiscard]] const_iterator end() const { return const_iterator(); }
 
 	//
 	// Query iterator
@@ -1854,102 +1770,84 @@ class TreeBase
 
 	template <class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(Predicate const& predicate,
-	                                              bool             only_exists = true,
-	                                              bool early_stopping = false) const
+	[[nodiscard]] const_query_iterator_pred<Predicate> beginQuery(
+	    Predicate const& pred, bool only_exists = true, bool early_stopping = false) const
 	{
-		return beginQuery(node(), predicate, only_exists, early_stopping);
+		return beginQuery(node(), pred, only_exists, early_stopping);
 	}
 
 	template <class NodeType, class Predicate,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_query_iterator beginQuery(NodeType node, Predicate const& predicate,
-	                                              bool only_exists    = true,
-	                                              bool early_stopping = false) const
+	[[nodiscard]] const_query_iterator_pred<Predicate> beginQuery(
+	    NodeType node, Predicate const& pred, bool only_exists = true,
+	    bool early_stopping = false) const
 	{
-		using T = std::decay_t<NodeType>;
-		if constexpr (std::is_same_v<T, Node>) {
-			if (only_exists) {
-				if (early_stopping) {
-					return {new TreeForwardIterator<Derived, Node, Predicate, true, true>(
-					    &derived(), node, predicate)};
-				} else {
-					return {new TreeForwardIterator<Derived, Node, Predicate, true, false>(
-					    &derived(), node, predicate)};
-				}
-			} else {
-				if (early_stopping) {
-					return {new TreeForwardIterator<Derived, Node, Predicate, false, true>(
-					    &derived(), node, predicate)};
-				} else {
-					return {new TreeForwardIterator<Derived, Node, Predicate, false, false>(
-					    &derived(), node, predicate)};
-				}
-			}
-		} else {
-			return beginQuery(this->node(node), predicate, only_exists, early_stopping);
-		}
+		return const_query_iterator_pred<Predicate>(const_cast<Derived*>(&derived()),
+		                                            this->node(node), pred, only_exists,
+		                                            early_stopping);
 	}
 
-	[[nodiscard]] const_query_iterator endQuery() const
+	[[nodiscard]] const_query_iterator endQuery() const { return const_query_iterator(); }
+
+	//
+	// Nearest iterator
+	//
+
+	template <class Geometry>
+	[[nodiscard]] const_nearest_iterator_geom<Geometry> beginNearest(
+	    Geometry const& geometry, double epsilon = 0.0, bool only_leaves = true,
+	    bool only_exists = true) const
 	{
-		return {new TreeForwardIterator<Derived, Node, pred::True, true, true>(&derived())};
+		return beginNearest(node(), geometry, epsilon, only_leaves, only_exists);
+	}
+
+	template <class NodeType, class Geometry,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] const_nearest_iterator_geom<Geometry> beginNearest(
+	    NodeType node, Geometry const& geometry, double epsilon = 0.0,
+	    bool only_leaves = true, bool only_exists = true) const
+	{
+		return const_nearest_iterator_geom<Geometry>(const_cast<Derived*>(&derived()),
+		                                             this->node(node), geometry, epsilon,
+		                                             only_leaves, only_exists);
+	}
+
+	[[nodiscard]] const_nearest_iterator endNearest() const
+	{
+		return const_nearest_iterator();
 	}
 
 	//
 	// Query nearest iterator
 	//
 
-	template <class Geometry, class Predicate,
+	template <class Predicate, class Geometry,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    Geometry const& geometry, Predicate const& predicate, double epsilon = 0.0,
-	    bool only_exists = true, bool early_stopping = false) const
+	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
+	beginQueryNearest(Predicate const& pred, Geometry const& geometry, double epsilon = 0.0,
+	                  bool only_exists = true, bool early_stopping = false) const
 	{
-		return beginQueryNearest(node(), geometry, predicate, epsilon, only_exists,
+		return beginQueryNearest(node(), pred, geometry, epsilon, only_exists,
 		                         early_stopping);
 	}
 
-	template <class NodeType, class Geometry, class Predicate,
+	template <class NodeType, class Predicate, class Geometry,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] const_nearest_query_iterator beginQueryNearest(
-	    NodeType node, Geometry const& geometry, Predicate const& predicate,
-	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
+	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
+	beginQueryNearest(NodeType node, Predicate const& pred, Geometry const& geometry,
+	                  double epsilon = 0.0, bool only_exists = true,
+	                  bool early_stopping = false) const
 	{
-		using T = std::decay_t<NodeType>;
-		if constexpr (std::is_same_v<T, Node>) {
-			if (only_exists) {
-				if (early_stopping) {
-					return {new TreeNearestIterator<Derived, Node, Geometry, Predicate, true, true>(
-					    &derived(), node, geometry, predicate, epsilon)};
-				} else {
-					return {
-					    new TreeNearestIterator<Derived, Node, Geometry, Predicate, true, false>(
-					        &derived(), node, geometry, predicate, epsilon)};
-				}
-			} else {
-				if (early_stopping) {
-					return {
-					    new TreeNearestIterator<Derived, Node, Geometry, Predicate, false, true>(
-					        &derived(), node, geometry, predicate, epsilon)};
-				} else {
-					return {
-					    new TreeNearestIterator<Derived, Node, Geometry, Predicate, false, false>(
-					        &derived(), node, geometry, predicate, epsilon)};
-				}
-			}
-		} else {
-			return beginQueryNearest(this->node(node), geometry, predicate, epsilon,
-			                         only_exists, early_stopping);
-		}
+		return const_query_nearest_iterator_pred_geom<Predicate, Geometry>(
+		    const_cast<Derived*>(&derived()), this->node(node), pred, geometry, epsilon,
+		    only_exists, early_stopping);
 	}
 
-	[[nodiscard]] const_nearest_query_iterator endQueryNearest() const
+	[[nodiscard]] const_query_nearest_iterator endQueryNearest() const
 	{
-		return const_nearest_query_iterator(
-		    new TreeNearestIterator<Derived, Node, Point, pred::True, true, true>());
+		return const_query_nearest_iterator();
 	}
 
 	/**************************************************************************************
@@ -1964,58 +1862,72 @@ class TreeBase
 
 	template <class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(Predicate const& predicate, bool only_exists = true,
-	                          bool early_stopping = false) const
+	[[nodiscard]] ConstQuery<Predicate> query(Predicate const& pred,
+	                                          bool             only_exists    = true,
+	                                          bool             early_stopping = false) const
 	{
-		return query(node(), predicate, only_exists, early_stopping);
+		return query(node(), pred, only_exists, early_stopping);
 	}
 
 	template <class NodeType, class Predicate,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] Query query(NodeType node, Predicate const& predicate,
-	                          bool only_exists = true, bool early_stopping = false) const
+	[[nodiscard]] ConstQuery<Predicate> query(NodeType node, Predicate const& pred,
+	                                          bool only_exists    = true,
+	                                          bool early_stopping = false) const
 	{
-		using T = std::decay_t<NodeType>;
-		if constexpr (std::is_same_v<T, Node>) {
-			return Query(beginQuery(node, predicate, only_exists, early_stopping), endQuery());
-		} else {
-			return query(this->node(node), predicate, only_exists, early_stopping);
-		}
+		return ConstQuery<Predicate>(beginQuery(node, pred, only_exists, early_stopping),
+		                             endQuery());
+	}
+
+	//
+	// Nearest
+	//
+
+	template <class Geometry>
+	[[nodiscard]] ConstNearest<Geometry> nearest(Geometry const& geometry,
+	                                             double          epsilon     = 0.0,
+	                                             bool            only_leaves = true,
+	                                             bool            only_exists = true) const
+	{
+		return nearest(node(), geometry, epsilon, only_leaves, only_exists);
+	}
+
+	template <class NodeType, class Geometry,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] ConstNearest<Geometry> queryNearest(NodeType        node,
+	                                                  Geometry const& geometry,
+	                                                  double          epsilon     = 0.0,
+	                                                  bool            only_leaves = true,
+	                                                  bool only_exists = true) const
+	{
+		return ConstNearest<Geometry>(
+		    beginNearest(node, geometry, epsilon, only_leaves, only_exists), endNearest());
 	}
 
 	//
 	// Query nearest
 	//
 
-	template <class Geometry, class Predicate,
+	template <class Predicate, class Geometry,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(Geometry const&  geometry,
-	                                        Predicate const& predicate = pred::True{},
-	                                        double epsilon = 0.0, bool only_exists = true,
-	                                        bool early_stopping = false) const
+	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
+	    Predicate const& pred, Geometry const& geometry, double epsilon = 0.0,
+	    bool only_exists = true, bool early_stopping = false) const
 	{
-		return queryNearest(node(), geometry, predicate, epsilon, only_exists,
-		                    early_stopping);
+		return queryNearest(node(), pred, geometry, epsilon, only_exists, early_stopping);
 	}
 
-	template <class NodeType, class Geometry, class Predicate,
+	template <class NodeType, class Predicate, class Geometry,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
-	[[nodiscard]] QueryNearest queryNearest(NodeType node, Geometry const& geometry,
-	                                        Predicate const& predicate = pred::True{},
-	                                        double epsilon = 0.0, bool only_exists = true,
-	                                        bool early_stopping = false) const
+	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
+	    NodeType node, Predicate const& pred, Geometry const& geometry,
+	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
 	{
-		using T = std::decay_t<NodeType>;
-		if constexpr (std::is_same_v<T, Node>) {
-			return QueryNearest(beginQueryNearest(node, geometry, predicate, epsilon,
-			                                      only_exists, early_stopping),
-			                    endQueryNearest());
-		} else {
-			return queryNearest(this->node(node), geometry, predicate, epsilon, only_exists,
-			                    early_stopping);
-		}
+		return ConstQueryNearest<Predicate, Geometry>(
+		    beginQueryNearest(node, pred, geometry, epsilon, only_exists, early_stopping),
+		    endQueryNearest());
 	}
 
 	/**************************************************************************************
@@ -3073,13 +2985,15 @@ class TreeBase
 
 	// TODO: Benchmark against only returning the distance
 
-	template <bool OnlyDistance, bool FastAsSonic, class ValueFun, class InnerFun>
+	template <bool OnlyDistance = false, bool FastAsSonic = false, class ValueFun,
+	          class InnerFun>
 	[[nodiscard]] std::conditional_t<OnlyDistance, float, std::pair<float, Index>> nearest(
 	    Index node, NearestSearchAlgorithm search_alg, ValueFun value_f, InnerFun inner_f,
 	    float max_dist, float epsilon) const
 	{
-		assert(std::isfinite(max_dist));
-		assert(std::isfinite(epsilon));
+		// TODO: Look at
+		// assert(std::isfinite(max_dist));
+		// assert(std::isfinite(epsilon));
 
 		std::conditional_t<OnlyDistance, float, std::pair<float, Index>> closest{};
 		if constexpr (OnlyDistance) {

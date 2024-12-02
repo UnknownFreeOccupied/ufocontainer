@@ -47,6 +47,7 @@
 #include <ufo/container/tree/predicate/filter.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/geometry/distance.hpp>
+#include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
 #include <cassert>
@@ -60,7 +61,8 @@ namespace ufo
 template <std::size_t Dim>
 class TreeSet;
 
-template <bool Const, std::size_t Dim, class Predicate = pred::Predicate<TreeSet<Dim>>>
+template <bool Const, std::size_t Dim, class Predicate = pred::Predicate<TreeSet<Dim>>,
+          class Geometry = DynamicGeometry>
 class TreeSetQueryNearestIterator
 {
  private:
@@ -68,7 +70,7 @@ class TreeSetQueryNearestIterator
 	// Friends
 	//
 
-	template <bool, std::size_t, class>
+	template <bool, std::size_t, class, class>
 	friend class TreeSetQueryNearestIterator;
 
 	friend class TreeSet<Dim>;
@@ -114,14 +116,15 @@ class TreeSetQueryNearestIterator
 
 	TreeSetQueryNearestIterator(TreeSetQueryNearestIterator const&) = default;
 
-	// From non-const to const or change of predicate type
+	// From non-const to const or change of predicate/geometry type
 	template <
-	    bool Const2, class Predicate2,
+	    bool Const2, class Predicate2, class Geometry2,
 	    std::enable_if_t<(Const && !Const2) ||
-	                         (Const == Const2 && !std::is_same_v<Predicate, Predicate2>),
+	                         (Const == Const2 && (!std::is_same_v<Predicate, Predicate2> ||
+	                                              !std::is_same_v<Geometry, Geometry2>)),
 	                     bool> = true>
 	TreeSetQueryNearestIterator(
-	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& other)
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& other)
 	    : tm_(other.tm_)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
@@ -152,17 +155,19 @@ class TreeSetQueryNearestIterator
 
 	pointer operator->() const { return &*queue_.top().it; }
 
-	template <bool Const2, class Predicate2>
-	friend bool operator==(TreeSetQueryNearestIterator const&                          lhs,
-	                       TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& rhs)
+	template <bool Const2, class Predicate2, class Geometry2>
+	friend bool operator==(
+	    TreeSetQueryNearestIterator const&                                     lhs,
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& rhs)
 	{
 		return lhs.queue_.empty() == rhs.queue_.empty() &&
 		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
 	}
 
-	template <bool Const2, class Predicate2>
-	friend bool operator!=(TreeSetQueryNearestIterator const&                          lhs,
-	                       TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& rhs)
+	template <bool Const2, class Predicate2, class Geometry2>
+	friend bool operator!=(
+	    TreeSetQueryNearestIterator const&                                     lhs,
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& rhs)
 	{
 		return !(lhs == rhs);
 	}
@@ -226,7 +231,7 @@ class TreeSetQueryNearestIterator
 
  private:
 	TreeSetQueryNearestIterator(TreeSet<Dim>* tm, TreeIndex node, Predicate const& pred,
-	                            Point query, float epsilon = 0.0f)
+	                            Geometry const& query, float epsilon = 0.0f)
 	    : tm_(tm), pred_(pred), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
 		pred::Filter<Predicate>::init(pred_, *tm_);
@@ -239,10 +244,10 @@ class TreeSetQueryNearestIterator
 	}
 
 	// From const to non-const
-	template <bool Const2, class Predicate2,
+	template <bool Const2, class Predicate2, class Geometry2,
 	          std::enable_if_t<!Const && Const2, bool> = true>
 	TreeSetQueryNearestIterator(
-	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2> const& other)
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& other)
 	    : tm_(other.tm)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
@@ -262,8 +267,8 @@ class TreeSetQueryNearestIterator
 
 	Predicate pred_{};
 
-	Point query_;
-	float epsilon_sq_;
+	Geometry query_;
+	float    epsilon_sq_;
 
 	Queue queue_;
 };

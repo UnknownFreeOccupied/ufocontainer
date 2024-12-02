@@ -45,6 +45,7 @@
 // UFO
 #include <ufo/container/tree/index.hpp>
 #include <ufo/geometry/distance.hpp>
+#include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
 #include <cassert>
@@ -59,7 +60,7 @@ namespace ufo
 template <std::size_t Dim>
 class TreeSet;
 
-template <bool Const, std::size_t Dim>
+template <bool Const, std::size_t Dim, class Geometry = DynamicGeometry>
 class TreeSetNearestIterator
 {
  private:
@@ -67,7 +68,8 @@ class TreeSetNearestIterator
 	// Friends
 	//
 
-	friend class TreeSetNearestIterator<!Const, Dim>;
+	template <bool, std::size_t, class>
+	friend class TreeSetNearestIterator;
 
 	friend class TreeSet<Dim>;
 
@@ -112,9 +114,12 @@ class TreeSetNearestIterator
 
 	TreeSetNearestIterator(TreeSetNearestIterator const&) = default;
 
-	// From non-const to const
-	template <bool Const2, std::enable_if_t<Const && !Const2, bool> = true>
-	TreeSetNearestIterator(TreeSetNearestIterator<Const2, Dim> const& other)
+	// From non-const to const or change of geometry type
+	template <bool Const2, class Geometry2,
+	          std::enable_if_t<(Const && !Const2) || (Const == Const2 &&
+	                                                  !std::is_same_v<Geometry, Geometry2>),
+	                           bool> = true>
+	TreeSetNearestIterator(TreeSetNearestIterator<Const2, Dim, Geometry2> const& other)
 	    : tm_(other.tm_), query_(other.query_), epsilon_sq_(other.epsilon_sq_)
 	{
 		auto queue = other.queue_;
@@ -142,17 +147,17 @@ class TreeSetNearestIterator
 
 	pointer operator->() const { return &*queue_.top().it; }
 
-	template <bool Const2>
-	friend bool operator==(TreeSetNearestIterator const&              lhs,
-	                       TreeSetNearestIterator<Const2, Dim> const& rhs)
+	template <bool Const2, class Geometry2>
+	friend bool operator==(TreeSetNearestIterator const&                         lhs,
+	                       TreeSetNearestIterator<Const2, Dim, Geometry2> const& rhs)
 	{
 		return lhs.queue_.empty() == rhs.queue_.empty() &&
 		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
 	}
 
-	template <bool Const2>
-	friend bool operator!=(TreeSetNearestIterator const&              lhs,
-	                       TreeSetNearestIterator<Const2, Dim> const& rhs)
+	template <bool Const2, class Geometry2>
+	friend bool operator!=(TreeSetNearestIterator const&                         lhs,
+	                       TreeSetNearestIterator<Const2, Dim, Geometry2> const& rhs)
 	{
 		return !(lhs == rhs);
 	}
@@ -204,7 +209,7 @@ class TreeSetNearestIterator
 	[[nodiscard]] RawIterator iterator() { return queue_.top().it; }
 
  private:
-	TreeSetNearestIterator(TreeSet<Dim>* tm, TreeIndex node, Point query,
+	TreeSetNearestIterator(TreeSet<Dim>* tm, TreeIndex node, Geometry const& query,
 	                       float epsilon = 0.0f)
 	    : tm_(tm), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
@@ -216,8 +221,8 @@ class TreeSetNearestIterator
 	}
 
 	// From const to non-const
-	template <bool Const2, std::enable_if_t<!Const && Const2, bool> = true>
-	TreeSetNearestIterator(TreeSetNearestIterator<Const2, Dim> const& other)
+	template <bool Const2, class Geometry2, std::enable_if_t<!Const && Const2, bool> = true>
+	TreeSetNearestIterator(TreeSetNearestIterator<Const2, Dim, Geometry2> const& other)
 	    : tm_(other.tm), query_(other.query_), epsilon_sq_(other.epsilon_sq_)
 	{
 		auto queue = other.queue_;
@@ -232,8 +237,8 @@ class TreeSetNearestIterator
  private:
 	TreeSet<Dim>* tm_ = nullptr;
 
-	Point query_;
-	float epsilon_sq_;
+	Geometry query_;
+	float    epsilon_sq_;
 
 	Queue queue_;
 };

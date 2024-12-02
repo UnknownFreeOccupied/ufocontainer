@@ -53,7 +53,9 @@ namespace ufo::pred
 namespace detail
 {
 template <class Tree>
-struct Dynamic {
+class Dynamic
+{
+ public:
 	virtual ~Dynamic() {}
 
 	virtual void init(Tree const&) = 0;
@@ -66,9 +68,11 @@ struct Dynamic {
 };
 
 template <class Tree, class Predicate>
-struct DynamicPredicate
-    : Dynamic<Tree>
-    , Predicate {
+class DynamicPredicate
+    : public Dynamic<Tree>
+    , public Predicate
+{
+ public:
 	DynamicPredicate(Predicate const& pred) : Predicate(pred) {}
 
 	DynamicPredicate(Predicate&& pred) : Predicate(std::move(pred)) {}
@@ -76,10 +80,6 @@ struct DynamicPredicate
 	DynamicPredicate(Tree const&, Predicate const& pred) : Predicate(pred) {}
 
 	DynamicPredicate(Tree const&, Predicate&& pred) : Predicate(std::move(pred)) {}
-
-	DynamicPredicate(DynamicPredicate const&) = default;
-
-	DynamicPredicate(DynamicPredicate&&) = default;
 
 	virtual ~DynamicPredicate() {}
 
@@ -99,12 +99,16 @@ struct DynamicPredicate
 	}
 
  protected:
-	DynamicPredicate* clone() const override { return new DynamicPredicate(*this); }
+	[[nodiscard]] DynamicPredicate* clone() const override
+	{
+		return new DynamicPredicate(*this);
+	}
 };
 }  // namespace detail
 
 template <class Tree>
-struct Predicate {
+class Predicate
+{
  public:
 	Predicate() = default;
 
@@ -115,22 +119,16 @@ struct Predicate {
 		}
 	}
 
-	Predicate(Predicate&& other) = default;
-
-	Predicate(detail::Dynamic<Tree> const& pred) : predicate_(pred.clone()) {}
-
-	template <class Pred>
-	Predicate(Pred const& pred)
-	    : predicate_(std::make_unique<detail::DynamicPredicate<Tree, Pred>>(pred))
-	{
-	}
-
 	template <class Pred>
 	Predicate(Pred&& pred)
 	    : predicate_(std::make_unique<detail::DynamicPredicate<Tree, Pred>>(
 	          std::forward<Pred>(pred)))
 	{
 	}
+
+	Predicate(Predicate&&) = default;
+
+	Predicate(detail::Dynamic<Tree> const& pred) : predicate_(pred.clone()) {}
 
 	Predicate& operator=(Predicate const& rhs)
 	{
@@ -147,13 +145,6 @@ struct Predicate {
 	Predicate& operator=(detail::Dynamic<Tree> const& rhs)
 	{
 		predicate_.reset(rhs.clone());
-		return *this;
-	}
-
-	template <class Pred>
-	Predicate& operator=(Pred const& pred)
-	{
-		predicate_ = std::make_unique<detail::DynamicPredicate<Tree, Pred>>(pred);
 		return *this;
 	}
 

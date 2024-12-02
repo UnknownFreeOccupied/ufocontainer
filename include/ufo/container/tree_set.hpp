@@ -43,12 +43,14 @@
 #define UFO_CONTAINER_TREE_SET_HPP
 
 // UFO
+#include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/container/tree/set/block.hpp>
 #include <ufo/container/tree/set/iterator.hpp>
 #include <ufo/container/tree/set/nearest_iterator.hpp>
 #include <ufo/container/tree/set/query_iterator.hpp>
 #include <ufo/container/tree/set/query_nearest_iterator.hpp>
 #include <ufo/container/tree/tree.hpp>
+#include <ufo/geometry/dynamic_geometry.hpp>
 #include <ufo/utility/execution.hpp>
 
 // STL
@@ -75,6 +77,8 @@ class TreeSet
 	friend Base;
 	// Second base friends ;)
 	friend typename Base::Base;
+
+	friend typename Base::Base::const_iterator;
 
 	template <class Geometry, pred::SpatialTag Tag, bool Negated>
 	friend class pred::Spatial;
@@ -112,42 +116,54 @@ class TreeSet
 	// Iterators
 	// NOTE: All iterators are const because it is not possible to change the key
 
-	using iterator       = TreeSetIterator<true, Dim>;
 	using const_iterator = TreeSetIterator<true, Dim>;
+	using iterator       = const_iterator;
 
-	template <class Predicate>
-	using query_iterator_pred = TreeSetQueryIterator<true, Dim, Predicate>;
 	template <class Predicate>
 	using const_query_iterator_pred = TreeSetQueryIterator<true, Dim, Predicate>;
+	template <class Predicate>
+	using query_iterator_pred = const_query_iterator_pred<Predicate>;
 
-	using query_iterator       = query_iterator_pred<pred::Predicate<TreeSet>>;
 	using const_query_iterator = const_query_iterator_pred<pred::Predicate<TreeSet>>;
+	using query_iterator       = const_query_iterator;
 
-	using nearest_iterator       = TreeSetNearestIterator<true, Dim>;
-	using const_nearest_iterator = TreeSetNearestIterator<true, Dim>;
+	template <class Geometry>
+	using const_nearest_iterator_geom = TreeSetNearestIterator<true, Dim, Geometry>;
+	template <class Geometry>
+	using nearest_iterator_geom = const_nearest_iterator_geom<Geometry>;
 
-	template <class Predicate>
-	using query_nearest_iterator_pred = TreeSetQueryNearestIterator<true, Dim, Predicate>;
-	template <class Predicate>
-	using const_query_nearest_iterator_pred =
-	    TreeSetQueryNearestIterator<true, Dim, Predicate>;
+	using const_nearest_iterator = const_nearest_iterator_geom<DynamicGeometry>;
+	using nearest_iterator       = const_nearest_iterator;
 
-	using query_nearest_iterator = query_nearest_iterator_pred<pred::Predicate<TreeSet>>;
+	template <class Predicate, class Geometry>
+	using const_query_nearest_iterator_pred_geom =
+	    TreeSetQueryNearestIterator<true, Dim, Predicate, Geometry>;
+	template <class Predicate, class Geometry>
+	using query_nearest_iterator_pred_geom =
+	    const_query_nearest_iterator_pred_geom<Predicate, Geometry>;
+
 	using const_query_nearest_iterator =
-	    const_query_nearest_iterator_pred<pred::Predicate<TreeSet>>;
+	    const_query_nearest_iterator_pred_geom<pred::Predicate<TreeSet>, DynamicGeometry>;
+	using query_nearest_iterator = const_query_nearest_iterator;
 
 	template <class Predicate>
-	using Query = IteratorWrapper<query_iterator_pred<Predicate>>;
+	using ConstQuery =
+	    IteratorWrapper<const_query_iterator_pred<Predicate>, const_query_iterator>;
 	template <class Predicate>
-	using ConstQuery = IteratorWrapper<const_query_iterator_pred<Predicate>>;
+	using Query = ConstQuery<Predicate>;
 
-	using Nearest      = IteratorWrapper<nearest_iterator>;
-	using ConstNearest = IteratorWrapper<const_nearest_iterator>;
+	template <class Geometry>
+	using ConstNearest =
+	    IteratorWrapper<const_nearest_iterator_geom<Geometry>, const_nearest_iterator>;
+	template <class Geometry>
+	using Nearest = ConstNearest<Geometry>;
 
-	template <class Predicate>
-	using QueryNearest = IteratorWrapper<query_nearest_iterator_pred<Predicate>>;
-	template <class Predicate>
-	using ConstQueryNearest = IteratorWrapper<const_query_nearest_iterator_pred<Predicate>>;
+	template <class Predicate, class Geometry>
+	using ConstQueryNearest =
+	    IteratorWrapper<const_query_nearest_iterator_pred_geom<Predicate, Geometry>,
+	                    const_query_nearest_iterator>;
+	template <class Predicate, class Geometry>
+	using QueryNearest = ConstQueryNearest<Predicate, Geometry>;
 
 	//
 	// Friend iterators
@@ -159,10 +175,10 @@ class TreeSet
 	template <bool, std::size_t, class>
 	friend class TreeSetQueryIterator;
 
-	template <bool, std::size_t>
+	template <bool, std::size_t, class>
 	friend class TreeSetNearestIterator;
 
-	template <bool, std::size_t, class>
+	template <bool, std::size_t, class, class>
 	friend class TreeSetQueryNearestIterator;
 
  private:
@@ -263,20 +279,24 @@ class TreeSet
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] nearest_iterator beginNearest(Point query, float epsilon = 0.0f)
+	template <class Geometry>
+	[[nodiscard]] nearest_iterator_geom<Geometry> beginNearest(Geometry const& query,
+	                                                           float epsilon = 0.0f)
 	{
-		return nearest_iterator(this, Base::index(), query, epsilon);
+		return nearest_iterator_geom<Geometry>(this, Base::index(), query, epsilon);
 	}
 
-	[[nodiscard]] const_nearest_iterator beginNearest(Point query,
-	                                                  float epsilon = 0.0f) const
+	template <class Geometry>
+	[[nodiscard]] const_nearest_iterator_geom<Geometry> beginNearest(
+	    Geometry const& query, float epsilon = 0.0f) const
 	{
-		return const_nearest_iterator(const_cast<TreeSet*>(this), Base::index(), query,
-		                              epsilon);
+		return const_nearest_iterator_geom<Geometry>(const_cast<TreeSet*>(this),
+		                                             Base::index(), query, epsilon);
 	}
 
-	[[nodiscard]] const_nearest_iterator cbeginNearest(Point query,
-	                                                   float epsilon = 0.0f) const
+	template <class Geometry>
+	[[nodiscard]] const_nearest_iterator_geom<Geometry> cbeginNearest(
+	    Geometry const& query, float epsilon = 0.0f) const
 	{
 		return beginNearest(query, epsilon);
 	}
@@ -296,25 +316,27 @@ class TreeSet
 	|                                                                                     |
 	**************************************************************************************/
 
-	template <class Predicate>
-	[[nodiscard]] query_nearest_iterator_pred<Predicate> beginQueryNearest(
-	    Predicate const& pred, Point query, float epsilon = 0.0f)
+	template <class Predicate, class Geometry>
+	[[nodiscard]] query_nearest_iterator_pred_geom<Predicate, Geometry> beginQueryNearest(
+	    Predicate const& pred, Geometry const& query, float epsilon = 0.0f)
 	{
-		return query_nearest_iterator_pred<Predicate>(this, Base::index(), pred, query,
-		                                              epsilon);
+		return query_nearest_iterator_pred_geom<Predicate, Geometry>(this, Base::index(),
+		                                                             pred, query, epsilon);
 	}
 
-	template <class Predicate>
-	[[nodiscard]] const_query_nearest_iterator_pred<Predicate> beginQueryNearest(
-	    Predicate const& pred, Point query, float epsilon = 0.0f) const
+	template <class Predicate, class Geometry>
+	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
+	beginQueryNearest(Predicate const& pred, Geometry const& query,
+	                  float epsilon = 0.0f) const
 	{
-		return const_query_nearest_iterator_pred<Predicate>(
+		return const_query_nearest_iterator_pred_geom<Predicate, Geometry>(
 		    const_cast<TreeSet*>(this), Base::index(), pred, query, epsilon);
 	}
 
-	template <class Predicate>
-	[[nodiscard]] const_query_nearest_iterator_pred<Predicate> cbeginQueryNearest(
-	    Predicate const& pred, Point query, float epsilon = 0.0f) const
+	template <class Predicate, class Geometry>
+	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
+	cbeginQueryNearest(Predicate const& pred, Geometry const& query,
+	                   float epsilon = 0.0f) const
 	{
 		return beginQueryNearest(pred, query, epsilon);
 	}
@@ -503,16 +525,18 @@ class TreeSet
 	// 	return pos;
 	// }
 
-	nearest_iterator erase(const_nearest_iterator pos)
+	template <class Geometry>
+	nearest_iterator_geom<Geometry> erase(const_nearest_iterator_geom<Geometry> pos)
 	{
 		auto it = pos.iterator();
 		++pos;
 		erase(it);
-		return nearest_iterator(pos);
+		return nearest_iterator_geom<Geometry>(pos);
 	}
 
 	// template <class Predicate>
-	// query_nearest_iterator_pred<Predicate> erase(query_nearest_iterator_pred<Predicate> pos)
+	// query_nearest_iterator_pred<Predicate> erase(query_nearest_iterator_pred<Predicate>
+	// pos)
 	// {
 	// 	auto it = pos.iterator();
 	// 	++pos;
@@ -520,14 +544,14 @@ class TreeSet
 	// 	return pos;
 	// }
 
-	template <class Predicate>
-	query_nearest_iterator_pred<Predicate> erase(
-	    const_query_nearest_iterator_pred<Predicate> pos)
+	template <class Predicate, class Geometry>
+	query_nearest_iterator_pred_geom<Predicate, Geometry> erase(
+	    const_query_nearest_iterator_pred_geom<Predicate, Geometry> pos)
 	{
 		auto it = pos.iterator();
 		++pos;
 		erase(it);
-		return query_nearest_iterator_pred<Predicate>(pos);
+		return query_nearest_iterator_pred_geom<Predicate, Geometry>(pos);
 	}
 
 	// iterator erase(iterator first, iterator last)
@@ -596,14 +620,16 @@ class TreeSet
 	// 	return first;
 	// }
 
-	nearest_iterator erase(const_nearest_iterator first, const_nearest_iterator last)
+	template <class Geometry1, class Geometry2>
+	nearest_iterator_geom<Geometry1> erase(const_nearest_iterator_geom<Geometry1> first,
+	                                       const_nearest_iterator_geom<Geometry2> last)
 	{
 		while (last != first) {
 			auto it = first.iterator();
 			++first;
 			erase(it);
 		}
-		return nearest_iterator(first);
+		return nearest_iterator_geom<Geometry1>(first);
 	}
 
 	// template <class Predicate1, class Predicate2>
@@ -619,17 +645,17 @@ class TreeSet
 	// 	return first;
 	// }
 
-	template <class Predicate1, class Predicate2>
-	query_nearest_iterator_pred<Predicate1> erase(
-	    const_query_nearest_iterator_pred<Predicate1> first,
-	    const_query_nearest_iterator_pred<Predicate2> last)
+	template <class Predicate1, class Geometry1, class Predicate2, class Geometry2>
+	query_nearest_iterator_pred_geom<Predicate1, Geometry1> erase(
+	    const_query_nearest_iterator_pred_geom<Predicate1, Geometry1> first,
+	    const_query_nearest_iterator_pred_geom<Predicate2, Geometry2> last)
 	{
 		while (last != first) {
 			auto it = first.iterator();
 			++first;
 			erase(it);
 		}
-		return query_nearest_iterator_pred<Predicate1>(first);
+		return query_nearest_iterator_pred_geom<Predicate1, Geometry1>(first);
 	}
 
 	// template <class Predicate>
@@ -638,8 +664,9 @@ class TreeSet
 	// 	return erase(query.begin(), query.end());
 	// }
 
-	template <class Predicate>
-	query_nearest_iterator_pred<Predicate> erase(ConstQueryNearest<Predicate> query)
+	template <class Predicate, class Geometry>
+	query_nearest_iterator_pred_geom<Predicate, Geometry> erase(
+	    ConstQueryNearest<Predicate, Geometry> query)
 	{
 		return erase(query.begin(), query.end());
 	}
@@ -692,41 +719,43 @@ class TreeSet
 	template <class Predicate>
 	[[nodiscard]] Query<Predicate> query(Predicate const& pred)
 	{
-		return Query<Predicate>(beginQuery(pred), query_iterator_pred<Predicate>());
+		return Query<Predicate>(beginQuery(pred), endQuery());
 	}
 
 	template <class Predicate>
 	[[nodiscard]] ConstQuery<Predicate> query(Predicate const& pred) const
 	{
-		return ConstQuery<Predicate>(beginQuery(pred),
-		                             const_query_iterator_pred<Predicate>());
+		return ConstQuery<Predicate>(beginQuery(pred), endQuery());
 	}
 
-	[[nodiscard]] Nearest nearest(Point query, float epsilon = 0.0f)
+	template <class Geometry>
+	[[nodiscard]] Nearest<Geometry> nearest(Geometry const& query, float epsilon = 0.0f)
 	{
-		return Nearest(beginNearest(query, epsilon), endNearest());
+		return Nearest<Geometry>(beginNearest(query, epsilon), endNearest());
 	}
 
-	[[nodiscard]] ConstNearest nearest(Point query, float epsilon = 0.0f) const
+	template <class Geometry>
+	[[nodiscard]] ConstNearest<Geometry> nearest(Geometry const& query,
+	                                             float           epsilon = 0.0f) const
 	{
-		return ConstNearest(beginNearest(query, epsilon), endNearest());
+		return ConstNearest<Geometry>(beginNearest(query, epsilon), endNearest());
 	}
 
-	template <class Predicate>
-	[[nodiscard]] QueryNearest<Predicate> queryNearest(Predicate const& pred, Point query,
-	                                                   float epsilon = 0.0f)
+	template <class Predicate, class Geometry>
+	[[nodiscard]] QueryNearest<Predicate, Geometry> queryNearest(Predicate const& pred,
+	                                                             Geometry const&  query,
+	                                                             float epsilon = 0.0f)
 	{
-		return QueryNearest<Predicate>(beginQueryNearest(pred, query, epsilon),
-		                               query_nearest_iterator_pred<Predicate>());
+		return QueryNearest<Predicate, Geometry>(beginQueryNearest(pred, query, epsilon),
+		                                         endQueryNearest());
 	}
 
-	template <class Predicate>
-	[[nodiscard]] ConstQueryNearest<Predicate> queryNearest(Predicate const& pred,
-	                                                        Point            query,
-	                                                        float epsilon = 0.0f) const
+	template <class Predicate, class Geometry>
+	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
+	    Predicate const& pred, Geometry const& query, float epsilon = 0.0f) const
 	{
-		return ConstQueryNearest<Predicate>(beginQueryNearest(pred, query, epsilon),
-		                                    const_query_nearest_iterator_pred<Predicate>());
+		return ConstQueryNearest<Predicate, Geometry>(beginQueryNearest(pred, query, epsilon),
+		                                              endQueryNearest());
 	}
 
 	template <class Geometry>
@@ -844,6 +873,18 @@ class TreeSet
 		TreeIndex n = Base::index(node);
 		return Base::treeBlock(n).bounds[n.offset];
 	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                      Compare                                        |
+	|                                                                                     |
+	**************************************************************************************/
+
+	template <std::size_t D>
+	friend bool operator==(TreeSet<D> const& lhs, TreeSet<D> const& rhs);
+
+	template <std::size_t D>
+	friend bool operator!=(TreeSet<D> const& lhs, TreeSet<D> const& rhs);
 
  protected:
 	/**************************************************************************************
@@ -1053,6 +1094,36 @@ class TreeSet
  protected:
 	size_type size_{};
 };
+
+//
+// Compare
+//
+
+template <std::size_t Dim>
+bool operator==(TreeSet<Dim> const& lhs, TreeSet<Dim> const& rhs)
+{
+	using Base = typename TreeSet<Dim>::Base;
+
+	Base const& lhs_b = static_cast<Base const&>(lhs);
+	Base const& rhs_b = static_cast<Base const&>(rhs);
+
+	return std::equal(lhs_b.begin(), lhs_b.end(), rhs_b.begin(), rhs_b.end(),
+	                  [&lhs, &rhs](auto const& l, auto const& r) {
+		                  auto        lc = l.code;
+		                  auto        rc = r.code;
+		                  auto const& lv = lhs.values(l.index);
+		                  auto const& rv = rhs.values(r.index);
+
+		                  return lc == rc && std::is_permutation(lv.begin(), lv.end(),
+		                                                         rv.begin(), rv.end());
+	                  });
+}
+
+template <std::size_t Dim>
+bool operator!=(TreeSet<Dim> const& lhs, TreeSet<Dim> const& rhs)
+{
+	return !(lhs == rhs);
+}
 
 using BinaryTreeSet = TreeSet<1>;
 

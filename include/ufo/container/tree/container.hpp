@@ -84,7 +84,6 @@ class TreeContainer
 	};
 
 	using value_type = std::tuple<S<Ts>...>;
-	// TODO: Need to add destructor?
 	using Bucket = std::atomic<value_type*>;
 
 	template <class T>
@@ -119,6 +118,17 @@ class TreeContainer
 		auto num_buckets = other.numBuckets();
 		for (std::size_t i{}; num_buckets > i; ++i) {
 			buckets_[i] = new value_type(*other.buckets_[i]);
+		}
+	}
+
+	~TreeContainer()
+	{
+		for (std::size_t i{}; NUM_BUCKETS > i; ++i) {
+			if (nullptr == buckets_[i]) {
+				break;
+			}
+
+			delete buckets_[i];
 		}
 	}
 
@@ -509,6 +519,15 @@ class TreeContainer
 
 	void clear()
 	{
+		// Reset all existing buckets to default value
+		for (std::size_t i{}; NUM_BUCKETS > i; ++i) {
+			if (nullptr == buckets_[i]) {
+				break;
+			}
+
+			*buckets_[i] = {};
+		}
+
 		size_ = 0;
 		std::scoped_lock lock(free_blocks_mutex_);
 		free_blocks_.clear();

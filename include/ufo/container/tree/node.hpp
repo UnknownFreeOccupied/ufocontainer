@@ -59,125 +59,78 @@ namespace ufo
  */
 template <std::size_t Dim>
 struct TreeNode {
-	// Friends
-
-	template <class Derived, std::size_t Dim2, class Block, class... Blocks>
-	friend class TreeBase;
-
- public:
-	using Code = TreeCode<Dim>;
-
-	//
-	// Constructor
-	//
+	TreeCode<Dim> code;
+	TreeIndex     index;
 
 	constexpr TreeNode() = default;
 
-	friend void swap(TreeNode& lhs, TreeNode& rhs) noexcept
+	constexpr TreeNode(TreeCode<Dim> const& code, TreeIndex const& index) noexcept
+	    : code(code), index(index)
 	{
-		std::swap(lhs.code_, rhs.code_);
-		std::swap(lhs.index_, rhs.index_);
 	}
 
-	/*!
-	 * @brief Compare nodes.
-	 *
-	 * @param lhs,rhs The nodes to compare.
-	 * @return Whether the two nodes are equal.
-	 */
-	friend constexpr bool operator==(TreeNode lhs, TreeNode rhs) noexcept
-	{
-		return lhs.code_ == rhs.code_ && lhs.index_ == rhs.index_;
-	}
+	operator TreeCode<Dim>() const noexcept { return code; }
 
-	/*!
-	 * @brief Compare nodes.
-	 *
-	 * @param lhs,rhs The nodes to compare.
-	 * @return Whether the two nodes are different.
-	 */
-	friend constexpr bool operator!=(TreeNode lhs, TreeNode rhs) noexcept
-	{
-		return !(lhs == rhs);
-	}
-
-	friend constexpr bool operator<(TreeNode lhs, TreeNode rhs) noexcept
-	{
-		return lhs.code_ < rhs.code_;
-	}
-
-	friend constexpr bool operator<=(TreeNode lhs, TreeNode rhs) noexcept
-	{
-		return lhs.code_ <= rhs.code_;
-	}
-
-	friend constexpr bool operator>(TreeNode lhs, TreeNode rhs) noexcept
-	{
-		return lhs.code_ > rhs.code_;
-	}
-
-	friend constexpr bool operator>=(TreeNode lhs, TreeNode rhs) noexcept
-	{
-		return lhs.code_ >= rhs.code_;
-	}
-
-	operator Code() const noexcept { return code(); }
-
-	/*!
-	 * @brief Get the code for the node.
-	 *
-	 * @return The code for the node.
-	 */
-	[[nodiscard]] constexpr Code code() const noexcept { return code_; }
-
-	/*!
-	 * @brief Get the depth of the node.
-	 *
-	 * @return The depth of the node.
-	 */
-	[[nodiscard]] constexpr auto depth() const noexcept { return code_.depth(); }
-
-	operator TreeIndex() const noexcept { return index(); }
-
-	/*!
-	 * @brief Get the corresponding index.
-	 *
-	 * @note Use the octree that generated the node to read the data.
-	 *
-	 * @return The corresponding data.
-	 */
-	[[nodiscard]] constexpr TreeIndex index() const noexcept { return index_; }
-
-	[[nodiscard]] constexpr bool valid() const noexcept { return index_.valid(); }
-
-	template <std::size_t Dim2>
-	friend std::ostream& operator<<(std::ostream& os, TreeNode<Dim2> const& node)
-	{
-		return os << "Code: (" << node.code() << "), Index: (" << node.index() << ')';
-	}
-
- protected:
-	constexpr TreeNode(Code code, TreeIndex index) noexcept : code_(code), index_(index) {}
-
-	[[nodiscard]] constexpr auto pos() const noexcept { return index_.pos; }
-
-	/*!
-	 * @brief Get the offset of the node (i.e., the child from the parent's
-	 * perspective).
-	 *
-	 * @return The offset of the node.
-	 */
-	[[nodiscard]] constexpr auto offset() const noexcept { return index_.offset; }
-
-	[[nodiscard]] constexpr auto offset(std::size_t depth) const noexcept
-	{
-		return code_.offset(depth);
-	}
-
- protected:
-	Code      code_;
-	TreeIndex index_;
+	explicit operator TreeIndex() const noexcept { return index; }
 };
+
+//
+// Deduction guide
+//
+
+template <std::size_t Dim>
+TreeNode(TreeCode<Dim>, TreeIndex) -> TreeNode<Dim>;
+
+//
+// Compare
+//
+
+template <std::size_t Dim>
+constexpr bool operator==(TreeNode<Dim> const& lhs, TreeNode<Dim> const& rhs) noexcept
+{
+	return lhs.code == rhs.code;
+}
+
+template <std::size_t Dim>
+constexpr bool operator!=(TreeNode<Dim> const& lhs, TreeNode<Dim> const& rhs) noexcept
+{
+	return !(lhs == rhs);
+}
+
+template <std::size_t Dim>
+constexpr bool operator<(TreeNode<Dim> const& lhs, TreeNode<Dim> const& rhs) noexcept
+{
+	return lhs.code < rhs.code;
+}
+
+template <std::size_t Dim>
+constexpr bool operator<=(TreeNode<Dim> const& lhs, TreeNode<Dim> const& rhs) noexcept
+{
+	return lhs.code <= rhs.code;
+}
+
+template <std::size_t Dim>
+constexpr bool operator>(TreeNode<Dim> const& lhs, TreeNode<Dim> const& rhs) noexcept
+{
+	return lhs.code > rhs.code;
+}
+
+template <std::size_t Dim>
+constexpr bool operator>=(TreeNode<Dim> const& lhs, TreeNode<Dim> const& rhs) noexcept
+{
+	return lhs.code >= rhs.code;
+}
+
+template <std::size_t Dim>
+std::ostream& operator<<(std::ostream& os, TreeNode<Dim> const& node)
+{
+	return os << "Code: (" << node.code << "), Index: (" << node.index << ')';
+}
+
+using BinaryNode = TreeNode<1>;
+using QuadNode   = TreeNode<2>;
+using OctNode    = TreeNode<3>;
+using HexNode    = TreeNode<4>;
 
 }  // namespace ufo
 
@@ -187,7 +140,7 @@ template <std::size_t Dim>
 struct hash<ufo::TreeNode<Dim>> {
 	std::size_t operator()(ufo::TreeNode<Dim> const& node) const
 	{
-		return hash<typename ufo::TreeNode<Dim>::Code>()(node.code());
+		return hash<ufo::TreeCode<Dim>>()(node.code);
 	}
 };
 }  // namespace std

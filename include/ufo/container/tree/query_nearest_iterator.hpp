@@ -39,33 +39,47 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_QUERY_ITERATOR_HPP
-#define UFO_CONTAINER_TREE_QUERY_ITERATOR_HPP
+#ifndef UFO_CONTAINER_TREE_QUERY_NEAREST_ITERATOR_HPP
+#define UFO_CONTAINER_TREE_QUERY_NEAREST_ITERATOR_HPP
 
 // UFO
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
+#include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
 #include <cstddef>
 #include <iterator>
+#include <queue>
 
 namespace ufo
 {
-template <class Tree, class Predicate = pred::Predicate<Tree>>
-class TreeQueryIterator
+template <class Tree, class Predicate = pred::Predicate<Tree>,
+          class Geometry = DynamicGeometry>
+class TreeQueryNearestIterator
 {
- private:
-	//
-	// Friends
-	//
-
  private:
 	static constexpr std::size_t const BF = Tree::branchingFactor();
 
 	using Node     = typename Tree::Node;
 	using offset_t = typename Tree::offset_t;
+
+	struct S {
+		float dist_sq;
+		Node  node;
+		bool  returnable;
+		bool  traversable;
+
+		S(float dist_sq, Node node, bool returnable, bool traversable) noexcept
+		    : dist_sq(dist_sq), node(node), returnable(returnable), traversable(traversable)
+		{
+		}
+
+		bool operator>(S rhs) const noexcept { return dist_sq > rhs.dist_sq; }
+	};
+
+	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
 
  public:
 	//
@@ -78,76 +92,82 @@ class TreeQueryIterator
 	using reference         = value_type const&;
 	using pointer           = value_type const*;
 
-	constexpr TreeQueryIterator() = default;
+	constexpr TreeQueryNearestIterator() = default;
 
-	TreeQueryIterator(Tree* t, Node const& node, Predicate const& pred, bool only_exists,
-	                  bool early_stopping)
+	TreeQueryNearestIterator(Tree* t, Node const& node, Predicate const& pred,
+	                         Geometry const& geometry, float epsilon, bool only_exists,
+	                         bool early_stopping)
 	    : t_(t)
 	    , pred_(pred)
-	    , root_(node)
-	    , cur_(node)
+	    , query_(geometry)
+	    , epsilon_sq_(epsilon * epsilon)
 	    , only_exists_(only_exists)
 	    , early_stopping_(early_stopping)
 	{
 		pred::Filter<Predicate>::init(pred_, *t_);
 
-		if (only_exists_ && !t_->exists(root_)) {
-			root_ = {};
-			cur_  = {};
+		if (only_exists_ && !t_->exists(node)) {
 			return;
 		}
 
+		float dist_sq = distanceSquared(query_, t_->bounds(node));
 		if (returnable(node)) {
-			return;
-		} else if (traversable(cur_)) {
-			if (nextNodeDownwards()) {
-				return;
+			queue_.emplace(dist_sq, node, true);
+
+			if (!early_stopping_ && traversable(node)) {
+				queue_.emplace(dist_sq + epsilon_sq_, node, false);
 			}
+		} else if (traversable(node)) {
+			queue_.emplace(dist_sq + epsilon_sq_, node, false);
 		}
 
 		nextNode();
 	}
 
-	TreeQueryIterator(TreeQueryIterator const&) = default;
+	TreeQueryNearestIterator(TreeQueryNearestIterator const&) = default;
 
-	template <class Predicate2>
-	TreeQueryIterator(TreeQueryIterator<Tree, Predicate2> const& other)
+	template <class Predicate2, class Geometry2>
+	TreeQueryNearestIterator(
+	    TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& other)
 	    : t_(other.t_)
-	    , pred_(other.pred_)
-	    , root_(other.root_)
-	    , cur_(other.cur_)
+	    , pred_(other.pred)
+	    , query_(other.query_)
+	    , epsilon_sq_(other.epsilon_sq_)
+	    , queue_(other.queue_)
 	    , only_exists_(other.only_exists_)
 	    , early_stopping_(other.early_stopping_)
 	{
 	}
 
-	TreeQueryIterator& operator++()
+	TreeQueryNearestIterator& operator++()
 	{
+		queue_.pop();
 		nextNode();
 		return *this;
 	}
 
-	TreeQueryIterator operator++(int)
+	TreeQueryNearestIterator operator++(int)
 	{
-		TreeQueryIterator tmp(*this);
+		TreeQueryNearestIterator tmp(*this);
 		++*this;
 		return tmp;
 	}
 
-	reference operator*() const { return cur_; }
+	reference operator*() const { return queue_.top().node; }
 
-	pointer operator->() const { return &cur_; }
+	pointer operator->() const { return &queue_.top().node; }
 
-	template <class Predicate2>
-	friend bool operator==(TreeQueryIterator const&                   lhs,
-	                       TreeQueryIterator<Tree, Predicate2> const& rhs)
+	template <class Predicate2, class Geometry2>
+	friend bool operator==(TreeQueryNearestIterator const&                              lhs,
+	                       TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& rhs)
 	{
-		return lhs.cur_ == rhs.cur_;
+		return lhs.queue_.empty() == rhs.queue_.empty() &&
+		       (lhs.queue_.empty() || lhs.queue_.top().node == rhs.queue_.top().node);
 	}
 
-	template <class Predicate2>
-	friend bool operator!=(TreeQueryIterator const&                   lhs,
-	                       TreeQueryIterator<Tree, Predicate2> const& rhs)
+	template <class Predicate2, class Geometry2>
+	friend bool operator!=(TreeQueryNearestIterator const&                              lhs,
+	                       TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& rhs)
 	{
 		return !(lhs == rhs);
 	}
@@ -158,11 +178,12 @@ class TreeQueryIterator
 		return pred::Filter<Predicate>::returnable(pred_, *t_, node);
 	}
 
+	[[nodiscard]] bool returnable(S const& s) const { return s.returnable; }
+
 	[[nodiscard]] bool traversable(Node const& node) const
 	{
 		return (t_->isParent(node.index) || (!only_exists_ && !t_->isPureLeaf(node.code))) &&
 		       pred::Filter<Predicate>::traversable(pred_, *t_, node);
-		;
 	}
 
 	[[nodiscard]] bool exists(Node const& node) const
@@ -193,67 +214,45 @@ class TreeQueryIterator
 
 	void nextNode()
 	{
-		if (!early_stopping_ && traversable(cur_)) {
-			if (nextNodeDownwards()) {
-				return;
-			}
-		}
-
-		while (root_ != cur_) {
-			auto branch = offset(cur_);
-			if (BF - 1 == branch) {
-				cur_ = parent(cur_);
-				continue;
-			}
-
-			cur_ = sibling(cur_, branch + 1);
-
-			if (returnable(cur_)) {
+		while (!queue_.empty()) {
+			S cur = queue_.top();
+			if (returnable(cur)) {
 				return;
 			}
 
-			if (traversable(cur_)) {
-				if (nextNodeDownwards()) {
-					return;
+			queue_.pop();
+
+			Node node = child(cur.node, 0);
+			for (offset_t i{}; BF > i; ++i) {
+				node = sibling(node, i);
+
+				float dist_sq = distanceSquared(query_, t_->bounds(node));
+				if (returnable(node)) {
+					queue_.emplace(dist_sq, node, true);
+
+					if (!early_stopping_ && traversable(node)) {
+						queue_.emplace(dist_sq + epsilon_sq_, node, false);
+					}
+				} else if (traversable(node)) {
+					queue_.emplace(dist_sq + epsilon_sq_, node, false);
 				}
 			}
 		}
-
-		// We have visited all nodes
-		root_ = {};
-		cur_  = {};
-	}
-
-	/*!
-	 * @brief
-	 *
-	 * @return true if a new node was found, false otherwise.
-	 */
-	bool nextNodeDownwards()
-	{
-		while (true) {
-			if (returnable(cur_)) {
-				return true;
-			} else if (traversable(cur_)) {
-				cur_ = child(cur_, 0);
-			} else {
-				break;
-			}
-		}
-		return false;
 	}
 
  private:
 	Tree* t_ = nullptr;
 
-	Predicate pred_{};
+	Predicate pred_;
 
-	Node root_{};
-	Node cur_{};
+	Geometry query_;
+	float    epsilon_sq_;
+
+	Queue queue_;
 
 	bool only_exists_{};
 	bool early_stopping_{};
 };
 }  // namespace ufo
 
-#endif  // UFO_CONTAINER_TREE_QUERY_ITERATOR_HPP
+#endif  // UFO_CONTAINER_TREE_QUERY_NEAREST_ITERATOR_HPP

@@ -44,903 +44,187 @@
 
 // UFO
 #include <ufo/container/tree/index.hpp>
-#include <ufo/container/tree/node_nearest.hpp>
-#include <ufo/container/tree/predicate.hpp>
-// #include <ufo/geometry/bounding_volume.hpp>
-// #include <ufo/geometry/minimum_distance.hpp>
 
 // STL
-#include <cstddef>   // For std::ptrdiff_t
-#include <iterator>  // For std::forward_iterator_tag
-#include <memory>
-#include <queue>
-#include <set>
-#include <stack>
-#include <type_traits>
-// #include <utility>
+#include <cstddef>
+#include <iterator>
 
 namespace ufo
 {
-template <class Tree, class Node>
+template <class Tree>
 class TreeIterator
 {
- public:
+ private:
+	//
+	// Friends
+	//
+
+	// friend Tree;
+
+ private:
+	static constexpr std::size_t const BF = Tree::branchingFactor();
+
+	using Node     = typename Tree::Node;
 	using offset_t = typename Tree::offset_t;
+
+ public:
+	//
+	// Tags
+	//
 
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
 	using value_type        = Node;
-	using pointer           = value_type const*;
 	using reference         = value_type const&;
+	using pointer           = value_type const*;
 
-	constexpr TreeIterator(Tree const* tree) : tree_(tree) {}
+	constexpr TreeIterator() = default;
 
-	virtual ~TreeIterator() {}
-
-	virtual void next() = 0;
-
-	virtual TreeIterator* copy() = 0;
-
-	virtual reference data() const = 0;
-
-	constexpr Tree const* tree() const { return tree_; }
-
-	virtual bool equal(TreeIterator const& other) const = 0;
-
-	virtual std::size_t status() const = 0;
-
- protected:
-	template <class TNode>
-	[[nodiscard]] bool isPureLeaf(TNode const& node) const
+	TreeIterator(Tree* t, Node const& node, bool only_leaves, bool only_exists)
+	    : t_(t)
+	    , root_(node)
+	    , cur_(node)
+	    , only_leaves_(only_leaves)
+	    , only_exists_(only_exists)
 	{
-		return tree_->isPureLeaf(node);
-	}
-
-	[[nodiscard]] bool isPureLeaf(TreeIndex node) const { return tree_->isPureLeaf(node); }
-
-	template <class TNode>
-	[[nodiscard]] bool isParent(TNode const& node) const
-	{
-		return tree_->isParent(node.index());
-	}
-
-	[[nodiscard]] bool isParent(TreeIndex node) const { return tree_->isParent(node); }
-
-	template <bool OnlyExists, class TNode>
-	[[nodiscard]] TNode child(TNode const& node, offset_t child_index) const
-	{
-		if constexpr (OnlyExists) {
-			// TODO: Should be tree_->child(node, child_index);
-			// return tree_->childUnsafe(node, child_index);
-			return tree_->child(node, child_index);
-		} else {
-			// TODO: Should check isParent to get correct index
-			return tree_->child(node, child_index);
+		if (only_exists_ && !t_->exists(root_)) {
+			root_ = {};
+			cur_  = {};
+			return;
 		}
-	}
 
-	[[nodiscard]] TreeIndex child(TreeIndex node, offset_t child_index) const
-	{
-		return tree_->child(node, child_index);
-	}
-
-	template <bool OnlyExists, class TNode>
-	[[nodiscard]] TNode sibling(TNode const& node, offset_t sibling_index) const
-	{
-		if constexpr (OnlyExists) {
-			// return tree_->siblingUnsafe(node, sibling_index);
-			return tree_->sibling(node, sibling_index);
-		} else {
-			return tree_->sibling(node, sibling_index);
+		if (returnable(node)) {
+			return;
 		}
+
+		nextNode();
 	}
 
-	[[nodiscard]] TreeIndex sibling(TreeIndex node, offset_t sibling_index) const
+	TreeIterator& operator++()
 	{
-		return tree_->sibling(node, sibling_index);
-	}
-
-	template <class TNode>
-	[[nodiscard]] auto boundingVolume(TNode const& node) const
-	{
-		return tree_->boundingVolume(node);
-	}
-
-	[[nodiscard]] auto boundingVolume(TreeIndex node) const
-	{
-		return tree_->boundingVolume(node);
-	}
-
-	template <class TNode>
-	[[nodiscard]] bool exists(TNode const& node) const
-	{
-		return tree_->exists(node.index());
-	}
-
-	[[nodiscard]] bool exists(TreeIndex node) const { return tree_->exists(node); }
-
-	template <class Predicate>
-	constexpr void initPredicate(Predicate& pred) const
-	{
-		pred::Filter<Predicate>::init(pred, *tree_);
-	}
-
-	template <bool OnlyExists, class TNode, class Predicate>
-	[[nodiscard]] bool traversable(TNode const& node, Predicate const& pred) const
-	{
-		if constexpr (OnlyExists) {
-			return isParent(node) && pred::Filter<Predicate>::traversable(pred, *tree_, node);
-		} else {
-			return !isPureLeaf(node) &&
-			       pred::Filter<Predicate>::traversable(pred, *tree_, node);
-		}
-	}
-
-	template <class Predicate>
-	[[nodiscard]] bool traversable(TreeIndex node, Predicate const& predicate) const
-	{
-		return isParent(node) &&
-		       pred::Filter<Predicate>::traversable(predicate, *tree_, node);
-	}
-
-	template <class TNode, class Predicate>
-	[[nodiscard]] bool returnable(TNode const& node, Predicate const& predicate) const
-	{
-		return pred::Filter<Predicate>::returnable(predicate, *tree_, node);
-	}
-
-	template <class Predicate>
-	[[nodiscard]] bool returnable(TreeIndex node, Predicate const& predicate) const
-	{
-		return pred::Filter<Predicate>::returnable(predicate, *tree_, node);
-	}
-
- protected:
-	Tree const* tree_;
-};
-
-template <class Tree, class Node>
-class TreeIteratorWrapper
-{
- private:
-	using TI = TreeIterator<Tree, Node>;
-
- public:
-	// Tags
-	using difference_type   = typename TI::difference_type;
-	using iterator_category = typename TI::iterator_category;
-	using pointer           = typename TI::pointer;
-	using reference         = typename TI::reference;
-	using value_type        = typename TI::value_type;
-
-	TreeIteratorWrapper(TI* tree_iterator) : tree_iterator_(tree_iterator) {}
-
-	TreeIteratorWrapper(TreeIteratorWrapper const& other)
-	    : tree_iterator_(other.tree_iterator_->copy())
-	{
-	}
-
-	TreeIteratorWrapper& operator++()
-	{
-		tree_iterator_->next();
+		nextNode();
 		return *this;
 	}
 
-	TreeIteratorWrapper operator++(int)
+	TreeIterator operator++(int)
 	{
-		TreeIteratorWrapper result(tree_iterator_->copy());
-		++(*this);
-		return result;
+		TreeIterator tmp(*this);
+		++*this;
+		return tmp;
 	}
 
-	pointer operator->() const { return &(tree_iterator_->data()); }
+	reference operator*() const { return cur_; }
 
-	reference operator*() const { return tree_iterator_->data(); }
+	pointer operator->() const { return &cur_; }
 
-	friend bool operator==(TreeIteratorWrapper const& lhs, TreeIteratorWrapper const& rhs)
+	friend bool operator==(TreeIterator const& lhs, TreeIterator const& rhs)
 	{
-		return lhs.tree_iterator_->equal(*(rhs.tree_iterator_));
+		return lhs.cur_ == rhs.cur_;
 	}
 
-	friend bool operator!=(TreeIteratorWrapper const& lhs, TreeIteratorWrapper const& rhs)
+	friend bool operator!=(TreeIterator const& lhs, TreeIterator const& rhs)
 	{
 		return !(lhs == rhs);
 	}
 
  private:
-	std::unique_ptr<TI> tree_iterator_;
-};
-
-template <class Tree, class Node, class Predicate, bool OnlyExists, bool EarlyStopping>
-class TreeForwardIterator final : public TreeIterator<Tree, Node>
-{
- private:
-	using TI = TreeIterator<Tree, Node>;
-
-	static constexpr bool const OnlyLeavesOrFixedDepth =
-	    pred::contains_always_pred_v<pred::PureLeaf, Predicate> ||
-	    pred::contains_always_pred_v<pred::DepthE, Predicate> || EarlyStopping;
-
- public:
-	using offset_t = typename Tree::offset_t;
-
-	// Tags
-	using difference_type   = typename TI::difference_type;
-	using iterator_category = typename TI::iterator_category;
-	using pointer           = typename TI::pointer;
-	using reference         = typename TI::reference;
-	using value_type        = typename TI::value_type;
-
-	TreeForwardIterator(Tree const* tree) : TI(tree) {}
-
-	TreeForwardIterator(Tree const* tree, Node const& root, Predicate const& predicate)
-	    : TI(tree), predicate_(predicate)
+	[[nodiscard]] bool returnable(Node const& node) const
 	{
-		init(root);
+		return !only_leaves_ || t_->isLeaf(node.index);
 	}
 
-	void next() override
+	[[nodiscard]] bool traversable(Node const& node) const
 	{
-		return_index_ -= return_index_ ? 1 : 0;
-
-		// Skip forward to next valid return node
-		while (0 == return_index_ && inner_index_) {
-			auto current = this->template child<OnlyExists>(inner_nodes_[--inner_index_],
-			                                                Tree::branchingFactor() - 1);
-
-			// Go down the tree
-			for (offset_t i{Tree::branchingFactor()}; 0 != i;) {
-				current = this->template sibling<OnlyExists>(current, --i);
-
-				if constexpr (OnlyLeavesOrFixedDepth) {
-					if (this->returnable(current, predicate_)) {
-						return_nodes_[return_index_++] = current;
-					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
-						inner_nodes_[inner_index_++] = current;
-					}
-				} else {
-					if (this->returnable(current, predicate_)) {
-						return_nodes_[return_index_++] = current;
-					}
-					if (this->template traversable<OnlyExists>(current, predicate_)) {
-						inner_nodes_[inner_index_++] = current;
-					}
-				}
-			}
-		}
+		return t_->isParent(node.index) || (!only_exists_ && !t_->isPureLeaf(node.code));
 	}
 
-	TreeForwardIterator* copy() override { return new TreeForwardIterator(*this); }
-
-	reference data() const override { return return_nodes_[return_index_ - 1]; }
-
-	bool equal(TI const& other) const override
+	[[nodiscard]] bool exists(Node const& node) const
 	{
-		return status() == other.status();
-		// return other.tree() == this->tree() && other.status() == status() &&
-		//        (!return_nodes_.empty() && other.data() == data());
+		return only_exists_ || t_->code(node.index) == node.code;
 	}
 
-	std::size_t status() const override { return inner_index_ + return_index_; }
-
- private:
-	void init(Node const& node)
+	[[nodiscard]] Node sibling(Node const& node, offset_t sibling_index) const
 	{
-		this->initPredicate(predicate_);
+		return Node(t_->sibling(node.code, sibling_index),
+		            exists(node) ? t_->sibling(node.index, sibling_index) : node.index);
+	}
 
-		if constexpr (OnlyExists) {
-			if (!this->exists(node)) {
+	[[nodiscard]] Node child(Node const& node, offset_t child_index) const
+	{
+		return Node(
+		    t_->child(node.code, child_index),
+		    t_->isParent(node.index) ? t_->child(node.index, child_index) : node.index);
+	}
+
+	[[nodiscard]] Node parent(Node const& node) const
+	{
+		return Node(t_->parent(node.code),
+		            exists(node) ? t_->parent(node.index) : node.index);
+	}
+
+	[[nodiscard]] offset_t offset(Node const& node) const { return node.code.offset(); }
+
+	void nextNode()
+	{
+		if (traversable(cur_)) {
+			if (nextNodeDownwards()) {
 				return;
 			}
 		}
 
-		if constexpr (OnlyLeavesOrFixedDepth) {
-			if (this->returnable(node, predicate_)) {
-				return_nodes_[return_index_++] = node;
-			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-				inner_nodes_[inner_index_++] = node;
-				next();
+		while (root_ != cur_) {
+			auto branch = offset(cur_);
+			if (BF - 1 == branch) {
+				cur_ = parent(cur_);
+				continue;
 			}
-		} else {
-			if (this->returnable(node, predicate_)) {
-				return_nodes_[return_index_++] = node;
-				if (this->template traversable<OnlyExists>(node, predicate_)) {
-					inner_nodes_[inner_index_++] = node;
-				}
-			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-				inner_nodes_[inner_index_++] = node;
-				next();
-			}
-		}
-	}
 
- private:
-	// Predicate that nodes has to fulfill
-	Predicate predicate_{};
+			cur_ = sibling(cur_, branch + 1);
 
-	// To be processed inner nodes
-	std::array<Node, Tree::branchingFactor() * Tree::maxNumDepthLevels()> inner_nodes_;
-	// To be processed return nodes
-	std::array<Node, Tree::branchingFactor()> return_nodes_;
-
-	int inner_index_{};
-	int return_index_{};
-};
-
-template <class Tree, class Node, class Geometry, class Predicate, bool OnlyExists,
-          bool EarlyStopping>
-class TreeNearestIterator final : public TreeIterator<Tree, Node>
-{
- private:
-	using TI = TreeIterator<Tree, Node>;
-
-	static constexpr bool const OnlyLeavesOrFixedDepth =
-	    pred::contains_always_pred_v<pred::PureLeaf, Predicate> ||
-	    pred::contains_always_pred_v<pred::DepthE, Predicate> || EarlyStopping;
-
- public:
-	using offset_t = typename Tree::offset_t;
-
-	// Tags
-	using typename TI::difference_type;
-	using typename TI::iterator_category;
-	using typename TI::pointer;
-	using typename TI::reference;
-	using typename TI::value_type;
-
-	TreeNearestIterator(Tree const* tree, Node const& root, Geometry const& geometry,
-	                    Predicate const& predicate, double epsilon = 0.0)
-	    : TI(tree), predicate_(predicate), geometry_(geometry), epsilon_(epsilon)
-	{
-		init(root);
-	}
-
-	void next() override
-	{
-		if (!return_nodes_.empty()) {
-			return_nodes_.pop();
-		}
-
-		// Skip forward to next valid return node
-		while (!inner_nodes_.empty()) {
-			if (!return_nodes_.empty() && return_nodes_.top() <= inner_nodes_.top()) {
+			if (returnable(cur_)) {
 				return;
 			}
 
-			auto current =
-			    this->template child<OnlyExists>(static_cast<Node>(inner_nodes_.top()), 0);
-			inner_nodes_.pop();
-
-			for (offset_t idx{}; Tree::branchingFactor() != idx; ++idx) {
-				current = this->template sibling<OnlyExists>(current, idx);
-
-				if constexpr (OnlyLeavesOrFixedDepth) {
-					if (this->returnable(current, predicate_)) {
-						return_nodes_.emplace(current, distanceSquared(current));
-					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
-						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
-					}
-				} else {
-					if (this->returnable(current, predicate_)) {
-						auto dist_sq = distanceSquared(current);
-						return_nodes_.emplace(current, dist_sq);
-						if (this->template traversable<OnlyExists>(current, predicate_)) {
-							inner_nodes_.emplace(current, dist_sq + epsilon_);
-						}
-					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
-						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
-					}
+			if (traversable(cur_)) {
+				if (nextNodeDownwards()) {
+					return;
 				}
 			}
 		}
+
+		// We have visited all nodes
+		root_ = {};
+		cur_  = {};
 	}
 
-	TreeNearestIterator* copy() override { return new TreeNearestIterator(*this); }
-
-	reference data() const override { return return_nodes_.top(); }
-
-	bool equal(TI const& other) const override
+	/*!
+	 * @brief
+	 *
+	 * @return true if a new node was found, false otherwise.
+	 */
+	bool nextNodeDownwards()
 	{
-		return other.tree() == this->tree() && other.status() == status() &&
-		       (!return_nodes_.empty() && other.data() == data());
-	}
-
-	std::size_t status() const override
-	{
-		return inner_nodes_.size() + return_nodes_.size();
+		while (true) {
+			if (returnable(cur_)) {
+				return true;
+			} else if (traversable(cur_)) {
+				cur_ = child(cur_, 0);
+			} else {
+				break;
+			}
+		}
+		return false;
 	}
 
  private:
-	double distanceSquared(Node const& node) const
-	{
-		return distanceSquared(this->boundingVolume(node), geometry_);
-	}
+	Tree* t_ = nullptr;
 
-	void init(Node const& node)
-	{
-		this->initPredicate(predicate_);
+	Node root_{};
+	Node cur_{};
 
-		if (OnlyExists) {
-			if (!this->exists(node)) {
-				return;
-			}
-		}
-
-		if constexpr (OnlyLeavesOrFixedDepth) {
-			if (this->returnable(node, predicate_)) {
-				return_nodes_.emplace(node, distanceSquared(node));
-			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-				std::vector<value_type> container;
-				container.reserve(256);
-				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
-				                                    std::greater<value_type>>(
-				    std::greater<value_type>(), std::move(container));
-				inner_nodes_ = return_nodes_;
-
-				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
-				next();
-			}
-		} else {
-			if (this->returnable(node, predicate_)) {
-				std::vector<value_type> container;
-				container.reserve(256);
-				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
-				                                    std::greater<value_type>>(
-				    std::greater<value_type>(), std::move(container));
-				inner_nodes_ = return_nodes_;
-
-				auto const dist_sq = distanceSquared(node);
-
-				return_nodes_.emplace(node, dist_sq);
-				if (this->template traversable<OnlyExists>(node, predicate_)) {
-					inner_nodes_.emplace(node, dist_sq + epsilon_);
-				}
-			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-				std::vector<value_type> container;
-				container.reserve(256);
-				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
-				                                    std::greater<value_type>>(
-				    std::greater<value_type>(), std::move(container));
-				inner_nodes_ = return_nodes_;
-
-				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
-				next();
-			}
-		}
-	}
-
- private:
-	using Queue =
-	    std::priority_queue<value_type, std::vector<value_type>, std::greater<value_type>>;
-
-	Predicate      predicate_{};   // Predicate that nodes has to fulfill
-	Geometry const geometry_;      // Geometry to find nearest to
-	double const   epsilon_{};     // Epsilon for approximate search
-	Queue          inner_nodes_;   // To be processed inner nodes
-	Queue          return_nodes_;  // To be processed return nodes
+	bool only_leaves_{};
+	bool only_exists_{};
 };
-
-// template <class Tree, typename T>
-// class TreeIteratorBase
-// {
-//  public:
-// 	// Tags
-// 	using iterator_category = std::forward_iterator_tag;
-// 	using difference_type   = std::ptrdiff_t;
-// 	using value_type        = T;
-// 	using pointer           = value_type const*;
-// 	using reference         = value_type const&;
-
-// 	constexpr TreeIteratorBase(Tree const* tree) : tree_(tree) {}
-
-// 	virtual ~TreeIteratorBase() {}
-
-// 	virtual void next() = 0;
-
-// 	virtual TreeIteratorBase* copy() = 0;
-
-// 	virtual reference data() const = 0;
-
-// 	constexpr Tree const* tree() const { return tree_; }
-
-// 	virtual bool equal(TreeIteratorBase const& other) const = 0;
-
-// 	virtual std::size_t status() const = 0;
-
-//  protected:
-// 	template <class Node>
-// 	[[nodiscard]] constexpr bool isPureLeaf(Node const& node) const
-// 	{
-// 		return tree_->isPureLeaf(node);
-// 	}
-
-// 	template <class Node>
-// 	[[nodiscard]] constexpr bool isParent(Node const& node) const
-// 	{
-// 		return tree_->isParent(node.index());
-// 	}
-
-// 	template <bool OnlyExists, class Node>
-// 	[[nodiscard]] constexpr Node child(Node const& node, offset_t child) const
-// 	{
-// 		if constexpr (OnlyExists) {
-// 			return tree_->childUnsafe(node, child);
-// 		} else {
-// 			return tree_->child(node, child);
-// 		}
-// 	}
-
-// 	template <bool OnlyExists, class Node>
-// 	[[nodiscard]] constexpr Node sibling(Node const& node, offset_t sibling) const
-// 	{
-// 		if constexpr (OnlyExists) {
-// 			return tree_->siblingUnsafe(node, sibling);
-// 		} else {
-// 			return tree_->sibling(node, sibling);
-// 		}
-// 	}
-
-// 	template <class Node>
-// 	[[nodiscard]] auto boundingVolume(Node const& node) const
-// 	{
-// 		return tree_->boundingVolume(node);
-// 	}
-
-// 	template <class Node>
-// 	[[nodiscard]] constexpr bool exists(Node const& node) const
-// 	{
-// 		return tree_->exists(node.index());
-// 	}
-
-// 	template <class Predicate>
-// 	constexpr void initPredicate(Predicate const& predicate) const
-// 	{
-// 		pred::Init<Predicate>::apply(predicate, *tree_);
-// 	}
-
-// 	template <bool OnlyExists, class Node, class Predicate>
-// 	[[nodiscard]] constexpr bool traversable(Node const&      node,
-// 	                                        Predicate const& predicate) const
-// 	{
-// 		if constexpr (OnlyExists) {
-// 			return isParent(node) &&
-// 			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
-// 		} else {
-// 			return !isPureLeaf(node) &&
-// 			       pred::InnerCheck<Predicate>::apply(predicate, *tree_, node);
-// 		}
-// 	}
-
-// 	template <class Node, class Predicate>
-// 	[[nodiscard]] constexpr bool returnable(Node const&      node,
-// 	                                         Predicate const& predicate) const
-// 	{
-// 		return pred::ValueCheck<Predicate>::apply(predicate, *tree_, node);
-// 	}
-
-//  protected:
-// 	// The UFOMap
-// 	Tree const* tree_;
-// };
-
-// template <class Tree, typename T>
-// class TreeIteratorWrapper
-// {
-//  private:
-// 	using Base = TreeIteratorBase<Tree, T>;
-
-//  public:
-// 	// Tags
-// 	using difference_type   = typename Base::difference_type;
-// 	using iterator_category = typename Base::iterator_category;
-// 	using pointer           = typename Base::pointer;
-// 	using reference         = typename Base::reference;
-// 	using value_type        = typename Base::value_type;
-
-// 	TreeIteratorWrapper(Base* it_base) : it_base_(it_base) {}
-
-// 	TreeIteratorWrapper(TreeIteratorWrapper const& other) :
-// it_base_(other.it_base_->copy())
-// 	{
-// 	}
-
-// 	TreeIteratorWrapper& operator++()
-// 	{
-// 		it_base_->next();
-// 		return *this;
-// 	}
-
-// 	TreeIteratorWrapper operator++(int)
-// 	{
-// 		TreeIteratorWrapper result(it_base_->copy());
-// 		++(*this);
-// 		return result;
-// 	}
-
-// 	pointer operator->() const { return &(it_base_->data()); }
-
-// 	reference operator*() const { return it_base_->data(); }
-
-// 	friend bool operator==(TreeIteratorWrapper const& lhs, TreeIteratorWrapper const& rhs)
-// 	{
-// 		return lhs.it_base_->equal(*(rhs.it_base_));
-// 	}
-
-// 	friend bool operator!=(TreeIteratorWrapper const& lhs, TreeIteratorWrapper const& rhs)
-// 	{
-// 		return !(lhs == rhs);
-// 	}
-
-//  private:
-// 	std::unique_ptr<Base> it_base_;
-// };
-
-// template <bool OnlyExists, bool EarlyStopping, class Tree, class Node,
-//           class Predicate = pred::TRUE>
-// class TreeIterator final : public TreeIteratorBase<Tree, Node>
-// {
-//  private:
-// 	static constexpr bool const OnlyLeavesOrFixedDepth =
-// 	    pred::contains_always_predicate_v<pred::PureLeaf, Predicate> ||
-// 	    pred::contains_always_predicate_v<pred::DepthE, Predicate> || EarlyStopping;
-// 	static constexpr offset_t const N = Tree::childrenPerParent();
-
-// 	using Base = TreeIteratorBase<Tree, Node>;
-
-//  public:
-// 	// Tags
-// 	using typename Base::difference_type;
-// 	using typename Base::iterator_category;
-// 	using typename Base::pointer;
-// 	using typename Base::reference;
-// 	using typename Base::value_type;
-
-// 	TreeIterator(Tree const* tree) : Base(tree) {}
-
-// 	TreeIterator(Tree const* tree, Node const& root, Predicate const& predicate)
-// 	    : Base(tree), predicate_(predicate)
-// 	{
-// 		init(root);
-// 	}
-
-// 	void next() override
-// 	{
-// 		return_index_ -= return_index_ ? 1 : 0;
-
-// 		// Skip forward to next valid return node
-// 		while (0 == return_index_ && inner_index_) {
-// 			auto current = this->template child<OnlyExists>(inner_nodes_[--inner_index_], 7);
-
-// 			// Go down the tree
-// 			for (offset_t i{N}; 0 != i;) {
-// 				current = this->template sibling<OnlyExists>(current, --i);
-
-// 				if constexpr (OnlyLeavesOrFixedDepth) {
-// 					if (this->returnable(current, predicate_)) {
-// 						return_nodes_[return_index_++] = current;
-// 					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
-// 						inner_nodes_[inner_index_++] = current;
-// 					}
-// 				} else {
-// 					if (this->returnable(current, predicate_)) {
-// 						return_nodes_[return_index_++] = current;
-// 					}
-// 					if (this->template traversable<OnlyExists>(current, predicate_)) {
-// 						inner_nodes_[inner_index_++] = current;
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	TreeIterator* copy() override { return new TreeIterator(*this); }
-
-// 	reference data() const override { return return_nodes_[return_index_ - 1]; }
-
-// 	bool equal(Base const& other) const override
-// 	{
-// 		return status() == other.status();
-// 		// return other.tree() == this->tree() && other.status() == status() &&
-// 		//        (!return_nodes_.empty() && other.data() == data());
-// 	}
-
-// 	std::size_t status() const override { return inner_index_ + return_index_; }
-
-//  private:
-// 	void init(Node const& node)
-// 	{
-// 		this->initPredicate(predicate_);
-
-// 		if constexpr (OnlyExists) {
-// 			if (!this->exists(node)) {
-// 				return;
-// 			}
-// 		}
-
-// 		if constexpr (OnlyLeavesOrFixedDepth) {
-// 			if (this->returnable(node, predicate_)) {
-// 				return_nodes_[return_index_++] = node;
-// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-// 				inner_nodes_[inner_index_++] = node;
-// 				next();
-// 			}
-// 		} else {
-// 			if (this->returnable(node, predicate_)) {
-// 				return_nodes_[return_index_++] = node;
-// 				if (this->template traversable<OnlyExists>(node, predicate_)) {
-// 					inner_nodes_[inner_index_++] = node;
-// 				}
-// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-// 				inner_nodes_[inner_index_++] = node;
-// 				next();
-// 			}
-// 		}
-// 	}
-
-//  private:
-// 	Predicate const predicate_{};  // Predicate that nodes has to fulfill
-
-// 	std::array<Node, N * Tree::maxDepthLevels()>
-// 	                    inner_nodes_;   // To be processed inner nodes
-// 	std::array<Node, N> return_nodes_;  // To be processed return nodes
-// 	int                 inner_index_{};
-// 	int                 return_index_{};
-// };
-
-// template <bool OnlyExists, bool EarlyStopping, class Tree, class Node, class Geometry,
-//           class Predicate = pred::TRUE>
-// class TreeIteratorNearest final : public TreeIteratorBase<Tree, TreeNodeNearest<Node>>
-// {
-//  private:
-// 	static constexpr bool const OnlyLeavesOrFixedDepth =
-// 	    pred::contains_always_predicate_v<pred::PureLeaf, Predicate> ||
-// 	    pred::contains_always_predicate_v<pred::DepthE, Predicate> || EarlyStopping;
-// 	static constexpr offset_t const N = numChildren(Tree::treeType());
-
-// 	using Base = TreeIteratorBase<Tree, TreeNodeNearest<Node>>;
-
-//  public:
-// 	// Tags
-// 	using typename Base::difference_type;
-// 	using typename Base::iterator_category;
-// 	using typename Base::pointer;
-// 	using typename Base::reference;
-// 	using typename Base::value_type;
-
-//  private:
-// 	using Queue =
-// 	    std::priority_queue<value_type, std::vector<value_type>,
-// std::greater<value_type>>;
-
-//  public:
-// 	TreeIteratorNearest(Tree const* tree, Node const& root, Geometry const& geometry,
-// 	                    Predicate const& predicate, double epsilon = 0.0)
-// 	    : Base(tree), predicate_(predicate), geometry_(geometry), epsilon_(epsilon)
-// 	{
-// 		init(root);
-// 	}
-
-// 	void next() override
-// 	{
-// 		if (!return_nodes_.empty()) {
-// 			return_nodes_.pop();
-// 		}
-
-// 		// Skip forward to next valid return node
-// 		while (!inner_nodes_.empty()) {
-// 			if (!return_nodes_.empty() && return_nodes_.top() <= inner_nodes_.top()) {
-// 				return;
-// 			}
-
-// 			auto current =
-// 			    this->template child<OnlyExists>(static_cast<Node>(inner_nodes_.top()), 0);
-// 			inner_nodes_.pop();
-
-// 			for (offset_t idx{}; N != idx; ++idx) {
-// 				current = this->template sibling<OnlyExists>(current, idx);
-
-// 				if constexpr (OnlyLeavesOrFixedDepth) {
-// 					if (this->returnable(current, predicate_)) {
-// 						return_nodes_.emplace(current, distanceSquared(current));
-// 					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
-// 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
-// 					}
-// 				} else {
-// 					if (this->returnable(current, predicate_)) {
-// 						auto dist_sq = distanceSquared(current);
-// 						return_nodes_.emplace(current, dist_sq);
-// 						if (this->template traversable<OnlyExists>(current, predicate_)) {
-// 							inner_nodes_.emplace(current, dist_sq + epsilon_);
-// 						}
-// 					} else if (this->template traversable<OnlyExists>(current, predicate_)) {
-// 						inner_nodes_.emplace(current, distanceSquared(current) + epsilon_);
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	TreeIteratorNearest* copy() override { return new TreeIteratorNearest(*this); }
-
-// 	reference data() const override { return return_nodes_.top(); }
-
-// 	bool equal(Base const& other) const override
-// 	{
-// 		return other.tree() == this->tree() && other.status() == status() &&
-// 		       (!return_nodes_.empty() && other.data() == data());
-// 	}
-
-// 	std::size_t status() const override
-// 	{
-// 		return inner_nodes_.size() + return_nodes_.size();
-// 	}
-
-//  private:
-// 	double distanceSquared(Node const& node) const
-// 	{
-// 		return distanceSquared(this->boundingVolume(node), geometry_);
-// 	}
-
-// 	void init(Node const& node)
-// 	{
-// 		this->initPredicate(predicate_);
-
-// 		if (OnlyExists) {
-// 			if (!this->exists(node)) {
-// 				return;
-// 			}
-// 		}
-
-// 		if constexpr (OnlyLeavesOrFixedDepth) {
-// 			if (this->returnable(node, predicate_)) {
-// 				return_nodes_.emplace(node, distanceSquared(node));
-// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-// 				std::vector<value_type> container;
-// 				container.reserve(256);
-// 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
-// 				                                    std::greater<value_type>>(
-// 				    std::greater<value_type>(), std::move(container));
-// 				inner_nodes_ = return_nodes_;
-
-// 				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
-// 				next();
-// 			}
-// 		} else {
-// 			if (this->returnable(node, predicate_)) {
-// 				std::vector<value_type> container;
-// 				container.reserve(256);
-// 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
-// 				                                    std::greater<value_type>>(
-// 				    std::greater<value_type>(), std::move(container));
-// 				inner_nodes_ = return_nodes_;
-
-// 				auto const dist_sq = distanceSquared(node);
-
-// 				return_nodes_.emplace(node, dist_sq);
-// 				if (this->template traversable<OnlyExists>(node, predicate_)) {
-// 					inner_nodes_.emplace(node, dist_sq + epsilon_);
-// 				}
-// 			} else if (this->template traversable<OnlyExists>(node, predicate_)) {
-// 				std::vector<value_type> container;
-// 				container.reserve(256);
-// 				return_nodes_ = std::priority_queue<value_type, std::vector<value_type>,
-// 				                                    std::greater<value_type>>(
-// 				    std::greater<value_type>(), std::move(container));
-// 				inner_nodes_ = return_nodes_;
-
-// 				inner_nodes_.emplace(node, distanceSquared(node) + epsilon_);
-// 				next();
-// 			}
-// 		}
-// 	}
-
-//  private:
-// 	Predicate const predicate_{};   // Predicate that nodes has to fulfill
-// 	Geometry const  geometry_;      // Geometry to find nearest to
-// 	double const    epsilon_{};     // Epsilon for approximate search
-// 	Queue           inner_nodes_;   // To be processed inner nodes
-// 	Queue           return_nodes_;  // To be processed return nodes
-// };
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_ITERATOR_HPP

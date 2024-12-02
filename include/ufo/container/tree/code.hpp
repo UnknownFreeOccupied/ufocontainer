@@ -294,6 +294,13 @@ class TreeCode
 	}
 
 	/*!
+	 * @brief Get the offset at the current depth (same as `c.offset(c.depth())`).
+	 * 
+	 * @return The offset at the current depth.
+	 */
+	[[nodiscard]] constexpr code_t offset() const { return offset(depth_); }
+
+	/*!
 	 * @brief Get the offset at a specific depth for this code.
 	 *
 	 * @param depth The depth the index is requested for.

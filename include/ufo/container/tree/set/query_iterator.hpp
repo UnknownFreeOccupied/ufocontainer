@@ -51,7 +51,6 @@
 #include <cassert>
 #include <cstddef>
 #include <iterator>
-#include <memory>
 
 namespace ufo
 {
@@ -94,7 +93,7 @@ class TreeSetQueryIterator
 
 	TreeSetQueryIterator(TreeSetQueryIterator const& other)
 	    : tm_(other.tm_)
-	    , pred_(other.pred_ ? std::make_unique<Predicate>(*other.pred_) : nullptr)
+	    , pred_(other.pred_)
 	    , root_(other.root_)
 	    , cur_(other.cur_)
 	    , it_(other.it_)
@@ -157,7 +156,7 @@ class TreeSetQueryIterator
  private:
 	[[nodiscard]] bool returnable(value_type const& value) const
 	{
-		return pred::Filter<Predicate>::returnable(*pred_, value);
+		return pred::Filter<Predicate>::returnable(pred_, value);
 	}
 
 	[[nodiscard]] bool returnable(TreeIndex node) const
@@ -169,8 +168,7 @@ class TreeSetQueryIterator
 
 	[[nodiscard]] bool traversable(TreeIndex node) const
 	{
-		return tm_->isParent(node) &&
-		       pred::Filter<Predicate>::traversable(*pred_, *tm_, node);
+		return tm_->isParent(node) && pred::Filter<Predicate>::traversable(pred_, *tm_, node);
 	}
 
 	/*!
@@ -235,9 +233,9 @@ class TreeSetQueryIterator
 
  private:
 	TreeSetQueryIterator(TreeSet<Dim>* tm, TreeIndex node, Predicate const& pred)
-	    : tm_(tm), pred_(std::make_unique<Predicate>(pred)), root_(node), cur_(node)
+	    : tm_(tm), pred_(pred), root_(node), cur_(node)
 	{
-		pred::Filter<Predicate>::init(*pred_, *tm_);
+		pred::Filter<Predicate>::init(pred_, *tm_);
 
 		if (nextNodeDownwards()) {
 			return;
@@ -250,10 +248,7 @@ class TreeSetQueryIterator
 	template <bool Const2, class Predicate2,
 	          std::enable_if_t<!Const && Const2, bool> = true>
 	TreeSetQueryIterator(TreeSetQueryIterator<Const2, Dim, Predicate2> const& other)
-	    : tm_(other.tm_)
-	    , pred_(other.pred_ ? std::make_unique<Predicate>(*other.pred_) : nullptr)
-	    , root_(other.root_)
-	    , cur_(other.cur_)
+	    : tm_(other.tm_), pred_(other.pred_), root_(other.root_), cur_(other.cur_)
 	{
 		// Remove const from other.it_ and other.last_
 		it_   = tm_->values(cur_).erase(other.it_, other.it_);
@@ -263,7 +258,7 @@ class TreeSetQueryIterator
  private:
 	TreeSet<Dim>* tm_ = nullptr;
 
-	std::unique_ptr<Predicate> pred_ = nullptr;
+	Predicate pred_{};
 
 	TreeIndex root_{};
 	TreeIndex cur_{};

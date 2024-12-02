@@ -47,6 +47,7 @@
 #include <ufo/container/tree/predicate/filter.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
 #include <ufo/geometry/distance.hpp>
+#include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
 #include <cassert>
@@ -61,7 +62,8 @@ template <std::size_t Dim, class T>
 class TreeMap;
 
 template <bool Const, std::size_t Dim, class T,
-          class Predicate = pred::Predicate<TreeMap<Dim, T>>>
+          class Predicate = pred::Predicate<TreeMap<Dim, T>>,
+          class Geometry  = DynamicGeometry>
 class TreeMapQueryNearestIterator
 {
  private:
@@ -69,7 +71,7 @@ class TreeMapQueryNearestIterator
 	// Friends
 	//
 
-	template <bool, std::size_t, class, class>
+	template <bool, std::size_t, class, class, class>
 	friend class TreeMapQueryNearestIterator;
 
 	friend class TreeMap<Dim, T>;
@@ -115,13 +117,15 @@ class TreeMapQueryNearestIterator
 
 	TreeMapQueryNearestIterator(TreeMapQueryNearestIterator const&) = default;
 
-	// From non-const to const or change of predicate type
+	// From non-const to const or change of predicate/geometry type
 	template <
-	    bool Const2, class Predicate2,
+	    bool Const2, class Predicate2, class Geometry2,
 	    std::enable_if_t<(Const && !Const2) ||
-	                         (Const == Const2 && !std::is_same_v<Predicate, Predicate2>),
+	                         (Const == Const2 && (!std::is_same_v<Predicate, Predicate2> ||
+	                                              !std::is_same_v<Geometry, Geometry2>)),
 	                     bool> = true>
-	TreeMapQueryNearestIterator(TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& other)
+	TreeMapQueryNearestIterator(
+	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& other)
 	    : tm_(other.tm_)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
@@ -152,19 +156,19 @@ class TreeMapQueryNearestIterator
 
 	pointer operator->() const { return &*queue_.top().it; }
 
-	template <bool Const2, class Predicate2>
+	template <bool Const2, class Predicate2, class Geometry2>
 	friend bool operator==(
-	    TreeMapQueryNearestIterator const&                             lhs,
-	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& rhs)
+	    TreeMapQueryNearestIterator const&                                        lhs,
+	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& rhs)
 	{
 		return lhs.queue_.empty() == rhs.queue_.empty() &&
 		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
 	}
 
-	template <bool Const2, class Predicate2>
+	template <bool Const2, class Predicate2, class Geometry2>
 	friend bool operator!=(
-	    TreeMapQueryNearestIterator const&                             lhs,
-	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& rhs)
+	    TreeMapQueryNearestIterator const&                                        lhs,
+	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& rhs)
 	{
 		return !(lhs == rhs);
 	}
@@ -228,7 +232,7 @@ class TreeMapQueryNearestIterator
 
  private:
 	TreeMapQueryNearestIterator(TreeMap<Dim, T>* tm, TreeIndex node, Predicate const& pred,
-	                            Point query, float epsilon = 0.0f)
+	                            Geometry const& query, float epsilon = 0.0f)
 	    : tm_(tm), pred_(pred), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
 		pred::Filter<Predicate>::init(pred_, *tm_);
@@ -241,8 +245,10 @@ class TreeMapQueryNearestIterator
 	}
 
 	// From const to non-const
-	template <bool Const2, class Predicate2, std::enable_if_t<!Const && Const2, bool> = true>
-	TreeMapQueryNearestIterator(TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2> const& other)
+	template <bool Const2, class Predicate2, class Geometry2,
+	          std::enable_if_t<!Const && Const2, bool> = true>
+	TreeMapQueryNearestIterator(
+	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& other)
 	    : tm_(other.tm)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
@@ -262,8 +268,8 @@ class TreeMapQueryNearestIterator
 
 	Predicate pred_{};
 
-	Point query_;
-	float epsilon_sq_;
+	Geometry query_;
+	float    epsilon_sq_;
 
 	Queue queue_;
 };
