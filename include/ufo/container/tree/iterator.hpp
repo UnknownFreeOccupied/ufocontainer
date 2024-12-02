@@ -59,7 +59,8 @@ class TreeIterator
 	// Friends
 	//
 
-	// friend Tree;
+	template <class>
+	friend class TreeIterator;
 
  private:
 	static constexpr std::size_t const BF = Tree::branchingFactor();

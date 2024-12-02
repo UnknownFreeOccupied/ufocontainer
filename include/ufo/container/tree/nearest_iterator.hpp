@@ -57,6 +57,14 @@ template <class Tree, class Geometry = DynamicGeometry>
 class TreeNearestIterator
 {
  private:
+	//
+	// Friends
+	//
+
+	template <class, class>
+	friend class TreeNearestIterator;
+
+ private:
 	static constexpr std::size_t const BF = Tree::branchingFactor();
 
 	using Node     = typename Tree::Node;

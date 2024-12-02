@@ -60,6 +60,14 @@ template <class Tree, class Predicate = pred::Predicate<Tree>,
 class TreeQueryNearestIterator
 {
  private:
+	//
+	// Friends
+	//
+
+	template <class, class, class>
+	friend class TreeQueryNearestIterator;
+
+ private:
 	static constexpr std::size_t const BF = Tree::branchingFactor();
 
 	using Node     = typename Tree::Node;
