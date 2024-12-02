@@ -560,10 +560,8 @@ class TreeBase
 				return center(treeBlock(node).code(node.offset));
 			}
 		} else if constexpr (std::is_same_v<T, Node>) {
-			// TODO: Not working, only returns root or something???
-			return center(key(node));
+			return center(node.code);
 		} else if constexpr (std::is_same_v<T, Code>) {
-			// TODO: Not working, only returns root or something???
 			return center(key(node));
 		} else if constexpr (std::is_same_v<T, Key>) {
 			assert(valid(node));
@@ -1588,7 +1586,25 @@ class TreeBase
 			return;
 		}
 
-		Index cur = index(node);
+		Index root = index(node);
+
+		if (!f(root) || isLeaf(root)) {
+			return;
+		}
+
+		// Index cur = child(root, 0);
+
+		// while (root != cur) {
+		// 	if (BF - 1 == cur.offset) {
+		// 		cur = parent(cur);
+		// 		continue;
+		// 	}
+
+		// 	++cur.offset;
+
+		// 	if (!f(cur) || isLeaf(cur)) {
+		// 	}
+		// }
 
 		// TODO: Implement
 
