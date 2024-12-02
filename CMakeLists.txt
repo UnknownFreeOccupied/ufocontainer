@@ -6,6 +6,7 @@ target_link_libraries(Container
 		UFO::Geometry 
 		UFO::Morton 
 		UFO::Utility
+		UFO::Vision
 )
 
 include(GNUInstallDirs)
