@@ -459,9 +459,13 @@ class TreeMap
 			std::transform(UFO_TBB_PAR first, last, points.begin(),
 			               [](auto const& v) { return v.first; });
 		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
-			// TODO: Implement
+#pragma omp parallel for
+			for (std::size_t i = 0; points.size() > i; ++i) {
+				points[i] = (first + i)->first;
+			}
 		} else {
-			// TODO: Error
+			static_assert(dependent_false_v<ExecutionPolicy>,
+			              "insert not implemented for that execution policy");
 		}
 
 		auto nodes =
