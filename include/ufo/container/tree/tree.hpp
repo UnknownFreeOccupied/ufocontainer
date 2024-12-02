@@ -1707,7 +1707,7 @@ class Tree
 		// }
 	}
 
-	/*! TODO: Update info for all nearest
+	/*! FIXME: Update info for all nearest
 	 * @brief Traverse the tree in the orderDepth first traversal of the tree, starting
 	 * at the root node. The function 'f' will be called for each node traverse. If 'f'
 	 * returns true then the children of the node will also be traverse, otherwise they
@@ -3729,16 +3729,28 @@ template <class Derived, std::size_t Dim, class Block, class... Blocks>
 bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
                 Tree<Derived, Dim, Block, Blocks...> const& rhs)
 {
-	return lhs.num_depth_levels_ == rhs.num_depth_levels_ &&
-	       lhs.node_half_length_ == rhs.node_half_length_ &&
-	       std::equal(lhs.begin(false), lhs.end(), rhs.begin(false), rhs.end(),
-	                  [&lhs, &rhs](TreeNode<Dim> const& l, TreeNode<Dim> const& r) {
-		                  return l.code == r.code &&
-		                         lhs.treeBlock(l.index) == rhs.treeBlock(r.index) &&
-		                         ((lhs.template data<Blocks>(l.index.pos) ==
-		                           rhs.template data<Blocks>(r.index.pos)) &&
-		                          ...);
-	                  });
+	if (lhs.num_depth_levels_ != rhs.num_depth_levels_ ||
+	    lhs.node_half_length_ != rhs.node_half_length_) {
+		return false;
+	}
+
+	auto pred     = pred::Offset(0);
+	auto lhs_it   = lhs.beginQuery(pred);
+	auto lhs_last = lhs.endQuery();
+	auto rhs_it   = rhs.beginQuery(pred);
+	auto rhs_last = rhs.endQuery();
+
+	for (; lhs_last != lhs_it && rhs_last != rhs_it; ++lhs_it, ++rhs_it) {
+		if (lhs_it->code != rhs_it->code ||
+		    lhs.treeBlock(lhs_it->index) != rhs.treeBlock(rhs_it->index) ||
+		    ((lhs.template data<Blocks>(lhs_it->index.pos) !=
+		      rhs.template data<Blocks>(rhs_it->index.pos)) ||
+		     ...)) {
+			return false;
+		}
+	}
+
+	return lhs_last == lhs_it && rhs_last == rhs_it;
 }
 
 template <class Derived, std::size_t Dim, class Block, class... Blocks>

@@ -5,9 +5,6 @@
 #include <catch2/catch_test_macros.hpp>
 
 // STL
-#include <algorithm>
-#include <array>
-#include <iostream>
 
 using namespace ufo;
 
