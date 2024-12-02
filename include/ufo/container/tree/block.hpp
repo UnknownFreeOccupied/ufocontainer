@@ -191,7 +191,7 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 		return ret;
 	}
 
-	[[nodiscard]] Point centerAxis(std::size_t offset, length_t half_length,
+	[[nodiscard]] float centerAxis(std::size_t offset, length_t half_length,
 	                               std::size_t axis) const
 	{
 		assert(Dim > axis);

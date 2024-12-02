@@ -647,7 +647,9 @@ class Tree
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
-				return treeBlock(node).centerAxis(node.offset, halfLength(node), axis);
+				return isRoot(node)
+				           ? centerAxis(axis)
+				           : treeBlock(node).centerAxis(node.offset, halfLength(node), axis);
 			} else {
 				return centerAxis(treeBlock(node).code(node.offset), axis);
 			}

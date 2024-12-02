@@ -56,13 +56,28 @@ TEST_CASE("[Octree] comparison")
 
 TEST_CASE("[Octree] with and without center")
 {
-	Octree           tree1(0.1f, 17);
-	OctreeWithCenter tree2(0.1f, 17);
+	SECTION("Center")
+	{
+		Octree           tree1(0.1f, 17);
+		OctreeWithCenter tree2(0.1f, 17);
 
-	REQUIRE(tree1.center(tree1.index()) == tree2.center(tree2.index()));
+		REQUIRE(tree1.center(tree1.index()) == tree2.center(tree2.index()));
 
-	TreeIndex node1 = tree1.create(Vec3f(0, 0, 0));
-	TreeIndex node2 = tree2.create(Vec3f(0, 0, 0));
+		TreeIndex node1 = tree1.create(Vec3f(0, 0, 0));
+		TreeIndex node2 = tree2.create(Vec3f(0, 0, 0));
 
-	REQUIRE(tree1.center(node1) == tree2.center(node2));
+		REQUIRE(tree1.center(node1) == tree2.center(node2));
+	}
+
+	SECTION("Center axis") {
+		Octree           tree1(0.1f, 17);
+		OctreeWithCenter tree2(0.1f, 17);
+
+		REQUIRE(tree1.centerAxis(tree1.index(), 2) == tree2.centerAxis(tree2.index(), 2));
+
+		TreeIndex node1 = tree1.create(Vec3f(0, 0, 0));
+		TreeIndex node2 = tree2.create(Vec3f(0, 0, 0));
+
+		REQUIRE(tree1.centerAxis(node1, 1) == tree2.centerAxis(node2, 1));
+	}
 }
