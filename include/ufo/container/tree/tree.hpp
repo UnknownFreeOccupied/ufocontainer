@@ -3739,18 +3739,6 @@ bool operator!=(Tree<Derived, Dim, Block, Blocks...> const& lhs,
 {
 	return !(lhs == rhs);
 }
-
-template <class Derived, class Block, class... Blocks>
-using BinaryTree = Tree<Derived, 1, Block, Blocks...>;
-
-template <class Derived, class Block, class... Blocks>
-using Quadtree = Tree<Derived, 2, Block, Blocks...>;
-
-template <class Derived, class Block, class... Blocks>
-using Octree = Tree<Derived, 3, Block, Blocks...>;
-
-template <class Derived, class Block, class... Blocks>
-using Hextree = Tree<Derived, 4, Block, Blocks...>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_HPP
