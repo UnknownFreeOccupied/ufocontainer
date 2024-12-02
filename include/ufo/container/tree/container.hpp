@@ -525,7 +525,7 @@ class TreeContainer
 				break;
 			}
 
-			*buckets_[i] = {};
+			*buckets_[i] = value_type();
 		}
 
 		size_ = 0;

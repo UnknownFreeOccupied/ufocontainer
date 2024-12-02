@@ -74,29 +74,17 @@ struct TreeBlock {
 	}
 
 	constexpr TreeBlock(TreeBlock const& other)
+	    : parent_block_(other.parent_block_), code_(other.code_)
 	{
 		for (std::size_t i{}; BF > i; ++i) {
 			children[i].store(other.children[i].load(std::memory_order_relaxed),
 			                  std::memory_order_relaxed);
 		}
-		parent_block_ = other.parent_block_;
-		code_         = other.code_;
 	}
-
-	constexpr TreeBlock(TreeBlock&&) = default;
 
 	constexpr TreeBlock(TreeIndex::pos_t parent_block, Code code, Point /* center */,
 	                    length_t /* half_length */)
 	    : parent_block_(parent_block), code_(code)
-	{
-		for (std::size_t i{}; BF > i; ++i) {
-			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
-		}
-	}
-
-	constexpr TreeBlock(TreeIndex::pos_t parent_block, TreeBlock const& parent,
-	                    std::size_t offset, length_t /* half_length */)
-	    : parent_block_(parent_block), code_(parent.code(offset).firstborn())
 	{
 		for (std::size_t i{}; BF > i; ++i) {
 			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
@@ -113,8 +101,6 @@ struct TreeBlock {
 		code_         = rhs.code_;
 		return *this;
 	}
-
-	constexpr TreeBlock& operator=(TreeBlock&&) = default;
 
 	constexpr void fill(TreeIndex::pos_t parent_block, TreeBlock const& parent,
 	                    std::size_t offset, length_t /* half_length */)
@@ -174,23 +160,12 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 	using Point    = Vec<Dim, float>;
 	using length_t = double;
 
-	constexpr TreeBlock()                 = default;
-	constexpr TreeBlock(TreeBlock const&) = default;
+	constexpr TreeBlock() = default;
 
 	constexpr TreeBlock(TreeIndex::pos_t parent_block, Code code, Point center,
 	                    length_t half_length)
 	    : Base(parent_block, code, center, half_length)
 	{
-	}
-
-	constexpr TreeBlock(TreeIndex::pos_t parent_block, TreeBlock const& parent,
-	                    std::size_t offset, length_t half_length)
-	    : Base(parent_block, static_cast<Base const&>(parent), offset, half_length)
-	{
-		for (std::size_t i{}; Point::size() > i; ++i) {
-			center_[i] = (offset & std::size_t(1u << i)) ? parent.center_[i] + half_length
-			                                             : parent.center_[i] - half_length;
-		}
 	}
 
 	constexpr void fill(TreeIndex::pos_t parent_block, TreeBlock const& parent,

@@ -561,7 +561,8 @@ class Tree
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
-				return treeBlock(node).center(node.offset, halfLength(node));
+				return isRoot(node) ? center()
+				                    : treeBlock(node).center(node.offset, halfLength(node));
 			} else {
 				return center(treeBlock(node).code(node.offset));
 			}
@@ -2903,7 +2904,12 @@ class Tree
 
 	void initChildren(Index node, Block& block, pos_t children)
 	{
-		treeBlock(children).fill(node.pos, block, node.offset, halfLength(node));
+		if constexpr (Block::HasCenter) {
+			treeBlock(children).fill(node.pos, block, node.offset,
+			                         isRoot(node) ? length_t(0.0) : halfLength(node));
+		} else {
+			treeBlock(children).fill(node.pos, block, node.offset, halfLength(node));
+		}
 		derived().onInitChildren(node, children);
 
 		block.children[node.offset].store(children);

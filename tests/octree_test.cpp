@@ -53,3 +53,16 @@ TEST_CASE("[Octree] comparison")
 		REQUIRE(tree1 != tree4);
 	}
 }
+
+TEST_CASE("[Octree] with and without center")
+{
+	Octree           tree1(0.1f, 17);
+	OctreeWithCenter tree2(0.1f, 17);
+
+	REQUIRE(tree1.center(tree1.index()) == tree2.center(tree2.index()));
+
+	TreeIndex node1 = tree1.create(Vec3f(0, 0, 0));
+	TreeIndex node2 = tree2.create(Vec3f(0, 0, 0));
+
+	REQUIRE(tree1.center(node1) == tree2.center(node2));
+}
