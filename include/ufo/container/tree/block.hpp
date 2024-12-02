@@ -144,7 +144,7 @@ struct TreeBlock {
  private:
 	// Position of the parent block
 	TreeIndex::pos_t parent_block_ = TreeIndex::NULL_POS;
-	// FIXME: Adding padding for GPU
+	// NOTE: Padding for GPU
 	float _pad0;
 	// Code to the first node of the block
 	Code code_ = Code::invalid();
