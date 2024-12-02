@@ -126,6 +126,14 @@ class TreeQueryIterator
 
 	TreeQueryIterator& operator++()
 	{
+		// TODO: Create a non-const version where this is done
+		if (!only_exists_) {
+			auto min_depth = t_->depth(cur_.code);
+			auto depth     = t_->depth(cur_.index);
+			while (min_depth < depth && t_->isParent(cur_.index)) {
+				cur_.index = t_->child(cur_.index, cur_.code.offset(--depth));
+			}
+		}
 		nextNode();
 		return *this;
 	}
