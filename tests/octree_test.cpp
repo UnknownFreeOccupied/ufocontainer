@@ -11,14 +11,14 @@
 
 using namespace ufo;
 
-using OctreeTest           = TestTree<3>;
-using OctreeTestWithCenter = TestTree<3, true>;
+using Octree           = TestTree<3>;
+using OctreeWithCenter = TestTree<3, true>;
 
 TEST_CASE("[Octree] constructor")
 {
 	SECTION("Default constructor")
 	{
-		OctreeTest tree(0.1f, 17);
+		Octree tree(0.1f, 17);
 		REQUIRE(tree.size() == 1);
 	}
 }
@@ -27,25 +27,27 @@ TEST_CASE("[Octree] comparison")
 {
 	SECTION("Untouched")
 	{
-		OctreeTest tree1(0.1f, 17);
-		OctreeTest tree2(0.1f, 17);
+		Octree tree1(0.1f, 17);
+		Octree tree2(0.1f, 17);
 		REQUIRE(tree1 == tree2);
 	}
 
-	SECTION("Equal") {
-		OctreeTest tree1(0.1f, 17);
+	SECTION("Equal")
+	{
+		Octree tree1(0.1f, 17);
 		tree1.create(Vec3f(0, 0, 0));
 		tree1.clear();
-		OctreeTest tree2(0.1f, 17);
+		Octree tree2(0.1f, 17);
 		REQUIRE(tree1 == tree2);
 	}
 
-	SECTION("Not equal") {
-		OctreeTest tree1(0.1f, 17);
-		OctreeTest tree2(0.1f, 17);
+	SECTION("Not equal")
+	{
+		Octree tree1(0.1f, 17);
+		Octree tree2(0.1f, 17);
 		tree2.create(Vec3f(0, 0, 0));
-		OctreeTest tree3(0.01f, 17);
-		OctreeTest tree4(0.1f, 16);
+		Octree tree3(0.01f, 17);
+		Octree tree4(0.1f, 16);
 		REQUIRE(tree1 != tree2);
 		REQUIRE(tree1 != tree3);
 		REQUIRE(tree1 != tree4);
