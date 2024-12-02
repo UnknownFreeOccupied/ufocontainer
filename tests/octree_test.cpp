@@ -5,6 +5,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 // STL
+#include <algorithm>
+#include <utility>
 
 using namespace ufo;
 
@@ -66,7 +68,8 @@ TEST_CASE("[Octree] with and without center")
 		REQUIRE(tree1.center(node1) == tree2.center(node2));
 	}
 
-	SECTION("Center axis") {
+	SECTION("Center axis")
+	{
 		Octree           tree1(0.1f, 17);
 		OctreeWithCenter tree2(0.1f, 17);
 
@@ -77,4 +80,12 @@ TEST_CASE("[Octree] with and without center")
 
 		REQUIRE(tree1.centerAxis(node1, 1) == tree2.centerAxis(node2, 1));
 	}
+}
+
+TEST_CASE("[Octree] swap")
+{
+	using std::swap;
+	Octree tree1(0.1f, 17);
+	Octree tree2(0.1f, 17);
+	swap(tree1, tree2);
 }
