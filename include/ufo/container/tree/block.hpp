@@ -64,9 +64,7 @@ struct TreeBlock {
 	using length_t = double;
 	using Point    = Vec<Dim, float>;
 
-	std::array<std::atomic<TreeIndex::pos_t>, BF>
-	    children;  // =
-	               // createArray<BF>(std::atomic<TreeIndex::pos_t>(TreeIndex::NULL_POS));
+	std::array<std::atomic<TreeIndex::pos_t>, BF> children;
 
 	constexpr TreeBlock()
 	{
@@ -168,8 +166,6 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 	using Point    = Vec<Dim, float>;
 	using length_t = double;
 
-	Point center;
-
 	constexpr TreeBlock()                 = default;
 	constexpr TreeBlock(TreeBlock const&) = default;
 
@@ -184,8 +180,8 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 	    : Base(parent_block, static_cast<Base const&>(parent), offset, half_length)
 	{
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] = (offset & std::size_t(1u << i)) ? parent.center[i] + half_length
-			                                            : parent.center[i] - half_length;
+			center_[i] = (offset & std::size_t(1u << i)) ? parent.center_[i] + half_length
+			                                             : parent.center_[i] - half_length;
 		}
 	}
 
@@ -195,10 +191,34 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 		Base::fill(parent_block, static_cast<Base const&>(parent), offset, half_length);
 
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] = (offset & std::size_t(1u << i)) ? parent.center[i] + half_length
-			                                            : parent.center[i] - half_length;
+			center_[i] = (offset & std::size_t(1u << i)) ? parent.center_[i] + half_length
+			                                             : parent.center_[i] - half_length;
 		}
 	}
+
+	[[nodiscard]] Point center(std::size_t offset, length_t half_length) const
+	{
+		Point ret;
+
+		for (std::size_t i{}; Point::size() > i; ++i) {
+			ret[i] = (offset & std::size_t(1u << i)) ? center_[i] + half_length
+			                                         : center_[i] - half_length;
+		}
+
+		return ret;
+	}
+
+	[[nodiscard]] Point centerAxis(std::size_t offset, length_t half_length,
+	                               std::size_t axis) const
+	{
+		assert(Dim > axis);
+
+		return (offset & std::size_t(1u << axis)) ? center_[axis] + half_length
+		                                          : center_[axis] - half_length;
+	}
+
+ private:
+	Point center_;
 };
 }  // namespace ufo
 

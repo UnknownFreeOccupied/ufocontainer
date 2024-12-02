@@ -75,8 +75,6 @@ class TreeMap
 
 	// First base friends :)
 	friend Base;
-	// Second base friends ;)
-	friend typename Base::Base;
 
 	template <class Geometry, pred::SpatialTag Tag, bool Negated>
 	friend class pred::Spatial;

@@ -7,6 +7,7 @@ include("${CMAKE_CURRENT_SOURCE_DIR}/../3rdparty/catch2/catch2.cmake")
 # # set(CMAKE_CXX_OUTPUT_EXTENSION_REPLACE ON)
 
 add_executable(ufocontainer_tests
+	octree_test.cpp
 	octree_map_test.cpp
 	octree_set_test.cpp
 	# quadtree_set_test.cpp

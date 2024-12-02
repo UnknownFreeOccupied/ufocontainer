@@ -75,10 +75,8 @@ class TreeSet
 
 	// First base friends :)
 	friend Base;
-	// Second base friends ;)
-	friend typename Base::Base;
 
-	friend typename Base::Base::const_iterator;
+	friend typename Base::const_iterator;
 
 	template <class Geometry, pred::SpatialTag Tag, bool Negated>
 	friend class pred::Spatial;

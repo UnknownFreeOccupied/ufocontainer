@@ -45,10 +45,4 @@
 // UFO
 #include <ufo/container/tree_map.hpp>
 
-namespace ufo
-{
-template <class T>
-using HextreeMap = TreeMap<4, T>;
-}  // namespace ufo
-
 #endif  // UFO_CONTAINER_HEXTREE_MAP_HPP

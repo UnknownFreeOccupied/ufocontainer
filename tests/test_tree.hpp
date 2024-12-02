@@ -39,10 +39,48 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_QUADTREE_SET_HPP
-#define UFO_CONTAINER_QUADTREE_SET_HPP
+#ifndef UFO_CONTAINER_TESTS_TREE_HPP
+#define UFO_CONTAINER_TESTS_TREE_HPP
 
 // UFO
-#include <ufo/container/tree_set.hpp>
+#include <ufo/container/tree/block.hpp>
+#include <ufo/container/tree/tree.hpp>
 
-#endif  // UFO_CONTAINER_QUADTREE_SET_HPP
+namespace ufo
+{
+template <std::size_t Dim, bool WithCenter = false>
+class TestTree
+    : public Tree<TestTree<Dim, WithCenter>, Dim,
+                  TreeBlock<Dim, std::size_t(1) << Dim, WithCenter>>
+{
+ protected:
+	using Base = Tree<TestTree, Dim, TreeBlock<Dim, std::size_t(1) << Dim, WithCenter>>;
+
+ public:
+	using Index    = typename Base::Index;
+	using Node     = typename Base::Node;
+	using Code     = typename Base::Code;
+	using Key      = typename Base::Key;
+	using Point    = typename Base::Point;
+	using Coord    = typename Base::Coord;
+	using Bounds   = typename Base::Bounds;
+	using coord_t  = typename Base::coord_t;
+	using depth_t  = typename Base::depth_t;
+	using offset_t = typename Base::offset_t;
+	using length_t = typename Base::length_t;
+	using pos_t    = typename Base::pos_t;
+
+	TestTree(length_t leaf_node_length, depth_t num_depth_levels)
+	    : Base(leaf_node_length, num_depth_levels)
+	{
+	}
+
+	void onInitRoot() {}
+
+	void onInitChildren(Index /* node */, pos_t /* children */) {}
+
+	void onPruneChildren(Index /* node */, pos_t /* children */) {}
+};
+}  // namespace ufo
+
+#endif  // UFO_CONTAINER_TESTS_TREE_HPP

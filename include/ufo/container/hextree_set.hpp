@@ -45,9 +45,4 @@
 // UFO
 #include <ufo/container/tree_set.hpp>
 
-namespace ufo
-{
-using HextreeSet = TreeSet<4>;
-}  // namespace ufo
-
 #endif  // UFO_CONTAINER_HEXTREE_SET_HPP

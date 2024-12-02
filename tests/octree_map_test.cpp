@@ -4,6 +4,9 @@
 // Catch2
 #include <catch2/catch_test_macros.hpp>
 
+// STL
+#include <iostream>
+
 using namespace ufo;
 
 TEST_CASE("Octree Map")

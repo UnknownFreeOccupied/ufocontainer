@@ -45,9 +45,4 @@
 // UFO
 #include <ufo/container/tree_set.hpp>
 
-namespace ufo
-{
-using BinaryTreeSet = TreeSet<1>;
-}  // namespace ufo
-
 #endif  // UFO_CONTAINER_BINARY_TREE_SET_HPP

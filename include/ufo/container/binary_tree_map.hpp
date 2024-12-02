@@ -45,10 +45,4 @@
 // UFO
 #include <ufo/container/tree_map.hpp>
 
-namespace ufo
-{
-template <class T>
-using BinaryTreeMap = TreeMap<1, T>;
-}  // namespace ufo
-
 #endif  // UFO_CONTAINER_BINARY_TREE_MAP_HPP

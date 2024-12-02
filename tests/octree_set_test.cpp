@@ -307,11 +307,8 @@ TEST_CASE("Octree Set")
 		std::cout << x << std::endl;
 	}
 
-	std::cout << "After 3.1" << std::endl;
 	set.insert({0, 0, 35});
-	std::cout << "After 3.2" << std::endl;
 	set.insert({{100, -234, 40}, {-102.3, 200, 33}});
-	std::cout << "After 3.3" << std::endl;
 	set.insert(Vec3f(1, 0, 5));
 
 	std::cout << "After 4" << std::endl;
@@ -335,6 +332,7 @@ TEST_CASE("Octree Set")
 
 	std::cout << "Query iterator" << std::endl;
 	for (auto const& x : set.query(pred::Satisfies([](auto e) { return 100 != e.x; }))) {
+		CHECK(100 != x.x);
 		std::cout << x << std::endl;
 	}
 
