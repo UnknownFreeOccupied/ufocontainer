@@ -39,37 +39,54 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_OFFSET_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_OFFSET_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/child_of.hpp>
-#include <ufo/container/tree/predicate/coord.hpp>
-#include <ufo/container/tree/predicate/depth.hpp>
-#include <ufo/container/tree/predicate/depth_interval.hpp>
-#include <ufo/container/tree/predicate/exists.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
-#include <ufo/container/tree/predicate/inner.hpp>
-#include <ufo/container/tree/predicate/leaf.hpp>
-#include <ufo/container/tree/predicate/leaf_or_depth.hpp>
-#include <ufo/container/tree/predicate/length.hpp>
-#include <ufo/container/tree/predicate/length_interval.hpp>
-#include <ufo/container/tree/predicate/modified.hpp>
-#include <ufo/container/tree/predicate/offset.hpp>
-#include <ufo/container/tree/predicate/parent.hpp>
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
-#include <ufo/container/tree/predicate/pure_leaf.hpp>
-#include <ufo/container/tree/predicate/satisfies.hpp>
-#include <ufo/container/tree/predicate/satisfies_inner.hpp>
-#include <ufo/container/tree/predicate/spatial.hpp>
 
 namespace ufo::pred
 {
-constexpr PureLeaf operator!(Inner) { return {}; }
-constexpr Inner    operator!(PureLeaf) { return {}; }
-constexpr Parent   operator!(Leaf) { return {}; }
-constexpr Leaf     operator!(Parent) { return {}; }
+template <bool Negated = false>
+struct Offset {
+	std::size_t offset;
+
+	constexpr Offset(std::size_t offset = 0) noexcept : offset(offset) {}
+};
+
+template <bool Negated>
+[[nodiscard]] Offset<!Negated> operator!(Offset<Negated> const& p)
+{
+	return Offset<!Negated>(p.offset);
+}
+
+template <bool Negated>
+struct Filter<Offset<Negated>> {
+	using Pred = Offset<Negated>;
+
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               Node const& n)
+	{
+		if constexpr (Negated) {
+			return p.offset != n.code.offset();
+		} else {
+			return p.offset == n.code.offset();
+		}
+	}
+
+	template <class Tree, class Node>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                Node const& n)
+	{
+		return true;
+	}
+};
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_OFFSET_HPP
