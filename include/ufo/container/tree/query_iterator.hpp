@@ -165,7 +165,6 @@ class TreeQueryIterator
 	{
 		return (t_->isParent(node.index) || (!only_exists_ && !t_->isPureLeaf(node.code))) &&
 		       pred::Filter<Predicate>::traversable(pred_, *t_, node);
-		;
 	}
 
 	[[nodiscard]] bool exists(Node const& node) const
