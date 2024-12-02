@@ -1,9 +1,10 @@
 @PACKAGE_INIT@
 
-# Depends on Geometry, Morton, and Utility components
+# Depends on Geometry, Morton, Utility, and Vision components
 # FIXME: This is a bit hacky
 include("${CMAKE_CURRENT_LIST_DIR}/Geometry-config.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Morton-config.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Utility-config.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/Vision-config.cmake")
 
 include("${CMAKE_CURRENT_LIST_DIR}/Container-targets.cmake")
