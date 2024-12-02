@@ -43,7 +43,6 @@
 #define UFO_CONTAINER_TREE_PREDICATE_PURE_LEAF_HPP
 
 // UFO
-#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
@@ -60,16 +59,16 @@ struct Filter<PureLeaf> {
 	{
 	}
 
-	template <class Tree>
+	template <class Tree, class Node>
 	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               TreeIndex const& n)
+	                                               Node const& n)
 	{
 		return t.isPureLeaf(n);
 	}
 
-	template <class Tree>
+	template <class Tree, class Node>
 	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                TreeIndex const& n)
+	                                                Node const& n)
 	{
 		return true;
 	}
