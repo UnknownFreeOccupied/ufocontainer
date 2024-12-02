@@ -183,6 +183,14 @@ class Tree
 
 	[[nodiscard]] TreeContainer<Block, Blocks...> const& data() const { return block_; }
 
+	template <class Derived2, std::size_t Dim2, class Block2, class... Blocks2>
+	friend bool operator==(Tree<Derived2, Dim2, Block2, Blocks2...> const& lhs,
+	                       Tree<Derived2, Dim2, Block2, Blocks2...> const& rhs);
+
+	template <class Derived2, std::size_t Dim2, class Block2, class... Blocks2>
+	friend bool operator!=(Tree<Derived2, Dim2, Block2, Blocks2...> const& lhs,
+	                       Tree<Derived2, Dim2, Block2, Blocks2...> const& rhs);
+
 	/*!
 	 * @brief Returns the branching factor of the tree (i.e., 2 = binary tree, 4 = quadtree,
 	 * 8 = octree, 16 = hextree).
@@ -3708,6 +3716,29 @@ class Tree
 	// Reciprocal of the node half length at a given depth, where the index is the depth
 	std::array<length_t, maxNumDepthLevels() + 1> node_half_length_reciprocal_;
 };
+
+template <class Derived, std::size_t Dim, class Block, class... Blocks>
+bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
+                Tree<Derived, Dim, Block, Blocks...> const& rhs)
+{
+	return lhs.num_depth_levels_ == rhs.num_depth_levels_ &&
+	       lhs.node_half_length_ == rhs.node_half_length_ &&
+	       std::equal(lhs.begin(false), lhs.end(), rhs.begin(false), rhs.end(),
+	                  [&lhs, &rhs](TreeNode<Dim> const& l, TreeNode<Dim> const& r) {
+		                  return l.code == r.code &&
+		                         lhs.treeBlock(l.index) == rhs.treeBlock(r.index) &&
+		                         ((lhs.template data<Blocks>(l.index.pos) ==
+		                           rhs.template data<Blocks>(r.index.pos)) &&
+		                          ...);
+	                  });
+}
+
+template <class Derived, std::size_t Dim, class Block, class... Blocks>
+bool operator!=(Tree<Derived, Dim, Block, Blocks...> const& lhs,
+                Tree<Derived, Dim, Block, Blocks...> const& rhs)
+{
+	return !(lhs == rhs);
+}
 
 template <class Derived, class Block, class... Blocks>
 using BinaryTree = Tree<Derived, 1, Block, Blocks...>;

@@ -22,3 +22,32 @@ TEST_CASE("[Octree] constructor")
 		REQUIRE(tree.size() == 1);
 	}
 }
+
+TEST_CASE("[Octree] comparison")
+{
+	SECTION("Untouched")
+	{
+		OctreeTest tree1(0.1f, 17);
+		OctreeTest tree2(0.1f, 17);
+		REQUIRE(tree1 == tree2);
+	}
+
+	SECTION("Equal") {
+		OctreeTest tree1(0.1f, 17);
+		tree1.create(Vec3f(0, 0, 0));
+		tree1.clear();
+		OctreeTest tree2(0.1f, 17);
+		REQUIRE(tree1 == tree2);
+	}
+
+	SECTION("Not equal") {
+		OctreeTest tree1(0.1f, 17);
+		OctreeTest tree2(0.1f, 17);
+		tree2.create(Vec3f(0, 0, 0));
+		OctreeTest tree3(0.01f, 17);
+		OctreeTest tree4(0.1f, 16);
+		REQUIRE(tree1 != tree2);
+		REQUIRE(tree1 != tree3);
+		REQUIRE(tree1 != tree4);
+	}
+}
