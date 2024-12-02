@@ -2219,100 +2219,6 @@ class Tree
 		createRoot();
 	}
 
-	Tree(Tree const& other)
-	    : num_depth_levels_(other.num_depth_levels_)
-	    , half_max_value_(other.half_max_value_)
-	    , block_(other.block_)
-	    , node_half_length_(other.node_half_length_)
-	    , node_half_length_reciprocal_(other.node_half_length_reciprocal_)
-	{
-	}
-
-	Tree(Tree&& other)
-	    : num_depth_levels_(std::move(other.num_depth_levels_))
-	    , half_max_value_(std::move(other.half_max_value_))
-	    , block_(std::move(other.block_))
-	    , node_half_length_(std::move(other.node_half_length_))
-	    , node_half_length_reciprocal_(std::move(other.node_half_length_reciprocal_))
-	{
-	}
-
-	template <class Derived2, class... Blocks2>
-	Tree(Tree<Derived2, Dim, Block, Blocks2...> const& other)
-	    : num_depth_levels_(other.num_depth_levels_)
-	    , half_max_value_(other.half_max_value_)
-	    , block_(other.block_)
-	    , node_half_length_(other.node_half_length_)
-	    , node_half_length_reciprocal_(other.node_half_length_reciprocal_)
-	{
-	}
-
-	template <class Derived2, class... Blocks2>
-	Tree(Tree<Derived2, Dim, Block, Blocks2...>&& other)
-	    : num_depth_levels_(std::move(other.num_depth_levels_))
-	    , half_max_value_(std::move(other.half_max_value_))
-	    , block_(std::move(other.block_))
-	    , node_half_length_(std::move(other.node_half_length_))
-	    , node_half_length_reciprocal_(std::move(other.node_half_length_reciprocal_))
-	{
-	}
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                     Destructor                                      |
-	|                                                                                     |
-	**************************************************************************************/
-
-	~Tree() = default;
-
-	/**************************************************************************************
-	|                                                                                     |
-	|                                 Assignment operator                                 |
-	|                                                                                     |
-	**************************************************************************************/
-
-	Tree& operator=(Tree const& rhs)
-	{
-		num_depth_levels_            = rhs.num_depth_levels_;
-		half_max_value_              = rhs.half_max_value_;
-		block_                       = rhs.block_;
-		node_half_length_            = rhs.node_half_length_;
-		node_half_length_reciprocal_ = rhs.node_half_length_reciprocal_;
-		return *this;
-	}
-
-	Tree& operator=(Tree&& rhs)
-	{
-		num_depth_levels_            = std::move(rhs.num_depth_levels_);
-		half_max_value_              = std::move(rhs.half_max_value_);
-		block_                       = std::move(rhs.block_);
-		node_half_length_            = std::move(rhs.node_half_length_);
-		node_half_length_reciprocal_ = std::move(rhs.node_half_length_reciprocal_);
-		return *this;
-	}
-
-	template <class Derived2, class... Blocks2>
-	Tree& operator=(Tree<Derived2, Dim, Block, Blocks2...> const& rhs)
-	{
-		num_depth_levels_            = rhs.num_depth_levels_;
-		half_max_value_              = rhs.half_max_value_;
-		block_                       = rhs.block_;
-		node_half_length_            = rhs.node_half_length_;
-		node_half_length_reciprocal_ = rhs.node_half_length_reciprocal_;
-		return *this;
-	}
-
-	template <class Derived2, class... Blocks2>
-	Tree& operator=(Tree<Derived2, Dim, Block, Blocks2...>&& rhs)
-	{
-		num_depth_levels_            = std::move(rhs.num_depth_levels_);
-		half_max_value_              = std::move(rhs.half_max_value_);
-		block_                       = std::move(rhs.block_);
-		node_half_length_            = std::move(rhs.node_half_length_);
-		node_half_length_reciprocal_ = std::move(rhs.node_half_length_reciprocal_);
-		return *this;
-	}
-
 	/**************************************************************************************
 	|                                                                                     |
 	|                                         Swap                                        |
@@ -2321,11 +2227,12 @@ class Tree
 
 	void swap(Tree& other)
 	{
-		std::swap(num_depth_levels_, other.num_depth_levels_);
-		std::swap(half_max_value_, other.half_max_value_);
-		std::swap(block_, other.block_);
-		std::swap(node_half_length_, other.node_half_length_);
-		std::swap(node_half_length_reciprocal_, other.node_half_length_reciprocal_);
+		using std::swap;
+		swap(num_depth_levels_, other.num_depth_levels_);
+		swap(half_max_value_, other.half_max_value_);
+		swap(block_, other.block_);
+		swap(node_half_length_, other.node_half_length_);
+		swap(node_half_length_reciprocal_, other.node_half_length_reciprocal_);
 	}
 
 	/**************************************************************************************
@@ -3758,6 +3665,13 @@ bool operator!=(Tree<Derived, Dim, Block, Blocks...> const& lhs,
                 Tree<Derived, Dim, Block, Blocks...> const& rhs)
 {
 	return !(lhs == rhs);
+}
+
+template <class Derived, std::size_t Dim, class Block, class... Blocks>
+void swap(Tree<Derived, Dim, Block, Blocks...>& lhs,
+          Tree<Derived, Dim, Block, Blocks...>& rhs)
+{
+	lhs.swap(rhs);
 }
 }  // namespace ufo
 
