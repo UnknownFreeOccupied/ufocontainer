@@ -17,9 +17,9 @@ target_include_directories(Container
 		$<INSTALL_INTERFACE:include>
 )
 
-# if(UFO_TESTING)
+if(UFO_TESTING)
   add_subdirectory(tests)
-# endif()
+endif()
 
 if(UFO_DOCS)
 	add_subdirectory(docs)
