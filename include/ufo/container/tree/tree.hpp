@@ -212,7 +212,7 @@ class Tree
 	 *
 	 * @return The number of nodes in the tree.
 	 */
-	[[nodiscard]] std::size_t size() const { return block_.size() * BF - (BF - 1); }
+	[[nodiscard]] std::size_t size() const { return block_.numUsedBlocks() * BF - (BF - 1); }
 
 	/*!
 	 * @brief Increase the capacity of the tree to at least hold `num_nodes` nodes.
