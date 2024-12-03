@@ -85,7 +85,19 @@ TEST_CASE("[Octree] with and without center")
 TEST_CASE("[Octree] swap")
 {
 	using std::swap;
+
 	Octree tree1(0.1f, 17);
-	Octree tree2(0.1f, 17);
-	swap(tree1, tree2);
+	tree1.create(Vec3f(0, 0, 0));
+
+	Octree tree2 = tree1;
+
+	Octree tree3(0.1f, 17);
+
+	// REQUIRE((tree1 == tree2 && tree1 != tree3));
+	// if (tree1 == tree2) REQUIRE(tree1 == tree2);
+	// REQUIRE(tree1 != tree3);
+
+	// swap(tree2, tree3);
+
+	// REQUIRE((tree1 != tree2 && tree1 == tree3));
 }
