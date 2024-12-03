@@ -237,11 +237,12 @@ class TreeSetQueryIterator
 	{
 		pred::Filter<Predicate>::init(pred_, *tm_);
 
-		if (nextNodeDownwards()) {
-			return;
+		nextNodeDownwards();
+		while (!nextValue()) {
+			if (!nextNode()) {
+				break;
+			}
 		}
-
-		nextNode();
 	}
 
 	// From const to non-const
