@@ -338,5 +338,5 @@ TEST_CASE("Octree Set")
 
 	std::cout << set.nearestDistance(Vec3f{0, 0, 0}) << std::endl;
 	auto [v, dist] = set.nearestPoint(Vec3f(0, 0, 0));
-	std::cout << (*v) << " with distance: " << dist << std::endl;
+	std::cout << (v) << " with distance: " << dist << std::endl;
 }

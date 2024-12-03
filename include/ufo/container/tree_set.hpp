@@ -781,35 +781,7 @@ class TreeSet
 	}
 
 	template <class Geometry>
-	[[nodiscard]] std::pair<value_type*, float> nearestPoint(
-	    Geometry const& query, float max_distance = std::numeric_limits<float>::infinity(),
-	    float                  epsilon    = 0.0f,
-	    NearestSearchAlgorithm search_alg = NearestSearchAlgorithm::DEPTH_FIRST)
-	{
-		float max_distance_sq = max_distance * max_distance;
-		auto [dist_sq, node]  = Base::nearest(
-        Base::index(), search_alg,
-        [this, &query](Index node) {
-          float dist_sq = std::numeric_limits<float>::infinity();
-          for (auto e : values(node)) {
-            dist_sq = UFO_MIN(dist_sq, distanceSquared(query, e));
-          }
-          return dist_sq;
-        },
-        [this, &query](Index node) { return distanceSquared(query, bounds(node)); },
-        max_distance_sq, epsilon * epsilon);
-
-		value_type* value = nullptr;
-
-		for (auto e : values(node)) {
-			value = distanceSquared(query, e) == dist_sq ? &e : nullptr;
-		}
-
-		return {value, max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq)};
-	}
-
-	template <class Geometry>
-	[[nodiscard]] std::pair<value_type const*, float> nearestPoint(
+	[[nodiscard]] std::pair<value_type, float> nearestPoint(
 	    Geometry const& query, float max_distance = std::numeric_limits<float>::infinity(),
 	    float                  epsilon    = 0.0f,
 	    NearestSearchAlgorithm search_alg = NearestSearchAlgorithm::DEPTH_FIRST) const
@@ -827,10 +799,10 @@ class TreeSet
         [this, &query](Index node) { return distanceSquared(query, bounds(node)); },
         max_distance_sq, epsilon * epsilon);
 
-		value_type const* value = nullptr;
+		value_type value(std::numeric_limits<typename value_type::value_type>::quiet_NaN());
 
-		for (auto e : values(node)) {
-			value = distanceSquared(query, e) == dist_sq ? &e : nullptr;
+		for (auto const& e : values(node)) {
+			value = distanceSquared(query, e) == dist_sq ? e : value;
 		}
 
 		return {value, max_distance_sq <= dist_sq ? max_distance : std::sqrt(dist_sq)};
