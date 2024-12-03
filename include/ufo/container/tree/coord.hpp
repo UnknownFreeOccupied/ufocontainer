@@ -102,6 +102,11 @@ std::ostream& operator<<(std::ostream& out, TreeCoord<Dim, T> const& tc)
 	return out << static_cast<Vec<Dim, T> const&>(tc) << " d: " << tc.depth;
 }
 
+using BinaryCoord = TreeCoord<1, float>;
+using QuadCoord   = TreeCoord<2, float>;
+using OctCoord    = TreeCoord<3, float>;
+using HexCoord    = TreeCoord<4, float>;
+
 template <class T = float>
 using Coord1 = TreeCoord<1, T>;
 template <class T = float>
@@ -111,34 +116,15 @@ using Coord3 = TreeCoord<3, T>;
 template <class T = float>
 using Coord4 = TreeCoord<4, T>;
 
-template <class T = float>
-using BinaryCoord = Coord1<T>;
-template <class T = float>
-using QuadCoord = Coord2<T>;
-template <class T = float>
-using OctCoord = Coord3<T>;
-template <class T = float>
-using HexCoord = Coord4<T>;
+using Coord1f = TreeCoord<1, float>;
+using Coord2f = TreeCoord<2, float>;
+using Coord3f = TreeCoord<3, float>;
+using Coord4f = TreeCoord<4, float>;
 
-using Coord1f      = Coord1<float>;
-using Coord1d      = Coord1<double>;
-using BinaryCoordf = Coord1f;
-using BinaryCoordd = Coord1d;
-
-using Coord2f    = Coord2<float>;
-using Coord2d    = Coord2<double>;
-using QuadCoordf = Coord2f;
-using QuadCoordd = Coord2d;
-
-using Coord3f   = Coord3<float>;
-using Coord3d   = Coord3<double>;
-using OctCoordf = Coord3f;
-using OctCoordd = Coord3d;
-
-using Coord4f   = Coord4<float>;
-using Coord4d   = Coord4<double>;
-using HexCoordf = Coord4f;
-using HexCoordd = Coord4d;
+using Coord1d = TreeCoord<1, double>;
+using Coord2d = TreeCoord<2, double>;
+using Coord3d = TreeCoord<3, double>;
+using Coord4d = TreeCoord<4, double>;
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_COORD_HPP
