@@ -78,15 +78,16 @@ class TreeQueryNearestIterator
 	using Filter = pred::Filter<Predicate>;
 
 	struct S {
-		DistanceNode node;
-		bool         returnable;
+		float dist_sq;
+		Node  node;
+		bool  returnable;
 
 		S(float dist_sq, Node node, bool returnable) noexcept
-		    : node(node, dist_sq), returnable(returnable)
+		    : dist_sq(dist_sq), node(node), returnable(returnable)
 		{
 		}
 
-		bool operator>(S const& rhs) const noexcept { return node.distance > node.distance; }
+		bool operator>(S const& rhs) const noexcept { return dist_sq > rhs.dist_sq; }
 	};
 
 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
@@ -163,16 +164,15 @@ class TreeQueryNearestIterator
 		return tmp;
 	}
 
-	reference operator*() const { return queue_.top().node; }
+	reference operator*() const { return ret_; }
 
-	pointer operator->() const { return &queue_.top().node; }
+	pointer operator->() const { return &ret_; }
 
 	template <class Predicate2, class Geometry2>
 	friend bool operator==(TreeQueryNearestIterator const&                              lhs,
 	                       TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& rhs)
 	{
-		return lhs.queue_.empty() == rhs.queue_.empty() &&
-		       (lhs.queue_.empty() || lhs.queue_.top().node == rhs.queue_.top().node);
+		return lhs.ret_ == rhs.ret_;
 	}
 
 	template <class Predicate2, class Geometry2>
@@ -227,7 +227,7 @@ class TreeQueryNearestIterator
 		while (!queue_.empty()) {
 			S cur = queue_.top();
 			if (returnable(cur)) {
-				const_cast<S&>(queue_.top()).node.distance = std::sqrt(cur.node.distance);
+				ret_ = DistanceNode(cur.node, std::sqrt(cur.dist_sq));
 				return;
 			}
 
@@ -259,7 +259,8 @@ class TreeQueryNearestIterator
 	Geometry query_;
 	float    epsilon_sq_;
 
-	Queue queue_;
+	Queue        queue_;
+	DistanceNode ret_{};
 
 	bool only_exists_{};
 	bool early_stopping_{};
