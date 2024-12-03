@@ -576,7 +576,9 @@ class TreeContainer
 
 	[[nodiscard]] bool empty() const { return 0 == size_; }
 
-	[[nodiscard]] pos_t size() const { return size_ - free_blocks_.size(); }
+	[[nodiscard]] pos_t size() const { return size_; }
+
+	[[nodiscard]] pos_t numUsedBlocks() const { return size_ - free_blocks_.size(); }
 
 	template <class T>
 	[[nodiscard]] constexpr size_type serializedBucketSize() const
