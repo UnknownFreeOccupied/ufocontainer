@@ -49,10 +49,13 @@
 
 // STL
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <iterator>
+#include <memory>
 #include <queue>
 #include <type_traits>
+#include <utility>
 
 namespace ufo
 {
@@ -92,27 +95,42 @@ class TreeMapNearestIterator
 		{
 		}
 
-		bool operator>(S rhs) const noexcept { return dist_sq > rhs.dist_sq; }
+		bool operator>(S const& rhs) const noexcept { return dist_sq > rhs.dist_sq; }
 	};
 
 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
+
+	using ret_type =
+	    std::pair<typename std::iterator_traits<RawIterator>::reference, float>;
 
  public:
 	//
 	// Tags
 	//
 
-	// TODO: Make it so this also returns the distance?
-
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = typename std::iterator_traits<RawIterator>::value_type;
-	using reference         = typename std::iterator_traits<RawIterator>::reference;
-	using pointer           = typename std::iterator_traits<RawIterator>::pointer;
+	using value_type =
+	    std::pair<typename std::iterator_traits<RawIterator>::value_type, float>;
+	using reference = ret_type&;
+	using pointer   = ret_type*;
 
 	TreeMapNearestIterator() = default;
 
-	TreeMapNearestIterator(TreeMapNearestIterator const&) = default;
+	TreeMapNearestIterator(TreeMapNearestIterator const& other)
+	    : tm_(other.tm_)
+	    , query_(other.query_)
+	    , epsilon_sq_(other.epsilon_sq_)
+	    , queue_(other.queue_)
+	{
+		if (!queue_.empty()) {
+			S cur = queue_.top();
+			if (returnable(cur)) {
+				ret_ = std::make_unique<ret_type>(*cur.it, std::sqrt(cur.dist_sq));
+				return;
+			}
+		}
+	}
 
 	// From non-const to const or change of geometry type
 	template <bool Const2, class Geometry2,
@@ -126,6 +144,14 @@ class TreeMapNearestIterator
 		while (!queue.empty()) {
 			queue_.emplace(queue.top().dist_sq, queue.top().node, queue.top().it);
 			queue.pop();
+		}
+
+		if (!queue_.empty()) {
+			S cur = queue_.top();
+			if (returnable(cur)) {
+				ret_ = std::make_unique<ret_type>(*cur.it, std::sqrt(cur.dist_sq));
+				return;
+			}
 		}
 	}
 
@@ -143,9 +169,9 @@ class TreeMapNearestIterator
 		return tmp;
 	}
 
-	reference operator*() const { return *queue_.top().it; }
+	reference operator*() const { return *ret_; }
 
-	pointer operator->() const { return &*queue_.top().it; }
+	pointer operator->() const { return &*ret_; }
 
 	template <bool Const2, class Geometry2>
 	friend bool operator==(TreeMapNearestIterator const&                            lhs,
@@ -177,6 +203,7 @@ class TreeMapNearestIterator
 		while (!queue_.empty()) {
 			auto cur = queue_.top();
 			if (returnable(cur)) {
+				ret_ = std::make_unique<ret_type>(*cur.it, std::sqrt(cur.dist_sq));
 				return;
 			}
 
@@ -232,6 +259,14 @@ class TreeMapNearestIterator
 			queue_.emplace(cur.dist_sq, cur.node, tm_->values(cur.node).erase(cur.it, cur.it));
 			queue.pop();
 		}
+
+		if (!queue_.empty()) {
+			S cur = queue_.top();
+			if (returnable(cur)) {
+				ret_ = std::make_unique<ret_type>(*cur.it, std::sqrt(cur.dist_sq));
+				return;
+			}
+		}
 	}
 
  private:
@@ -240,7 +275,8 @@ class TreeMapNearestIterator
 	Geometry query_;
 	float    epsilon_sq_;
 
-	Queue queue_;
+	Queue                     queue_;
+	std::unique_ptr<ret_type> ret_{};
 };
 }  // namespace ufo
 

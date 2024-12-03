@@ -145,6 +145,7 @@ class TreeQueryNearestIterator
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
 	    , queue_(other.queue_)
+	    , ret_(other.ret_)
 	    , only_exists_(other.only_exists_)
 	    , early_stopping_(other.early_stopping_)
 	{

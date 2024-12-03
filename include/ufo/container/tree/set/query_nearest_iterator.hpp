@@ -51,9 +51,11 @@
 
 // STL
 #include <cassert>
+#include <cmath>
 #include <cstddef>
 #include <iterator>
 #include <queue>
+#include <utility>
 
 namespace ufo
 {
@@ -96,7 +98,7 @@ class TreeSetQueryNearestIterator
 		{
 		}
 
-		bool operator>(S rhs) const noexcept { return dist_sq > rhs.dist_sq; }
+		bool operator>(S const& rhs) const noexcept { return dist_sq > rhs.dist_sq; }
 	};
 
 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
@@ -106,13 +108,12 @@ class TreeSetQueryNearestIterator
 	// Tags
 	//
 
-	// TODO: Make it so this also returns the distance?
-
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = typename std::iterator_traits<RawIterator>::value_type;
-	using reference         = typename std::iterator_traits<RawIterator>::reference;
-	using pointer           = typename std::iterator_traits<RawIterator>::pointer;
+	using value_type =
+	    std::pair<typename std::iterator_traits<RawIterator>::value_type, float>;
+	using reference = value_type const&;
+	using pointer   = value_type const*;
 
 	TreeSetQueryNearestIterator() = default;
 
@@ -131,6 +132,7 @@ class TreeSetQueryNearestIterator
 	    , pred_(other.pred_)
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
+	    , ret_(other.ret_)
 	{
 		auto queue = other.queue_;
 		while (!queue.empty()) {
@@ -153,9 +155,9 @@ class TreeSetQueryNearestIterator
 		return tmp;
 	}
 
-	reference operator*() const { return *queue_.top().it; }
+	reference operator*() const { return ret_; }
 
-	pointer operator->() const { return &*queue_.top().it; }
+	pointer operator->() const { return &ret_; }
 
 	template <bool Const2, class Predicate2, class Geometry2>
 	friend bool operator==(
@@ -195,8 +197,10 @@ class TreeSetQueryNearestIterator
 	void next()
 	{
 		while (!queue_.empty()) {
-			auto cur = queue_.top();
+			S cur = queue_.top();
 			if (returnable(cur)) {
+				ret_.first  = *cur.it;
+				ret_.second = std::sqrt(cur.dist_sq);
 				return;
 			}
 
@@ -254,6 +258,7 @@ class TreeSetQueryNearestIterator
 	    , pred_(other.pred_)
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
+	    , ret_(other.ret_)
 	{
 		auto queue = other.queue_;
 		while (!queue.empty()) {
@@ -272,7 +277,8 @@ class TreeSetQueryNearestIterator
 	Geometry query_;
 	float    epsilon_sq_;
 
-	Queue queue_;
+	Queue      queue_;
+	value_type ret_;
 };
 }  // namespace ufo
 

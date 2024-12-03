@@ -25,9 +25,11 @@ TEST_CASE("Octree Map")
 		std::cout << k << ": " << v << std::endl;
 	}
 
+	std::cout << "Erasing\n";
 	// map.erase(map.query(pred::True()));
 	// map.erase(std::as_const(map).query(pred::True()));
 	map.erase(map.nearest(Vec3f{0, 2.9, 0}).begin());
+	std::cout << "Erased\n";
 
 	// for (auto [k, v] : map.query(pred::True())) {
 	// 	std::cout << k << ": " << v << std::endl;
@@ -35,15 +37,15 @@ TEST_CASE("Octree Map")
 
 	std::cout << std::endl;
 
-	for (auto [k, v] : map.nearest(Vec3f{0, 2.9, 0})) {
-		std::cout << k << ": " << v << std::endl;
+	for (auto [m, d] : map.nearest(Vec3f{0, 2.9, 0})) {
+		std::cout << m.first << ": " << m.second << " with distance: " << d << std::endl;
 	}
 
 	std::cout << std::endl;
 
-	for (auto [k, v] :
+	for (auto [m, d] :
 	     map.queryNearest(pred::Intersects(BS3({0, 1, 1.8}, 0.25)), Vec3f{0, 2.9, 0})) {
-		std::cout << k << ": " << v << std::endl;
+		std::cout << m.first << ": " << m.second << " with distance: " << d << std::endl;
 	}
 
 	// struct S {

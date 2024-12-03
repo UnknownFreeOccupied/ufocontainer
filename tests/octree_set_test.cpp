@@ -317,8 +317,8 @@ TEST_CASE("Octree Set")
 	}
 
 	std::cout << "After 5" << std::endl;
-	for (auto const& p : set.nearest(Vec3f{0, 0, 0})) {
-		std::cout << p << std::endl;
+	for (auto const& [p, d] : set.nearest(Vec3f{0, 0, 0})) {
+		std::cout << p << " with distance: " << d << std::endl;
 	}
 
 	auto nearest_it = set.beginNearest(Vec3f{0, 0, 0});

@@ -131,6 +131,7 @@ class TreeNearestIterator
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
 	    , queue_(other.queue_)
+	    , ret_(other.ret_)
 	    , only_leaves_(other.only_leaves_)
 	    , only_exists_(other.only_exists_)
 	{
