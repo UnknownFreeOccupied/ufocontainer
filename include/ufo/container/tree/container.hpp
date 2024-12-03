@@ -117,8 +117,11 @@ class TreeContainer
 	TreeContainer(TreeContainer const& other)
 	    : free_blocks_(other.free_blocks_), size_(other.size_.load())
 	{
-		auto num_buckets = other.numBuckets();
-		for (std::size_t i{}; num_buckets > i; ++i) {
+		for (std::size_t i{}; NUM_BUCKETS > i; ++i) {
+			if (nullptr == other.buckets_[i]) {
+				break;
+			}
+
 			buckets_[i] = new value_type(*other.buckets_[i]);
 		}
 	}
@@ -136,8 +139,11 @@ class TreeContainer
 
 	TreeContainer& operator=(TreeContainer const& rhs)
 	{
-		auto num_buckets = rhs.numBuckets();
-		for (std::size_t i{}; num_buckets > i; ++i) {
+		for (std::size_t i{}; NUM_BUCKETS > i; ++i) {
+			if (nullptr == rhs.buckets_[i]) {
+				break;
+			}
+
 			buckets_[i] = new value_type(*rhs.buckets_[i]);
 		}
 
@@ -589,7 +595,7 @@ class TreeContainer
 		using std::swap;
 		swap(buckets_, other.buckets_);
 		swap(free_blocks_, other.free_blocks_);
-		
+
 		pos_t const tmp = size_;
 		size_           = other.size_.load();
 		other.size_     = tmp;
