@@ -94,7 +94,7 @@ class TreeSetIterator
 	// From non-const to const
 	template <bool Const2, std::enable_if_t<Const && !Const2, bool> = true>
 	TreeSetIterator(TreeSetIterator<Const2, Dim> const& other)
-	    : tm_(other.tm_)
+	    : ts_(other.ts_)
 	    , root_(other.root_)
 	    , cur_(other.cur_)
 	    , it_(other.it_)
@@ -138,16 +138,16 @@ class TreeSetIterator
  private:
 	[[nodiscard]] bool returnable(TreeIndex node) const
 	{
-		return tm_->isPureLeaf(node) && !tm_->empty(node);
+		return ts_->isPureLeaf(node) && !ts_->empty(node);
 	}
 
-	[[nodiscard]] bool traversable(TreeIndex node) const { return tm_->isParent(node); }
+	[[nodiscard]] bool traversable(TreeIndex node) const { return ts_->isParent(node); }
 
 	void nextNode()
 	{
 		while (root_ != cur_) {
 			if (BF - 1 == cur_.offset) {
-				cur_ = tm_->parent(cur_);
+				cur_ = ts_->parent(cur_);
 				continue;
 			}
 
@@ -172,11 +172,11 @@ class TreeSetIterator
 	{
 		while (true) {
 			if (returnable(cur_)) {
-				it_   = tm_->values(cur_).begin();
-				last_ = tm_->values(cur_).end();
+				it_   = ts_->values(cur_).begin();
+				last_ = ts_->values(cur_).end();
 				return true;
 			} else if (traversable(cur_)) {
-				cur_ = tm_->child(cur_, 0);
+				cur_ = ts_->child(cur_, 0);
 			} else {
 				break;
 			}
@@ -187,7 +187,7 @@ class TreeSetIterator
 	[[nodiscard]] RawIterator iterator() { return it_; }
 
  private:
-	TreeSetIterator(TreeSet<Dim>* tm, TreeIndex node) : tm_(tm), root_(node), cur_(node)
+	TreeSetIterator(TreeSet<Dim>* ts, TreeIndex node) : ts_(ts), root_(node), cur_(node)
 	{
 		if (nextNodeDownwards()) {
 			return;
@@ -199,15 +199,15 @@ class TreeSetIterator
 	// From const to non-const
 	template <bool Const2, std::enable_if_t<!Const && Const2, bool> = true>
 	TreeSetIterator(TreeSetIterator<Const2, Dim> const& other)
-	    : tm_(other.tm_), root_(other.root_), cur_(other.cur_)
+	    : ts_(other.ts_), root_(other.root_), cur_(other.cur_)
 	{
 		// Remove const from other.it_ and other.last_
-		it_   = tm_->values(cur_).erase(other.it_, other.it_);
-		last_ = tm_->values(cur_).erase(other.last_, other.last_);
+		it_   = ts_->values(cur_).erase(other.it_, other.it_);
+		last_ = ts_->values(cur_).erase(other.last_, other.last_);
 	}
 
  private:
-	TreeSet<Dim>* tm_ = nullptr;
+	TreeSet<Dim>* ts_ = nullptr;
 
 	TreeIndex root_{};
 	TreeIndex cur_{};

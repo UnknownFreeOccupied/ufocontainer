@@ -59,6 +59,10 @@ struct ChildOf {
 	constexpr ChildOf(TreeCode<Dim> const& code) noexcept : code(code) {}
 };
 
+// Deduction guide
+template <std::size_t Dim>
+ChildOf(TreeCode<Dim>) -> ChildOf<Dim>;
+
 template <std::size_t Dim>
 struct Filter<ChildOf<Dim>> {
 	using Pred = ChildOf<Dim>;
@@ -68,17 +72,17 @@ struct Filter<ChildOf<Dim>> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return p.code.depth() > t.depth(n) &&
 		       TreeCode<Dim>::equalAtDepth(p.code, t.code(n), p.code.depth());
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return TreeCode<Dim>::equalAtDepth(p.code, t.code(n),
 		                                   std::max(p.code.depth(), t.depth(n)));

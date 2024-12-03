@@ -65,16 +65,16 @@ struct Filter<LeafOrDepth> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return t.isLeaf(n) || p.depth == t.depth(n);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return p.depth < t.depth(n);
 	}

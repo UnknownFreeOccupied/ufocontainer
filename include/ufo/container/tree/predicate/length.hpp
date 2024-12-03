@@ -127,16 +127,16 @@ struct Filter<Length<PC>> {
 		}
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return Filter<Depth<PC>>::returnable(p, t, n);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return Filter<Depth<PC>>::traversable(p, t, n);
 	}

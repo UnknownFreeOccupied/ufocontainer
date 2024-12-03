@@ -78,6 +78,8 @@ class TreeSetQueryIterator
 	    std::conditional_t<Const, typename TreeSet<Dim>::container_type::const_iterator,
 	                       typename TreeSet<Dim>::container_type::iterator>;
 
+	using Filter = pred::Filter<Predicate>;
+
  public:
 	//
 	// Tags
@@ -92,7 +94,7 @@ class TreeSetQueryIterator
 	TreeSetQueryIterator() = default;
 
 	TreeSetQueryIterator(TreeSetQueryIterator const& other)
-	    : tm_(other.tm_)
+	    : ts_(other.ts_)
 	    , pred_(other.pred_)
 	    , root_(other.root_)
 	    , cur_(other.cur_)
@@ -108,7 +110,7 @@ class TreeSetQueryIterator
 	                         (Const == Const2 && !std::is_same_v<Predicate, Predicate2>),
 	                     bool> = true>
 	TreeSetQueryIterator(TreeSetQueryIterator<Const2, Dim, Predicate2> const& other)
-	    : tm_(other.tm_)
+	    : ts_(other.ts_)
 	    , pred_(other.pred_)
 	    , root_(other.root_)
 	    , cur_(other.cur_)
@@ -156,19 +158,19 @@ class TreeSetQueryIterator
  private:
 	[[nodiscard]] bool returnable(value_type const& value) const
 	{
-		return pred::Filter<Predicate>::returnable(pred_, value);
+		return Filter::returnable(pred_, value);
 	}
 
 	[[nodiscard]] bool returnable(TreeIndex node) const
 	{
-		return tm_->isPureLeaf(node) && !tm_->empty(node);
-		// FIXME: && pred::Filter<Predicate>::returnable(pred_, *tm_, node);
-		// FIXME: && pred::Filter<Predicate>::traversable(pred_, *tm_, node);
+		return ts_->isPureLeaf(node) && !ts_->empty(node);
+		// FIXME: && Filter::returnable(pred_, *ts_, ts_->node(node));
+		// FIXME: && Filter::traversable(pred_, *ts_, ts_->node(node));
 	}
 
 	[[nodiscard]] bool traversable(TreeIndex node) const
 	{
-		return tm_->isParent(node) && pred::Filter<Predicate>::traversable(pred_, *tm_, node);
+		return ts_->isParent(node) && Filter::traversable(pred_, *ts_, ts_->node(node));
 	}
 
 	/*!
@@ -191,7 +193,7 @@ class TreeSetQueryIterator
 	{
 		while (root_ != cur_) {
 			if (BF - 1 == cur_.offset) {
-				cur_ = tm_->parent(cur_);
+				cur_ = ts_->parent(cur_);
 				continue;
 			}
 
@@ -217,11 +219,11 @@ class TreeSetQueryIterator
 	{
 		while (true) {
 			if (returnable(cur_)) {
-				it_   = tm_->values(cur_).begin();
-				last_ = tm_->values(cur_).end();
+				it_   = ts_->values(cur_).begin();
+				last_ = ts_->values(cur_).end();
 				return true;
 			} else if (traversable(cur_)) {
-				cur_ = tm_->child(cur_, 0);
+				cur_ = ts_->child(cur_, 0);
 			} else {
 				break;
 			}
@@ -232,10 +234,10 @@ class TreeSetQueryIterator
 	[[nodiscard]] RawIterator iterator() { return it_; }
 
  private:
-	TreeSetQueryIterator(TreeSet<Dim>* tm, TreeIndex node, Predicate const& pred)
-	    : tm_(tm), pred_(pred), root_(node), cur_(node)
+	TreeSetQueryIterator(TreeSet<Dim>* ts, TreeIndex node, Predicate const& pred)
+	    : ts_(ts), pred_(pred), root_(node), cur_(node)
 	{
-		pred::Filter<Predicate>::init(pred_, *tm_);
+		Filter::init(pred_, *ts_);
 
 		nextNodeDownwards();
 		while (!nextValue()) {
@@ -249,15 +251,15 @@ class TreeSetQueryIterator
 	template <bool Const2, class Predicate2,
 	          std::enable_if_t<!Const && Const2, bool> = true>
 	TreeSetQueryIterator(TreeSetQueryIterator<Const2, Dim, Predicate2> const& other)
-	    : tm_(other.tm_), pred_(other.pred_), root_(other.root_), cur_(other.cur_)
+	    : ts_(other.ts_), pred_(other.pred_), root_(other.root_), cur_(other.cur_)
 	{
 		// Remove const from other.it_ and other.last_
-		it_   = tm_->values(cur_).erase(other.it_, other.it_);
-		last_ = tm_->values(cur_).erase(other.last_, other.last_);
+		it_   = ts_->values(cur_).erase(other.it_, other.it_);
+		last_ = ts_->values(cur_).erase(other.last_, other.last_);
 	}
 
  private:
-	TreeSet<Dim>* tm_ = nullptr;
+	TreeSet<Dim>* ts_ = nullptr;
 
 	Predicate pred_{};
 

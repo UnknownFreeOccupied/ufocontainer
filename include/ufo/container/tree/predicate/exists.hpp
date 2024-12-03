@@ -43,7 +43,6 @@
 #define UFO_CONTAINER_TREE_PREDICATE_EXISTS_HPP
 
 // UFO
-#include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
 
 namespace ufo::pred
@@ -68,9 +67,9 @@ struct Filter<Exists<Negated>> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return !t.exists(n);
@@ -81,12 +80,12 @@ struct Filter<Exists<Negated>> {
 
 	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                TreeIndex const& n)
+	                                                typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return true;
 		} else {
-			return t.isParent(n);
+			return t.isParent(n.index);
 		}
 	}
 };

@@ -83,6 +83,8 @@ class TreeMapQueryNearestIterator
 	    std::conditional_t<Const, typename TreeMap<Dim, T>::container_type::const_iterator,
 	                       typename TreeMap<Dim, T>::container_type::iterator>;
 
+	using Filter = pred::Filter<Predicate>;
+
 	using Point = typename TreeMap<Dim, T>::Point;
 
 	struct S {
@@ -176,7 +178,7 @@ class TreeMapQueryNearestIterator
  private:
 	[[nodiscard]] bool returnable(value_type const& value) const
 	{
-		return pred::Filter<Predicate>::returnable(pred_, value);
+		return Filter::returnable(pred_, value);
 	}
 
 	[[nodiscard]] bool returnable(TreeIndex node) const
@@ -188,7 +190,7 @@ class TreeMapQueryNearestIterator
 
 	[[nodiscard]] bool traversable(TreeIndex node) const
 	{
-		return tm_->isParent(node) && pred::Filter<Predicate>::traversable(pred_, *tm_, node);
+		return tm_->isParent(node) && Filter::traversable(pred_, *tm_, tm_->node(node));
 	}
 
 	void next()
@@ -235,7 +237,7 @@ class TreeMapQueryNearestIterator
 	                            Geometry const& query, float epsilon = 0.0f)
 	    : tm_(tm), pred_(pred), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
-		pred::Filter<Predicate>::init(pred_, *tm_);
+		Filter::init(pred_, *tm_);
 
 		if (traversable(node) || returnable(node)) {
 			float dist_sq = distanceSquared(query_, tm_->bounds(node));

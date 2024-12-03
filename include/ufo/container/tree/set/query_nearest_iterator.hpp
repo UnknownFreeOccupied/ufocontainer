@@ -82,6 +82,8 @@ class TreeSetQueryNearestIterator
 	    std::conditional_t<Const, typename TreeSet<Dim>::container_type::const_iterator,
 	                       typename TreeSet<Dim>::container_type::iterator>;
 
+	using Filter = pred::Filter<Predicate>;
+
 	using Point = typename TreeSet<Dim>::Point;
 
 	struct S {
@@ -125,7 +127,7 @@ class TreeSetQueryNearestIterator
 	                     bool> = true>
 	TreeSetQueryNearestIterator(
 	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& other)
-	    : tm_(other.tm_)
+	    : ts_(other.ts_)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
@@ -175,19 +177,19 @@ class TreeSetQueryNearestIterator
  private:
 	[[nodiscard]] bool returnable(value_type const& value) const
 	{
-		return pred::Filter<Predicate>::returnable(pred_, value);
+		return Filter::returnable(pred_, value);
 	}
 
 	[[nodiscard]] bool returnable(TreeIndex node) const
 	{
-		return tm_->isPureLeaf(node) && !tm_->empty(node);
+		return ts_->isPureLeaf(node) && !ts_->empty(node);
 	}
 
 	[[nodiscard]] bool returnable(S const& s) const { return RawIterator{} != s.it; }
 
 	[[nodiscard]] bool traversable(TreeIndex node) const
 	{
-		return tm_->isParent(node) && pred::Filter<Predicate>::traversable(pred_, *tm_, node);
+		return ts_->isParent(node) && Filter::traversable(pred_, *ts_, ts_->node(node));
 	}
 
 	void next()
@@ -201,7 +203,7 @@ class TreeSetQueryNearestIterator
 			queue_.pop();
 
 			if (returnable(cur.node)) {
-				auto& v = tm_->values(cur.node);
+				auto& v = ts_->values(cur.node);
 				using std::begin;
 				using std::end;
 				for (auto it = begin(v), last = end(v); it != last; ++it) {
@@ -215,13 +217,13 @@ class TreeSetQueryNearestIterator
 				continue;
 			}
 
-			TreeIndex node = tm_->child(cur.node, 0);
+			TreeIndex node = ts_->child(cur.node, 0);
 			for (; BF > node.offset; ++node.offset) {
 				if (!traversable(node) && !returnable(node)) {
 					continue;
 				}
 
-				float dist_sq = distanceSquared(query_, tm_->bounds(node)) + epsilon_sq_;
+				float dist_sq = distanceSquared(query_, ts_->bounds(node)) + epsilon_sq_;
 				queue_.emplace(dist_sq, node);
 			}
 		}
@@ -230,14 +232,14 @@ class TreeSetQueryNearestIterator
 	[[nodiscard]] RawIterator iterator() { return queue_.top().it; }
 
  private:
-	TreeSetQueryNearestIterator(TreeSet<Dim>* tm, TreeIndex node, Predicate const& pred,
+	TreeSetQueryNearestIterator(TreeSet<Dim>* ts, TreeIndex node, Predicate const& pred,
 	                            Geometry const& query, float epsilon = 0.0f)
-	    : tm_(tm), pred_(pred), query_(query), epsilon_sq_(epsilon * epsilon)
+	    : ts_(ts), pred_(pred), query_(query), epsilon_sq_(epsilon * epsilon)
 	{
-		pred::Filter<Predicate>::init(pred_, *tm_);
+		Filter::init(pred_, *ts_);
 
 		if (traversable(node) || returnable(node)) {
-			float dist_sq = distanceSquared(query_, tm_->bounds(node));
+			float dist_sq = distanceSquared(query_, ts_->bounds(node));
 			queue_.emplace(dist_sq, node);
 			next();
 		}
@@ -248,7 +250,7 @@ class TreeSetQueryNearestIterator
 	          std::enable_if_t<!Const && Const2, bool> = true>
 	TreeSetQueryNearestIterator(
 	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& other)
-	    : tm_(other.tm)
+	    : ts_(other.ts)
 	    , pred_(other.pred_)
 	    , query_(other.query_)
 	    , epsilon_sq_(other.epsilon_sq_)
@@ -257,13 +259,13 @@ class TreeSetQueryNearestIterator
 		while (!queue.empty()) {
 			auto const& cur = queue.top();
 			// Remove const from it
-			queue_.emplace(cur.dist_sq, cur.node, tm_->values(cur.node).erase(cur.it, cur.it));
+			queue_.emplace(cur.dist_sq, cur.node, ts_->values(cur.node).erase(cur.it, cur.it));
 			queue.pop();
 		}
 	}
 
  private:
-	TreeSet<Dim>* tm_ = nullptr;
+	TreeSet<Dim>* ts_ = nullptr;
 
 	Predicate pred_{};
 

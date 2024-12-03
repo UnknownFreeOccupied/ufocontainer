@@ -59,16 +59,16 @@ struct Filter<Inner> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return 0 < t.depth(n);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return 1 < t.depth(n);
 	}

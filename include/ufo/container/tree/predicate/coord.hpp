@@ -48,47 +48,47 @@
 
 namespace ufo::pred
 {
-template <std::size_t Dim, PredicateCompare PC = PredicateCompare::EQUAL>
+template <std::size_t Axis, PredicateCompare PC = PredicateCompare::EQUAL>
 struct Coord {
-	double coord;
+	float coord;
 
-	constexpr Coord(double coord = 0.0) noexcept : coord(coord) {}
+	constexpr Coord(float coord = 0.0f) noexcept : coord(coord) {}
 };
 
 template <PredicateCompare PC = PredicateCompare::EQUAL>
 struct X : Coord<0, PC> {
-	constexpr X(double x = 0.0) : Coord<0, PC>(x) {}
+	constexpr X(float x = 0.0f) : Coord<0, PC>(x) {}
 };
 
 template <PredicateCompare PC = PredicateCompare::EQUAL>
 struct Y : Coord<1, PC> {
-	constexpr Y(double y = 0.0) : Coord<1, PC>(y) {}
+	constexpr Y(float y = 0.0f) : Coord<1, PC>(y) {}
 };
 
 template <PredicateCompare PC = PredicateCompare::EQUAL>
 struct Z : Coord<2, PC> {
-	constexpr Z(double z = 0.0) : Coord<2, PC>(z) {}
+	constexpr Z(float z = 0.0f) : Coord<2, PC>(z) {}
 };
 
 template <PredicateCompare PC = PredicateCompare::EQUAL>
 struct W : Coord<3, PC> {
-	constexpr W(double w = 0.0) : Coord<3, PC>(w) {}
+	constexpr W(float w = 0.0f) : Coord<3, PC>(w) {}
 };
 
-template <std::size_t Dim, PredicateCompare PC>
-struct Filter<Coord<Dim, PC>> {
-	using Pred = Coord<Dim, PC>;
+template <std::size_t Axis, PredicateCompare PC>
+struct Filter<Coord<Axis, PC>> {
+	using Pred = Coord<Axis, PC>;
 
 	template <class Tree>
 	static constexpr void init(Pred&, Tree const&)
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
-		auto c  = t.centerAxis(n, Dim);
+		auto c  = t.centerAxis(n, Axis);
 		auto hl = t.halfLength(n);
 
 		if constexpr (PredicateCompare::EQUAL == PC) {
@@ -106,11 +106,11 @@ struct Filter<Coord<Dim, PC>> {
 		}
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
-		auto c  = t.centerAxis(n, Dim);
+		auto c  = t.centerAxis(n, Axis);
 		auto hl = t.halfLength(n);
 
 		if constexpr (PredicateCompare::EQUAL == PC) {

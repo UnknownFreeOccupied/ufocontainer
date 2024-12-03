@@ -1638,7 +1638,7 @@ class Tree
 	 */
 	template <class UnaryFun, class Predicate = pred::True,
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool>   = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>         = true>
 	void traverse(UnaryFun f, Predicate const& pred = pred::True{},
 	              bool only_exists = true) const
 	{
@@ -1658,13 +1658,15 @@ class Tree
 	template <class NodeType, class UnaryFun, class Predicate = pred::True,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                    = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool>   = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>         = true>
 	void traverse(NodeType node, UnaryFun f, Predicate pred = pred::True{},
 	              bool only_exists = true) const
 	{
 		assert(valid(node));
 
-		pred::Filter<Predicate>::init(pred, &derived());
+		using Filter = pred::Filter<Predicate>;
+
+		Filter::init(pred, derived());
 
 		if (only_exists) {
 			if (!exists(node)) {
@@ -1675,10 +1677,8 @@ class Tree
 			Index cur  = root;
 
 			auto fun = [this, f, &pred](Node const& node) {
-				return (!pred::Filter<Predicate>::returnable(pred, &derived(), node) ||
-				        f(node)) &&
-				       isParent(node.index) &&
-				       pred::Filter<Predicate>::traversable(pred, &derived(), node);
+				return (!Filter::returnable(pred, derived(), node) || f(node)) &&
+				       isParent(node.index) && Filter::traversable(pred, derived(), node);
 			};
 
 			while (fun(this->node(cur))) {
@@ -1702,10 +1702,8 @@ class Tree
 			Node cur  = root;
 
 			auto fun = [this, f, &pred](Node& node) {
-				bool ret =
-				    (!pred::Filter<Predicate>::returnable(pred, &derived(), node) || f(node)) &&
-				    !isPureLeaf(node.code) &&
-				    pred::Filter<Predicate>::traversable(pred, &derived(), node);
+				bool ret = (!Filter::returnable(pred, derived(), node) || f(node)) &&
+				           !isPureLeaf(node.code) && Filter::traversable(pred, derived(), node);
 
 				// Fix index
 				auto min_depth = this->depth(node.code);
@@ -1773,7 +1771,7 @@ class Tree
 	//
 
 	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] const_query_iterator_pred<Predicate> beginQuery(
 	    Predicate const& pred, bool only_exists = true, bool early_stopping = false) const
 	{
@@ -1781,8 +1779,8 @@ class Tree
 	}
 
 	template <class NodeType, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] const_query_iterator_pred<Predicate> beginQuery(
 	    NodeType node, Predicate const& pred, bool only_exists = true,
 	    bool early_stopping = false) const
@@ -1827,7 +1825,7 @@ class Tree
 	//
 
 	template <class Predicate, class Geometry,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
 	beginQueryNearest(Predicate const& pred, Geometry const& geometry, double epsilon = 0.0,
 	                  bool only_exists = true, bool early_stopping = false) const
@@ -1837,8 +1835,8 @@ class Tree
 	}
 
 	template <class NodeType, class Predicate, class Geometry,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
 	beginQueryNearest(NodeType node, Predicate const& pred, Geometry const& geometry,
 	                  double epsilon = 0.0, bool only_exists = true,
@@ -1865,7 +1863,7 @@ class Tree
 	//
 
 	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] ConstQuery<Predicate> query(Predicate const& pred,
 	                                          bool             only_exists    = true,
 	                                          bool             early_stopping = false) const
@@ -1874,8 +1872,8 @@ class Tree
 	}
 
 	template <class NodeType, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] ConstQuery<Predicate> query(NodeType node, Predicate const& pred,
 	                                          bool only_exists    = true,
 	                                          bool early_stopping = false) const
@@ -1914,7 +1912,7 @@ class Tree
 	//
 
 	template <class Predicate, class Geometry,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
 	    Predicate const& pred, Geometry const& geometry, double epsilon = 0.0,
 	    bool only_exists = true, bool early_stopping = false) const
@@ -1923,8 +1921,8 @@ class Tree
 	}
 
 	template <class NodeType, class Predicate, class Geometry,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>                  = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
 	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
 	    NodeType node, Predicate const& pred, Geometry const& geometry,
 	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
@@ -2901,14 +2899,14 @@ class Tree
 		}
 	}
 
-	template <class Pred, class ValueFun, class InnerFun,
-	          std::enable_if_t<pred::is_pred_v<Pred, Derived, Node>, bool> = true>
-	[[nodiscard]] std::pair<float, Index> nearest(Index node, Pred pred,
+	template <class Predicate, class ValueFun, class InnerFun,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	[[nodiscard]] std::pair<float, Index> nearest(Index node, Predicate pred,
 	                                              NearestSearchAlgorithm search_alg,
 	                                              ValueFun value_f, InnerFun inner_f,
 	                                              float max_dist, float epsilon) const
 	{
-		using Filter = pred::Filter<Pred>;
+		using Filter = pred::Filter<Predicate>;
 
 		Filter::init(pred);
 

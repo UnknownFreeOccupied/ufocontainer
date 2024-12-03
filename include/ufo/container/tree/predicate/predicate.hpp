@@ -60,9 +60,11 @@ class Dynamic
 
 	virtual void init(Tree const&) = 0;
 
-	[[nodiscard]] virtual bool returnable(Tree const&, typename Tree::Node) const = 0;
+	[[nodiscard]] virtual bool returnable(Tree const&,
+	                                      typename Tree::Node const&) const = 0;
 
-	[[nodiscard]] virtual bool traversable(Tree const&, typename Tree::Node) const = 0;
+	[[nodiscard]] virtual bool traversable(Tree const&,
+	                                       typename Tree::Node const&) const = 0;
 
 	[[nodiscard]] virtual Dynamic* clone() const = 0;
 };
@@ -88,12 +90,14 @@ class DynamicPredicate
 		Filter<Predicate>::init(static_cast<Predicate&>(*this), t);
 	}
 
-	[[nodiscard]] bool returnable(Tree const& t, typename Tree::Node n) const override
+	[[nodiscard]] bool returnable(Tree const&                t,
+	                              typename Tree::Node const& n) const override
 	{
 		return Filter<Predicate>::returnable(static_cast<Predicate const&>(*this), t, n);
 	}
 
-	[[nodiscard]] bool traversable(Tree const& t, typename Tree::Node n) const override
+	[[nodiscard]] bool traversable(Tree const&                t,
+	                               typename Tree::Node const& n) const override
 	{
 		return Filter<Predicate>::traversable(static_cast<Predicate const&>(*this), t, n);
 	}
@@ -189,12 +193,12 @@ class Predicate
 		}
 	}
 
-	[[nodiscard]] bool returnable(Tree const& t, typename Tree::Node n) const
+	[[nodiscard]] bool returnable(Tree const& t, typename Tree::Node const& n) const
 	{
 		return !hasPredicate() || predicate_->returnable(t, n);
 	}
 
-	[[nodiscard]] bool traversable(Tree const& t, typename Tree::Node n) const
+	[[nodiscard]] bool traversable(Tree const& t, typename Tree::Node const& n) const
 	{
 		return !hasPredicate() || predicate_->traversable(t, n);
 	}
@@ -207,20 +211,22 @@ class Predicate
 // Filter
 //
 
+// TODO: Make sure it works with TreeSet and TreeMap where there is value
+
 template <class Tree>
 struct Filter<detail::Dynamic<Tree>> {
 	using Pred = detail::Dynamic<Tree>;
 
 	static void init(Pred& p, Tree const& t) { p.init(t); }
 
-	template <class Node>
-	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t, Node const& n)
+	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t,
+	                                     typename Tree::Node const& n)
 	{
 		return p.returnable(t, n);
 	}
 
-	template <class Node>
-	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t, Node const& n)
+	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t,
+	                                      typename Tree::Node const& n)
 	{
 		return p.traversable(t, n);
 	}
@@ -232,14 +238,14 @@ struct Filter<detail::DynamicPredicate<Tree, Predicate>> {
 
 	static void init(Pred& p, Tree const& t) { p.init(t); }
 
-	template <class Node>
-	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t, Node const& n)
+	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t,
+	                                     typename Tree::Node const& n)
 	{
 		return p.returnable(t, n);
 	}
 
-	template <class Node>
-	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t, Node const& n)
+	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t,
+	                                      typename Tree::Node const& n)
 	{
 		return p.traversable(t, n);
 	}
@@ -251,14 +257,14 @@ struct Filter<Predicate<Tree>> {
 
 	static void init(Pred& p, Tree const& t) { p.init(t); }
 
-	template <class Node>
-	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t, Node const& n)
+	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t,
+	                                     typename Tree::Node const& n)
 	{
 		return p.returnable(t, n);
 	}
 
-	template <class Node>
-	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t, Node const& n)
+	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t,
+	                                      typename Tree::Node const& n)
 	{
 		return p.traversable(t, n);
 	}

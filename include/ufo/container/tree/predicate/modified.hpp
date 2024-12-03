@@ -66,9 +66,9 @@ struct Filter<Modified<Negated>> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return !t.modified(n.index);
@@ -77,9 +77,9 @@ struct Filter<Modified<Negated>> {
 		}
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return true;

@@ -77,9 +77,9 @@ struct Filter<DepthInterval<Negated>> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return !(Filter<DepthMin>::returnable(p.min, t, n) &&
@@ -90,9 +90,9 @@ struct Filter<DepthInterval<Negated>> {
 		}
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return 0 < p.min.depth || p.max.depth + 1 < t.depth(n);

@@ -43,6 +43,7 @@
 #define UFO_CONTAINER_TREE_PREDICATE_FILTER_HPP
 
 // UFO
+#include <ufo/container/tree/node.hpp>
 #include <ufo/utility/type_traits.hpp>
 
 // STL
@@ -202,9 +203,9 @@ struct Filter<std::tuple<Preds...>> {
 		    p);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return std::apply(
 		    [&t, &n](auto const&... p) {
@@ -213,9 +214,9 @@ struct Filter<std::tuple<Preds...>> {
 		    p);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return std::apply(
 		    [&t, &n](auto const&... p) {
@@ -243,17 +244,17 @@ struct Filter<OR<PredLeft, PredRight>> {
 		       Filter<PredRight>::returnable(p.right, v);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return Filter<PredLeft>::returnable(p.left, t, n) ||
 		       Filter<PredRight>::returnable(p.right, t, n);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return Filter<PredLeft>::traversable(p.left, t, n) ||
 		       Filter<PredRight>::traversable(p.right, t, n);
@@ -278,17 +279,17 @@ struct Filter<THEN<PredPre, PredPost>> {
 		       Filter<PredPost>::returnable(p.right, v);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return !Filter<PredPre>::returnable(p.left, t, n) ||
 		       Filter<PredPost>::returnable(p.right, t, n);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return !Filter<PredPre>::traversable(p.left, t, n) ||
 		       Filter<PredPost>::traversable(p.right, t, n);
@@ -313,17 +314,17 @@ struct Filter<IFF<PredLeft, PredRight>> {
 		       Filter<PredRight>::returnable(p.right, v);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return Filter<PredLeft>::returnable(p.left, t, n) ==
 		       Filter<PredRight>::returnable(p.right, t, n);
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		return Filter<PredLeft>::traversable(p.left, t, n) ==
 		       Filter<PredRight>::traversable(p.right, t, n);
@@ -345,14 +346,16 @@ struct Filter<True> {
 		return true;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&,
+	                                               typename Tree::Node const&)
 	{
 		return true;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                typename Tree::Node const&)
 	{
 		return true;
 	}
@@ -373,14 +376,16 @@ struct Filter<False> {
 		return false;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&,
+	                                               typename Tree::Node const&)
 	{
 		return false;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                typename Tree::Node const&)
 	{
 		return false;
 	}
@@ -401,14 +406,16 @@ struct Filter<bool> {
 		return p;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const&,
+	                                               typename Tree::Node const&)
 	{
 		return p;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const&,
+	                                                typename Tree::Node const&)
 	{
 		return p;
 	}
@@ -497,45 +504,46 @@ constexpr inline bool contains_always_pred_v = contains_always_pred<Pred, Preds>
 // Is predicate
 //
 
-template <class, class, class, class = void>
+template <class, class, class = void>
 struct is_pred : std::false_type {
 };
 
-template <class Pred, class Tree, class Node>
+template <class Pred, class Tree>
 struct is_pred<
-    Pred, Tree, Node,
-    std::void_t<decltype(Filter<Pred>::init(std::declval<Pred&>(), std::declval<Tree>())),
-                decltype(Filter<Pred>::returnable(
-                    std::declval<Pred>(), std::declval<Tree>(), std::declval<Node>())),
-                decltype(Filter<Pred>::traversable(
-                    std::declval<Pred>(), std::declval<Tree>(), std::declval<Node>()))>>
+    Pred, Tree,
+    std::void_t<
+        decltype(Filter<Pred>::init(std::declval<Pred&>(), std::declval<Tree>())),
+        decltype(Filter<Pred>::returnable(std::declval<Pred>(), std::declval<Tree>(),
+                                          std::declval<typename Tree::Node>())),
+        decltype(Filter<Pred>::traversable(std::declval<Pred>(), std::declval<Tree>(),
+                                           std::declval<typename Tree::Node>()))>>
     : std::true_type {
 };
 
-template <class Pred, class Tree, class Node>
-constexpr inline bool is_pred_v = is_pred<Pred, Tree, Node>::value;
+template <class Pred, class Tree>
+constexpr inline bool is_pred_v = is_pred<Pred, Tree>::value;
 
 //
 // Is value predicate
 //
 
-template <class, class, class, class, class = void>
+template <class, class, class, class = void>
 struct is_value_pred : std::false_type {
 };
 
-template <class Pred, class Tree, class Node, class Value>
+template <class Pred, class Tree, class Value>
 struct is_value_pred<
-    Pred, Tree, Node, Value,
-    std::void_t<decltype(Filter<Pred>::init(std::declval<Pred>(), std::declval<Tree>())),
-                decltype(Filter<Pred>::returnable(std::declval<Pred>(),
-                                                  std::declval<Value>())),
-                decltype(Filter<Pred>::traversable(
-                    std::declval<Pred>(), std::declval<Tree>(), std::declval<Node>()))>>
+    Pred, Tree, Value,
+    std::void_t<
+        decltype(Filter<Pred>::init(std::declval<Pred>(), std::declval<Tree>())),
+        decltype(Filter<Pred>::returnable(std::declval<Pred>(), std::declval<Value>())),
+        decltype(Filter<Pred>::traversable(std::declval<Pred>(), std::declval<Tree>(),
+                                           std::declval<typename Tree::Node>()))>>
     : std::true_type {
 };
 
-template <class Pred, class Tree, class Node, class Value>
-constexpr inline bool is_value_pred_v = is_value_pred<Pred, Tree, Node, Value>::value;
+template <class Pred, class Tree, class Value>
+constexpr inline bool is_value_pred_v = is_value_pred<Pred, Tree, Value>::value;
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_FILTER_HPP

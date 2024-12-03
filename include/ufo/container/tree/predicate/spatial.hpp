@@ -170,9 +170,9 @@ struct Filter<Spatial<Geometry, Tag, Negated>> {
 		}
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return !check<Tag>(t.bounds(n), p.geometry);
@@ -181,9 +181,9 @@ struct Filter<Spatial<Geometry, Tag, Negated>> {
 		}
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			if constexpr (SpatialTag::CONTAINS == Tag) {

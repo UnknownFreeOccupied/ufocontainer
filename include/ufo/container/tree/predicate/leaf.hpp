@@ -59,15 +59,16 @@ struct Filter<Leaf> {
 	{
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               Node const& n)
+	                                               typename Tree::Node const& n)
 	{
 		return t.isLeaf(n.index);
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                typename Tree::Node const&)
 	{
 		return true;
 	}

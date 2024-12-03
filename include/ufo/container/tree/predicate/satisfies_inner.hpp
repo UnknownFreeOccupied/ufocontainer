@@ -75,15 +75,16 @@ struct Filter<SatisfiesInner<Fun, Negated>> {
 		return true;
 	}
 
-	template <class Tree, class Node>
-	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&, Node const&)
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&,
+	                                               typename Tree::Node const&)
 	{
 		return true;
 	}
 
-	template <class Tree, class Node>
+	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                Node const& n)
+	                                                typename Tree::Node const& n)
 	{
 		if constexpr (Negated) {
 			return !p.fun(n);
