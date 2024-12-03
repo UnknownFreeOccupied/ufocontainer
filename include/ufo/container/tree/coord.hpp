@@ -62,9 +62,11 @@ struct TreeCoord : public Vec<Dim, T> {
 
 	constexpr TreeCoord() = default;
 
-	constexpr TreeCoord(Point coord) : Point(coord) {}
+	constexpr TreeCoord(T value) : Point(value) {}
 
-	constexpr TreeCoord(Point coord, depth_t depth) : Point(coord), depth(depth) {}
+	constexpr TreeCoord(Point const& coord) : Point(coord) {}
+
+	constexpr TreeCoord(Point const& coord, depth_t depth) : Point(coord), depth(depth) {}
 
 	template <class... Args,
 	          std::enable_if_t<Point::size() == sizeof...(Args) || 1 == sizeof...(Args),
