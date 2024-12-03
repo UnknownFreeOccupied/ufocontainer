@@ -1613,45 +1613,31 @@ class Tree
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Index>, bool> = true>
 	void traverse(NodeType node, UnaryFun f) const
 	{
+		assert(valid(node));
+
 		if (!exists(node)) {
 			return;
 		}
 
 		Index root = index(node);
+		Index cur  = root;
 
-		if (!f(root) || isLeaf(root)) {
-			return;
+		while (f(cur) && isParent(cur)) {
+			cur = child(cur, 0);
 		}
 
-		// Index cur = child(root, 0);
+		while (root != cur) {
+			if (BF - 1 == cur.offset) {
+				cur = parent(cur);
+				continue;
+			}
 
-		// while (root != cur) {
-		// 	if (BF - 1 == cur.offset) {
-		// 		cur = parent(cur);
-		// 		continue;
-		// 	}
+			++cur.offset;
 
-		// 	++cur.offset;
-
-		// 	if (!f(cur) || isLeaf(cur)) {
-		// 	}
-		// }
-
-		// TODO: Implement
-
-		// if (!f(node) || isLeaf(node)) {
-		// 	return;
-		// }
-
-		// std::array<Index, maxNumDepthLevels()> nodes;
-		// nodes[1] = child(node, 0);
-		// for (std::size_t i{1}; 0 != i;) {
-		// 	node = nodes[i];
-		// 	i -= BF <= ++nodes[i].offset;
-		// 	if (f(node) && isParent(node)) {
-		// 		nodes[++i] = child(node, 0);
-		// 	}
-		// }
+			while (f(cur) && isParent(cur)) {
+				cur = child(cur, 0);
+			}
+		}
 	}
 
 	/*!
@@ -1667,47 +1653,72 @@ class Tree
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
 	void traverse(NodeType node, UnaryFun f, bool only_exists = true) const
 	{
-		if (only_exists && !exists(node)) {
-			return;
+		assert(valid(node));
+
+		if (only_exists) {
+			if (!exists(node)) {
+				return;
+			}
+
+			Index root = index(node);
+			Index cur  = root;
+
+			while (f(this->node(cur)) && isParent(cur)) {
+				cur = child(cur, 0);
+			}
+
+			while (root != cur) {
+				if (BF - 1 == cur.offset) {
+					cur = parent(cur);
+					continue;
+				}
+
+				++cur.offset;
+
+				while (f(this->node(cur)) && isParent(cur)) {
+					cur = child(cur, 0);
+				}
+			}
+		} else {
+			auto fixIndex = [this](Node node) {
+				auto min_depth = this->depth(node.code);
+				auto depth     = this->depth(node.index);
+				while (min_depth < depth && isParent(node.index)) {
+					node.index = child(node.index, node.code.offset(--depth));
+				}
+				return node;
+			};
+
+			Node root = this->node(node);
+			Node cur  = root;
+
+			while (f(cur) && !isPureLeaf(cur.code)) {
+				cur = fixIndex(cur);
+				cur = Node(child(cur.code, 0),
+				           isParent(cur.index) ? child(cur.index, 0) : cur.index);
+			}
+			cur = fixIndex(cur);
+
+			while (root != cur) {
+				auto branch = cur.code.offset();
+				if (BF - 1 == branch) {
+					cur = Node(parent(cur.code),
+					           code(cur.index) == cur.code ? parent(cur.index) : cur.index);
+					continue;
+				}
+
+				cur = Node(sibling(cur.code, branch + 1), code(cur.index) == cur.code
+				                                              ? sibling(cur.index, branch + 1)
+				                                              : cur.index);
+
+				while (f(cur) && !isPureLeaf(cur.code)) {
+					cur = fixIndex(cur);
+					cur = Node(child(cur.code, 0),
+					           isParent(cur.index) ? child(cur.index, 0) : cur.index);
+				}
+				cur = fixIndex(cur);
+			}
 		}
-
-		Node cur = this->node(node);
-
-		// TODO: Implement
-
-		// std::array<Node, maxNumDepthLevels()> nodes;
-		// nodes[0] = node;
-
-		// if (only_exists) {
-		// 	if (!exists(node)) {
-		// 		return;
-		// 	}
-		// 	for (int depth{}; 0 <= depth;) {
-		// 		node        = nodes[depth];
-		// 		auto offset = nodes[depth].offset();
-		// 		if (BF - 1 > offset) {
-		// 			nodes[depth] = sibling(nodes[depth], offset + 1);
-		// 		} else {
-		// 			--depth;
-		// 		}
-		// 		if (f(node) && isParent(node)) {
-		// 			nodes[++depth] = child(node, 0);
-		// 		}
-		// 	}
-		// } else {
-		// 	for (int depth{}; 0 <= depth;) {
-		// 		node        = nodes[depth];
-		// 		auto offset = nodes[depth].offset();
-		// 		if (BF - 1 > offset) {
-		// 			nodes[depth] = sibling(nodes[depth], offset + 1);
-		// 		} else {
-		// 			--depth;
-		// 		}
-		// 		if (f(node) && !isPureLeaf(node)) {
-		// 			nodes[++depth] = child(node, 0);
-		// 		}
-		// 	}
-		// }
 	}
 
 	/*! FIXME: Update info for all nearest

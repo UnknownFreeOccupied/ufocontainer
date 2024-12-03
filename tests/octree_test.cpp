@@ -103,3 +103,20 @@ TEST_CASE("[Octree] swap")
 
 	REQUIRE((tree1 != tree2 && tree1 == tree3));
 }
+
+TEST_CASE("[Octree] traverse")
+{
+	SECTION("Index version")
+	{
+		Octree tree(0.1f, 17);
+		tree.traverse([](TreeIndex) { return true; });
+	}
+
+	SECTION("Node version")
+	{
+		Octree tree(0.1f, 17);
+		tree.traverse([](TreeNode<3> const& node) { return true; }, true);
+		tree.traverse([&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; },
+		              false);
+	}
+}
