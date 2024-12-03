@@ -70,6 +70,8 @@ class TreeQueryIterator
 	using Node     = typename Tree::Node;
 	using offset_t = typename Tree::offset_t;
 
+	using Filter = pred::Filter<Predicate>;
+
  public:
 	//
 	// Tags
@@ -92,7 +94,7 @@ class TreeQueryIterator
 	    , only_exists_(only_exists)
 	    , early_stopping_(early_stopping)
 	{
-		pred::Filter<Predicate>::init(pred_, *t_);
+		Filter::init(pred_, *t_);
 
 		if (only_exists_ && !t_->exists(root_)) {
 			root_ = {};
@@ -165,13 +167,13 @@ class TreeQueryIterator
  private:
 	[[nodiscard]] bool returnable(Node const& node) const
 	{
-		return pred::Filter<Predicate>::returnable(pred_, *t_, node);
+		return Filter::returnable(pred_, *t_, node);
 	}
 
 	[[nodiscard]] bool traversable(Node const& node) const
 	{
 		return (t_->isParent(node.index) || (!only_exists_ && !t_->isPureLeaf(node.code))) &&
-		       pred::Filter<Predicate>::traversable(pred_, *t_, node);
+		       Filter::traversable(pred_, *t_, node);
 	}
 
 	[[nodiscard]] bool exists(Node const& node) const

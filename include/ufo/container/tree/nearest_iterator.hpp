@@ -47,6 +47,7 @@
 #include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
+#include <cmath>
 #include <cstddef>
 #include <iterator>
 #include <queue>
@@ -67,20 +68,20 @@ class TreeNearestIterator
  private:
 	static constexpr std::size_t const BF = Tree::branchingFactor();
 
-	using Node     = typename Tree::Node;
-	using offset_t = typename Tree::offset_t;
+	using Node         = typename Tree::Node;
+	using DistanceNode = typename Tree::DistanceNode;
+	using offset_t     = typename Tree::offset_t;
 
 	struct S {
-		float dist_sq;
-		Node  node;
-		bool  returnable;
+		DistanceNode node;
+		bool         returnable;
 
 		S(float dist_sq, Node node, bool returnable) noexcept
-		    : dist_sq(dist_sq), node(node), returnable(returnable)
+		    : node(node, dist_sq), returnable(returnable)
 		{
 		}
 
-		bool operator>(S rhs) const noexcept { return dist_sq > rhs.dist_sq; }
+		bool operator>(S const& rhs) const noexcept { return node.distance > node.distance; }
 	};
 
 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
@@ -211,6 +212,7 @@ class TreeNearestIterator
 		while (!queue_.empty()) {
 			S cur = queue_.top();
 			if (returnable(cur)) {
+				const_cast<S&>(queue_.top()).node.distance = std::sqrt(cur.node.distance);
 				return;
 			}
 

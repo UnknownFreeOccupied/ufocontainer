@@ -49,6 +49,7 @@
 #include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
+#include <cmath>
 #include <cstddef>
 #include <iterator>
 #include <queue>
@@ -70,21 +71,22 @@ class TreeQueryNearestIterator
  private:
 	static constexpr std::size_t const BF = Tree::branchingFactor();
 
-	using Node     = typename Tree::Node;
-	using offset_t = typename Tree::offset_t;
+	using Node         = typename Tree::Node;
+	using DistanceNode = typename Tree::DistanceNode;
+	using offset_t     = typename Tree::offset_t;
+
+	using Filter = pred::Filter<Predicate>;
 
 	struct S {
-		float dist_sq;
-		Node  node;
-		bool  returnable;
-		bool  traversable;
+		DistanceNode node;
+		bool         returnable;
 
-		S(float dist_sq, Node node, bool returnable, bool traversable) noexcept
-		    : dist_sq(dist_sq), node(node), returnable(returnable), traversable(traversable)
+		S(float dist_sq, Node node, bool returnable) noexcept
+		    : node(node, dist_sq), returnable(returnable)
 		{
 		}
 
-		bool operator>(S rhs) const noexcept { return dist_sq > rhs.dist_sq; }
+		bool operator>(S const& rhs) const noexcept { return node.distance > node.distance; }
 	};
 
 	using Queue = std::priority_queue<S, std::vector<S>, std::greater<S>>;
@@ -96,7 +98,7 @@ class TreeQueryNearestIterator
 
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = Node;
+	using value_type        = DistanceNode;
 	using reference         = value_type const&;
 	using pointer           = value_type const*;
 
@@ -112,7 +114,7 @@ class TreeQueryNearestIterator
 	    , only_exists_(only_exists)
 	    , early_stopping_(early_stopping)
 	{
-		pred::Filter<Predicate>::init(pred_, *t_);
+		Filter::init(pred_, *t_);
 
 		if (only_exists_ && !t_->exists(node)) {
 			return;
@@ -183,7 +185,7 @@ class TreeQueryNearestIterator
  private:
 	[[nodiscard]] bool returnable(Node const& node) const
 	{
-		return pred::Filter<Predicate>::returnable(pred_, *t_, node);
+		return Filter::returnable(pred_, *t_, node);
 	}
 
 	[[nodiscard]] bool returnable(S const& s) const { return s.returnable; }
@@ -191,7 +193,7 @@ class TreeQueryNearestIterator
 	[[nodiscard]] bool traversable(Node const& node) const
 	{
 		return (t_->isParent(node.index) || (!only_exists_ && !t_->isPureLeaf(node.code))) &&
-		       pred::Filter<Predicate>::traversable(pred_, *t_, node);
+		       Filter::traversable(pred_, *t_, node);
 	}
 
 	[[nodiscard]] bool exists(Node const& node) const
@@ -225,6 +227,7 @@ class TreeQueryNearestIterator
 		while (!queue_.empty()) {
 			S cur = queue_.top();
 			if (returnable(cur)) {
+				const_cast<S&>(queue_.top()).node.distance = std::sqrt(cur.node.distance);
 				return;
 			}
 

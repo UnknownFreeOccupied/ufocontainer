@@ -46,12 +46,12 @@
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/container.hpp>
 #include <ufo/container/tree/coord.hpp>
+#include <ufo/container/tree/distance_node.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/iterator.hpp>
 #include <ufo/container/tree/key.hpp>
 #include <ufo/container/tree/nearest_iterator.hpp>
 #include <ufo/container/tree/node.hpp>
-#include <ufo/container/tree/node_nearest.hpp>
 #include <ufo/container/tree/predicate.hpp>
 #include <ufo/container/tree/query_iterator.hpp>
 #include <ufo/container/tree/query_nearest_iterator.hpp>
@@ -124,9 +124,9 @@ class Tree
 	using Point2 = Vec<Dim, double>;
 	using Bounds = AABB<Dim, coord_t>;
 
-	using Index       = TreeIndex;
-	using Node        = TreeNode<Dim>;
-	using NodeNearest = TreeNodeNearest<Dim>;
+	using Index        = TreeIndex;
+	using Node         = TreeNode<Dim>;
+	using DistanceNode = TreeDistanceNode<Dim>;
 
 	using pos_t    = typename TreeIndex::pos_t;
 	using offset_t = typename TreeIndex::offset_t;
