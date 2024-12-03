@@ -94,7 +94,7 @@ class TreeIterator
 			return;
 		}
 
-		if (returnable(node)) {
+		if (returnable(cur_)) {
 			return;
 		}
 
