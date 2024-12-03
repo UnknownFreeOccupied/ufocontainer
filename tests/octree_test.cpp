@@ -110,6 +110,7 @@ TEST_CASE("[Octree] traverse")
 	{
 		Octree tree(0.1f, 17);
 		tree.traverse([](TreeIndex) { return true; });
+		tree.traverse(TreeCoord<3>(Vec3f(0), 15), [](TreeIndex) { return true; });
 	}
 
 	SECTION("Node version")
@@ -118,5 +119,11 @@ TEST_CASE("[Octree] traverse")
 		tree.traverse([](TreeNode<3> const& node) { return true; }, true);
 		tree.traverse([&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; },
 		              false);
+
+		tree.traverse(
+		    TreeCoord<3>(Vec3f(0), 15), [](TreeNode<3> const& node) { return true; }, true);
+		tree.traverse(
+		    TreeCoord<3>(Vec3f(0), 15),
+		    [&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; }, false);
 	}
 }
