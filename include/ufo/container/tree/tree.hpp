@@ -1587,25 +1587,11 @@ class Tree
 	}
 
 	/*!
-	 * @brief Depth first traversal of the tree, starting at the root node. The function
-	 * 'f' will be called for each node traverse. If 'f' returns true then the children of
+	 * @brief Depth first traversal of the tree, starting at `node`. The function 'f'
+	 * will be called for each traversed node. If 'f' returns `true` then the children of
 	 * the node will also be traverse, otherwise they will not.
 	 *
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <class UnaryFun,
-	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(UnaryFun f, bool only_exists = true) const
-	{
-		traverse(node(), f, only_exists);
-	}
-
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node. The function 'f'
-	 * will be called for each node traverse. If 'f' returns true then the children of the
-	 * node will also be traverse, otherwise they will not.
-	 *
-	 * @param node The node where to start the traversal.
+	 * @param node The node to start the traversal from.
 	 * @param f The callback function to be called for each node traversed.
 	 */
 	template <class NodeType, class UnaryFun,
@@ -1641,19 +1627,43 @@ class Tree
 	}
 
 	/*!
-	 * @brief Depth first traversal of the tree, starting at the node. The function 'f'
-	 * will be called for each node traverse. If 'f' returns true then the children of the
-	 * node will also be traverse, otherwise they will not.
+	 * @brief Depth first traversal of the tree, starting at the root node. The function
+	 * 'f' will be called for each node traverse. If 'f' returns true then the children of
+	 * the node will also be traverse, otherwise they will not.
 	 *
-	 * @param node The node where to start the traversal.
 	 * @param f The callback function to be called for each node traversed.
+	 * @param pred Predicates that need to be fulfilled.
+	 * @param only_exists Whether only existing nodes should be traversed.
 	 */
-	template <class NodeType, class UnaryFun,
+	template <class UnaryFun, class Predicate = pred::True,
+	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool>   = true>
+	void traverse(UnaryFun f, Predicate const& pred = pred::True{},
+	              bool only_exists = true) const
+	{
+		traverse(node(), f, pred, only_exists);
+	}
+
+	/*!
+	 * @brief Depth first traversal of the tree, starting at `node`. The function 'f'
+	 * will be called for each traversed node. If 'f' returns `true` then the children of
+	 * the node will also be traverse, otherwise they will not.
+	 *
+	 * @param node The node to start the traversal from.
+	 * @param f The callback function to be called for each node traversed.
+	 * @param pred Predicates that need to be fulfilled.
+	 * @param only_exists Whether only existing nodes should be traversed.
+	 */
+	template <class NodeType, class UnaryFun, class Predicate = pred::True,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                    = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true>
-	void traverse(NodeType node, UnaryFun f, bool only_exists = true) const
+	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived, Node>, bool>   = true>
+	void traverse(NodeType node, UnaryFun f, Predicate pred = pred::True{},
+	              bool only_exists = true) const
 	{
 		assert(valid(node));
+
+		pred::Filter<Predicate>::init(pred, &derived());
 
 		if (only_exists) {
 			if (!exists(node)) {
@@ -1663,7 +1673,14 @@ class Tree
 			Index root = index(node);
 			Index cur  = root;
 
-			while (f(this->node(cur)) && isParent(cur)) {
+			auto fun = [this, f, &pred](Node const& node) {
+				return (!pred::Filter<Predicate>::returnable(pred, &derived(), node) ||
+				        f(node)) &&
+				       isParent(node.index) &&
+				       pred::Filter<Predicate>::traversable(pred, &derived(), node);
+			};
+
+			while (fun(this->node(cur))) {
 				cur = child(cur, 0);
 			}
 
@@ -1675,29 +1692,34 @@ class Tree
 
 				++cur.offset;
 
-				while (f(this->node(cur)) && isParent(cur)) {
+				while (fun(this->node(cur))) {
 					cur = child(cur, 0);
 				}
 			}
 		} else {
-			auto fixIndex = [this](Node node) {
+			Node root = this->node(node);
+			Node cur  = root;
+
+			auto fun = [this, f, &pred](Node& node) {
+				bool ret =
+				    (!pred::Filter<Predicate>::returnable(pred, &derived(), node) || f(node)) &&
+				    !isPureLeaf(node.code) &&
+				    pred::Filter<Predicate>::traversable(pred, &derived(), node);
+
+				// Fix index
 				auto min_depth = this->depth(node.code);
 				auto depth     = this->depth(node.index);
 				while (min_depth < depth && isParent(node.index)) {
 					node.index = child(node.index, node.code.offset(--depth));
 				}
-				return node;
+
+				return ret;
 			};
 
-			Node root = this->node(node);
-			Node cur  = root;
-
-			while (f(cur) && !isPureLeaf(cur.code)) {
-				cur = fixIndex(cur);
+			while (fun(cur)) {
 				cur = Node(child(cur.code, 0),
 				           isParent(cur.index) ? child(cur.index, 0) : cur.index);
 			}
-			cur = fixIndex(cur);
 
 			while (root != cur) {
 				auto branch = cur.code.offset();
@@ -1711,89 +1733,12 @@ class Tree
 				                                              ? sibling(cur.index, branch + 1)
 				                                              : cur.index);
 
-				while (f(cur) && !isPureLeaf(cur.code)) {
-					cur = fixIndex(cur);
+				while (fun(cur)) {
 					cur = Node(child(cur.code, 0),
 					           isParent(cur.index) ? child(cur.index, 0) : cur.index);
 				}
-				cur = fixIndex(cur);
 			}
 		}
-	}
-
-	/*! FIXME: Update info for all nearest
-	 * @brief Traverse the tree in the orderDepth first traversal of the tree, starting
-	 * at the root node. The function 'f' will be called for each node traverse. If 'f'
-	 * returns true then the children of the node will also be traverse, otherwise they
-	 * will not.
-	 *
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <
-	    class Geometry, class UnaryFun,
-	    std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, NodeNearest>, bool> = true>
-	void traverseNearest(Geometry const& g, UnaryFun f, bool only_exists = true) const
-	{
-		traverseNearest(node(), g, f, only_exists);
-	}
-
-	/*!
-	 * @brief Depth first traversal of the tree, starting at the node. The function 'f'
-	 * will be called for each node traverse. If 'f' returns true then the children of the
-	 * node will also be traverse, otherwise they will not.
-	 *
-	 * @param node The node where to start the traversal.
-	 * @param f The callback function to be called for each node traversed.
-	 */
-	template <
-	    class NodeType, class Geometry, class UnaryFun,
-	    std::enable_if_t<is_node_type_v<NodeType>, bool>                           = true,
-	    std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, NodeNearest>, bool> = true>
-	void traverseNearest(NodeType node, Geometry const& g, UnaryFun f,
-	                     bool only_exists = true) const
-	{
-		if (only_exists && !exists(node)) {
-			return;
-		}
-
-		Node cur = this->node(node);
-
-		// TODO: Implement
-
-		// std::priority_queue<NodeNearest, std::vector<NodeNearest>,
-		// std::greater<NodeNearest>>
-		//        nodes;
-		// NodeBV nbv = toNodeBV(node);
-		// nodes.emplace(nbv, distanceSquared(nbv.boundingVolume(), g));
-
-		// if (only_exists) {
-		// 	if (!exists(node)) {
-		// 		return;
-		// 	}
-		// 	while (!nodes.empty()) {
-		// 		auto n_d = nodes.top();
-		// 		nodes.pop();
-
-		// 		if (f(n_d) && isParent(n_d)) {
-		// 			for (offset_t i{}; BF != i; ++i) {
-		// 				auto c = child(n_d, i);
-		// 				nodes.emplace(c, distanceSquared(c.boundingVolume(), g));
-		// 			}
-		// 		}
-		// 	}
-		// } else {
-		// 	while (!nodes.empty()) {
-		// 		auto n_d = nodes.top();
-		// 		nodes.pop();
-
-		// 		if (f(n_d) && !isPureLeaf(n_d)) {
-		// 			for (offset_t i{}; BF != i; ++i) {
-		// 				auto c = child(n_d, i);
-		// 				nodes.emplace(c, distanceSquared(c.boundingVolume(), g));
-		// 			}
-		// 		}
-		// 	}
-		// }
 	}
 
 	/**************************************************************************************

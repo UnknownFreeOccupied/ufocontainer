@@ -118,12 +118,13 @@ TEST_CASE("[Octree] traverse")
 		Octree tree(0.1f, 17);
 		tree.traverse([](TreeNode<3> const& node) { return true; }, true);
 		tree.traverse([&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; },
-		              false);
+		              pred::True(), false);
 
 		tree.traverse(
 		    TreeCoord<3>(Vec3f(0), 15), [](TreeNode<3> const& node) { return true; }, true);
 		tree.traverse(
 		    TreeCoord<3>(Vec3f(0), 15),
-		    [&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; }, false);
+		    [&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; }, pred::True(),
+		    false);
 	}
 }
