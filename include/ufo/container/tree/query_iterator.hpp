@@ -100,7 +100,7 @@ class TreeQueryIterator
 			return;
 		}
 
-		if (returnable(node)) {
+		if (returnable(cur_)) {
 			return;
 		} else if (traversable(cur_)) {
 			if (nextNodeDownwards()) {
@@ -203,6 +203,7 @@ class TreeQueryIterator
 	void nextNode()
 	{
 		if (!early_stopping_ && traversable(cur_)) {
+			cur_ = child(cur_, 0);
 			if (nextNodeDownwards()) {
 				return;
 			}
@@ -222,6 +223,7 @@ class TreeQueryIterator
 			}
 
 			if (traversable(cur_)) {
+				cur_ = child(cur_, 0);
 				if (nextNodeDownwards()) {
 					return;
 				}

@@ -175,6 +175,7 @@ class TreeIterator
 	void nextNode()
 	{
 		if (traversable(cur_)) {
+			cur_ = child(cur_, 0);
 			if (nextNodeDownwards()) {
 				return;
 			}
@@ -194,6 +195,7 @@ class TreeIterator
 			}
 
 			if (traversable(cur_)) {
+				cur_ = child(cur_, 0);
 				if (nextNodeDownwards()) {
 					return;
 				}
