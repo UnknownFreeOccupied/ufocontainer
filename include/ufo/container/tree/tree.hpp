@@ -212,7 +212,10 @@ class Tree
 	 *
 	 * @return The number of nodes in the tree.
 	 */
-	[[nodiscard]] std::size_t size() const { return block_.numUsedBlocks() * BF - (BF - 1); }
+	[[nodiscard]] std::size_t size() const
+	{
+		return block_.numUsedBlocks() * BF - (BF - 1);
+	}
 
 	/*!
 	 * @brief Increase the capacity of the tree to at least hold `num_nodes` nodes.
@@ -3642,10 +3645,10 @@ bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
 	}
 
 	auto pred     = pred::Offset(0);
-	auto lhs_it   = lhs.begin(false);  // lhs.beginQuery(pred);
-	auto lhs_last = lhs.end();         // lhs.endQuery();
-	auto rhs_it   = rhs.begin(false);  // rhs.beginQuery(pred);
-	auto rhs_last = rhs.end();         // rhs.endQuery();
+	auto lhs_it   = lhs.beginQuery(pred);
+	auto lhs_last = lhs.endQuery();
+	auto rhs_it   = rhs.beginQuery(pred);
+	auto rhs_last = rhs.endQuery();
 
 	for (; lhs_last != lhs_it && rhs_last != rhs_it; ++lhs_it, ++rhs_it) {
 		if (lhs_it->code != rhs_it->code ||
