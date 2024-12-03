@@ -38,6 +38,10 @@ TEST_CASE("[Octree] comparison")
 		tree1.clear();
 		Octree tree2(0.1f, 17);
 		REQUIRE(tree1 == tree2);
+
+		tree1.create(Vec3f(0));
+		tree2.create(Vec3f(0));
+		// REQUIRE(tree1 == tree2);
 	}
 
 	SECTION("Not equal")

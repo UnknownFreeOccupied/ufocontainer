@@ -3642,10 +3642,10 @@ bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
 	}
 
 	auto pred     = pred::Offset(0);
-	auto lhs_it   = lhs.beginQuery(pred);
-	auto lhs_last = lhs.endQuery();
-	auto rhs_it   = rhs.beginQuery(pred);
-	auto rhs_last = rhs.endQuery();
+	auto lhs_it   = lhs.begin(false);  // lhs.beginQuery(pred);
+	auto lhs_last = lhs.end();         // lhs.endQuery();
+	auto rhs_it   = rhs.begin(false);  // rhs.beginQuery(pred);
+	auto rhs_last = rhs.end();         // rhs.endQuery();
 
 	for (; lhs_last != lhs_it && rhs_last != rhs_it; ++lhs_it, ++rhs_it) {
 		if (lhs_it->code != rhs_it->code ||
