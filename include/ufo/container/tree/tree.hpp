@@ -56,6 +56,7 @@
 #include <ufo/container/tree/query_iterator.hpp>
 #include <ufo/container/tree/query_nearest_iterator.hpp>
 #include <ufo/geometry/shape/aabb.hpp>
+#include <ufo/geometry/shape/ray.hpp>
 #include <ufo/math/math.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/bit_set.hpp>
@@ -2848,13 +2849,15 @@ class Tree
 
 	// LOOKAT: Benchmark against only returning the distance
 
+	// TODO: Implement below correctly
+
 	template <bool OnlyDistance = false, bool FastAsSonic = false, class ValueFun,
 	          class InnerFun>
 	[[nodiscard]] std::conditional_t<OnlyDistance, float, std::pair<float, Index>> nearest(
 	    Index node, NearestSearchAlgorithm search_alg, ValueFun value_f, InnerFun inner_f,
 	    float max_dist, float epsilon) const
 	{
-		// TODO: Look at
+		// FIXME: Look at
 		// assert(std::isfinite(max_dist));
 		// assert(std::isfinite(epsilon));
 
@@ -3462,7 +3465,7 @@ class Tree
 			auto a = center[i] - half_length - origin;
 			auto b = center[i] + half_length - origin;
 
-			// TODO: Look at
+			// FIXME: Look at
 			params.t0[i] = 0 == ray.direction[i] ? 1e+25 * a : a / std::abs(ray.direction[i]);
 			params.t1[i] = 0 == ray.direction[i] ? 1e+25 * b : b / std::abs(ray.direction[i]);
 
