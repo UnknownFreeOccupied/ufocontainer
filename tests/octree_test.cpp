@@ -41,7 +41,7 @@ TEST_CASE("[Octree] comparison")
 
 		tree1.create(Vec3f(0));
 		tree2.create(Vec3f(0));
-		// REQUIRE(tree1 == tree2);
+		REQUIRE(tree1 == tree2);
 	}
 
 	SECTION("Not equal")
@@ -97,11 +97,9 @@ TEST_CASE("[Octree] swap")
 
 	Octree tree3(0.1f, 17);
 
-	// REQUIRE((tree1 == tree2 && tree1 != tree3));
-	// if (tree1 == tree2) REQUIRE(tree1 == tree2);
-	// REQUIRE(tree1 != tree3);
+	REQUIRE((tree1 == tree2 && tree1 != tree3));
 
-	// swap(tree2, tree3);
+	swap(tree2, tree3);
 
-	// REQUIRE((tree1 != tree2 && tree1 == tree3));
+	REQUIRE((tree1 != tree2 && tree1 == tree3));
 }
