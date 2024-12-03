@@ -874,7 +874,7 @@ class TreeMap
 
 		value_type* value = nullptr;
 
-		for (auto e : values(node)) {
+		for (auto& e : values(node)) {
 			value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
 		}
 
@@ -902,7 +902,7 @@ class TreeMap
 
 		value_type const* value = nullptr;
 
-		for (auto e : values(node)) {
+		for (auto const& e : values(node)) {
 			value = distanceSquared(query, e.first) == dist_sq ? &e : nullptr;
 		}
 
