@@ -37,28 +37,20 @@ TEST_CASE("Octree Map")
 
 	std::cout << std::endl;
 
-	for (auto& [m, d] : map.nearest(Vec3f{0, 2.9, 0})) {
-		std::cout << m.first << ": " << m.second << " with distance: " << d << std::endl;
-		if (2.8 > d) {
-			m.second = 100;
-		} else {
-			m.second = 200;
-		}
+	for (auto& [k, v] : map.nearest(Vec3f{0, 2.9, 0})) {
+		std::cout << k << ": " << v << std::endl;
 	}
 
-	for (auto [m, d] : map.nearest(Vec3f{0, 2.9, 0})) {
-		std::cout << m.first << ": " << m.second << " with distance: " << d << std::endl;
-	}
 
 	std::cout << std::endl;
 
-	for (auto [m, d] :
+	for (auto [k, v] :
 	     map.queryNearest(pred::Intersects(BS3({0, 1, 1.8}, 0.25)), Vec3f{0, 2.9, 0})) {
-		std::cout << m.first << ": " << m.second << " with distance: " << d << std::endl;
+		std::cout << k << ": " << v << std::endl;
 	}
 
-	for (auto [m, d] : map.nearest(Vec3f{0, 2.9, 0})) {
-		std::cout << m.first << ": " << m.second << " with distance: " << d << std::endl;
+	for (auto [k, v] : map.nearest(Vec3f{0, 2.9, 0})) {
+		std::cout << k << ": " << v << std::endl;
 	}
 
 	// struct S {
