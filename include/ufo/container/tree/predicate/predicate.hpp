@@ -47,12 +47,24 @@
 
 // STL
 #include <memory>
+#include <type_traits>
 
 namespace ufo::pred
 {
 namespace detail
 {
-template <class Tree>
+template <class, class = void>
+struct pred_has_value_type : std::false_type {
+};
+
+template <class T>
+struct pred_has_value_type<T, std::void_t<typename T::value_type>> : std::true_type {
+};
+
+template <class T>
+constexpr inline bool pred_has_value_type_v = pred_has_value_type<T>::value;
+
+template <class Tree, class = void>
 class Dynamic
 {
  public:
@@ -69,7 +81,26 @@ class Dynamic
 	[[nodiscard]] virtual Dynamic* clone() const = 0;
 };
 
-template <class Tree, class Predicate>
+template <class Tree>
+class Dynamic<Tree, std::enable_if_t<pred_has_value_type_v<Tree>, bool>>
+{
+ public:
+	virtual ~Dynamic() {}
+
+	virtual void init(Tree const&) = 0;
+
+	[[nodiscard]] virtual bool returnable(typename Tree::value_type const& v) const = 0;
+
+	[[nodiscard]] virtual bool returnable(Tree const&,
+	                                      typename Tree::Node const&) const = 0;
+
+	[[nodiscard]] virtual bool traversable(Tree const&,
+	                                       typename Tree::Node const&) const = 0;
+
+	[[nodiscard]] virtual Dynamic* clone() const = 0;
+};
+
+template <class Tree, class Predicate, class = void>
 class DynamicPredicate
     : public Dynamic<Tree>
     , public Predicate
@@ -88,6 +119,52 @@ class DynamicPredicate
 	void init(Tree const& t) override
 	{
 		Filter<Predicate>::init(static_cast<Predicate&>(*this), t);
+	}
+
+	[[nodiscard]] bool returnable(Tree const&                t,
+	                              typename Tree::Node const& n) const override
+	{
+		return Filter<Predicate>::returnable(static_cast<Predicate const&>(*this), t, n);
+	}
+
+	[[nodiscard]] bool traversable(Tree const&                t,
+	                               typename Tree::Node const& n) const override
+	{
+		return Filter<Predicate>::traversable(static_cast<Predicate const&>(*this), t, n);
+	}
+
+ protected:
+	[[nodiscard]] DynamicPredicate* clone() const override
+	{
+		return new DynamicPredicate(*this);
+	}
+};
+
+template <class Tree, class Predicate>
+class DynamicPredicate<Tree, Predicate,
+                       std::enable_if_t<pred_has_value_type_v<Tree>, bool>>
+    : public Dynamic<Tree>
+    , public Predicate
+{
+ public:
+	DynamicPredicate(Predicate const& pred) : Predicate(pred) {}
+
+	DynamicPredicate(Predicate&& pred) : Predicate(std::move(pred)) {}
+
+	DynamicPredicate(Tree const&, Predicate const& pred) : Predicate(pred) {}
+
+	DynamicPredicate(Tree const&, Predicate&& pred) : Predicate(std::move(pred)) {}
+
+	virtual ~DynamicPredicate() {}
+
+	void init(Tree const& t) override
+	{
+		Filter<Predicate>::init(static_cast<Predicate&>(*this), t);
+	}
+
+	[[nodiscard]] bool returnable(typename Tree::value_type const& v) const override
+	{
+		return Filter<Predicate>::returnable(static_cast<Predicate const&>(*this), v);
 	}
 
 	[[nodiscard]] bool returnable(Tree const&                t,
@@ -193,6 +270,13 @@ class Predicate
 		}
 	}
 
+	template <class Tree2                                                  = Tree,
+	          std::enable_if_t<detail::pred_has_value_type_v<Tree2>, bool> = true>
+	[[nodiscard]] bool returnable(typename Tree2::value_type const& v) const
+	{
+		return !hasPredicate() || predicate_->returnable(v);
+	}
+
 	[[nodiscard]] bool returnable(Tree const& t, typename Tree::Node const& n) const
 	{
 		return !hasPredicate() || predicate_->returnable(t, n);
@@ -211,51 +295,18 @@ class Predicate
 // Filter
 //
 
-// TODO: Make sure it works with TreeSet and TreeMap where there is value
-
-template <class Tree>
-struct Filter<detail::Dynamic<Tree>> {
-	using Pred = detail::Dynamic<Tree>;
-
-	static void init(Pred& p, Tree const& t) { p.init(t); }
-
-	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t,
-	                                     typename Tree::Node const& n)
-	{
-		return p.returnable(t, n);
-	}
-
-	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t,
-	                                      typename Tree::Node const& n)
-	{
-		return p.traversable(t, n);
-	}
-};
-
-template <class Tree, class Predicate>
-struct Filter<detail::DynamicPredicate<Tree, Predicate>> {
-	using Pred = detail::DynamicPredicate<Tree, Predicate>;
-
-	static void init(Pred& p, Tree const& t) { p.init(t); }
-
-	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t,
-	                                     typename Tree::Node const& n)
-	{
-		return p.returnable(t, n);
-	}
-
-	[[nodiscard]] static bool traversable(Pred const& p, Tree const& t,
-	                                      typename Tree::Node const& n)
-	{
-		return p.traversable(t, n);
-	}
-};
-
 template <class Tree>
 struct Filter<Predicate<Tree>> {
 	using Pred = Predicate<Tree>;
 
 	static void init(Pred& p, Tree const& t) { p.init(t); }
+
+	template <class Tree2                                                  = Tree,
+	          std::enable_if_t<detail::pred_has_value_type_v<Tree2>, bool> = true>
+	[[nodiscard]] static bool returnable(Pred const& p, typename Tree2::value_type const& v)
+	{
+		return p.returnable(v);
+	}
 
 	[[nodiscard]] static bool returnable(Pred const& p, Tree const& t,
 	                                     typename Tree::Node const& n)
