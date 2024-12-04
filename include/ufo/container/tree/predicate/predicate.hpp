@@ -82,7 +82,7 @@ class Dynamic
 };
 
 template <class Tree>
-class Dynamic<Tree, std::enable_if_t<pred_has_value_type_v<Tree>, bool>>
+class Dynamic<Tree, std::enable_if_t<pred_has_value_type_v<Tree>>>
 {
  public:
 	virtual ~Dynamic() {}
@@ -141,8 +141,7 @@ class DynamicPredicate
 };
 
 template <class Tree, class Predicate>
-class DynamicPredicate<Tree, Predicate,
-                       std::enable_if_t<pred_has_value_type_v<Tree>, bool>>
+class DynamicPredicate<Tree, Predicate, std::enable_if_t<pred_has_value_type_v<Tree>>>
     : public Dynamic<Tree>
     , public Predicate
 {
