@@ -77,7 +77,6 @@ struct TreeSetBlock : public TreeBlock<Dim, BF> {
 	std::array<container_type, BF> values;
 
 	constexpr TreeSetBlock()                    = default;
-	constexpr TreeSetBlock(TreeSetBlock const&) = default;
 
 	constexpr TreeSetBlock(TreeIndex::pos_t parent_block, Code code, Point center,
 	                       length_t half_length)
@@ -90,14 +89,6 @@ struct TreeSetBlock : public TreeBlock<Dim, BF> {
 	    : Base(parent_block, parent, offset, half_length)
 	{
 	}
-
-	constexpr TreeSetBlock& operator=(TreeSetBlock const& rhs)
-	{
-		Base::operator=(static_cast<Base const&>(rhs));
-		return *this;
-	}
-
-	constexpr TreeSetBlock& operator=(TreeSetBlock&&) = default;
 };
 }  // namespace ufo
 
