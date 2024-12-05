@@ -1067,8 +1067,7 @@ class Tree
 				node          = valid(node) ? node : this->index();
 				Code cur_code = this->code(node);
 
-				Code    e            = this->code(*(first + i));
-				Code    code         = this->code(e);
+				Code    code            = this->code(*(first + i));
 				depth_t wanted_depth = this->depth(code);
 				depth_t depth        = Code::depthWhereEqual(code, cur_code);
 
