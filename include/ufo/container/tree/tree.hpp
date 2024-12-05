@@ -1052,7 +1052,9 @@ class Tree
 			// });
 
 			return nodes;
-		} else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
+		}
+#if defined(UFO_GCD)
+		else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
 			__block std::vector<Index> nodes(std::distance(first, last));
 
 			dispatch_apply(nodes.size(), dispatch_get_global_queue(0, 0), ^(std::size_t i) {
@@ -1079,7 +1081,9 @@ class Tree
 			});
 
 			return nodes;
-		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+		}
+#endif
+		else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
 			Index node = this->index();
