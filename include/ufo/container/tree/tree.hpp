@@ -565,6 +565,11 @@ class Tree
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
+				// if (isRoot(node)) {
+				// 	return center();
+				// } else {
+				// 	return treeBlock(node).center(node.offset, halfLength(node));
+				// }
 				return isRoot(node) ? center()
 				                    : treeBlock(node).center(node.offset, halfLength(node));
 			} else {
@@ -1071,7 +1076,7 @@ class Tree
 			return nodes;
 		} else {
 			static_assert(dependent_false_v<ExecutionPolicy>,
-			              "create not implemented for that execution policy");
+			              "create not implemented for the execution policy");
 		}
 	}
 
@@ -1938,193 +1943,354 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	// TODO: Implement the predicate once as well
-
-	template <class InnerFun, class HitFun, class T>
-	[[nodiscard]] T trace(Ray<Dim, ray_t> const& ray, InnerFun inner_f, HitFun hit_f,
-	                      T const& miss) const
+	template <class Predicate,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	[[nodiscard]] std::pair<Node, float> trace(
+	    Ray<Dim, ray_t> const& ray, Predicate const& pred, float min_dist = 0.0f,
+	    float max_dist = std::numeric_limits<float>::max(), bool only_exists = true) const
 	{
-		return trace(index(), ray, inner_f, hit_f, miss);
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(ray, pred, hit_f, min_dist, max_dist, only_exists);
 	}
 
-	template <class InputIt, class OutputIt, class InnerFun, class HitFun, class T>
-	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, InnerFun inner_f,
-	               HitFun hit_f, T const& miss) const
+	template <
+	    class Predicate, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                      = true>
+	[[nodiscard]] std::pair<Node, float> trace(
+	    Ray<Dim, ray_t> const& ray, Predicate const& pred, HitFun hit_f,
+	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
+	    bool only_exists = true) const
 	{
-		return trace(index(), first, last, d_first, inner_f, hit_f, miss);
+		return trace(node(), ray, pred, hit_f, min_dist, max_dist, only_exists);
 	}
 
-	template <class InputIt, class InnerFun, class HitFun, class T>
-	[[nodiscard]] std::vector<T> trace(InputIt first, InputIt last, InnerFun inner_f,
-	                                   HitFun hit_f, T const& miss) const
+	template <class NodeType, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	[[nodiscard]] std::pair<Node, float> trace(
+	    NodeType node, Ray<Dim, ray_t> const& ray, Predicate pred, float min_dist = 0.0f,
+	    float max_dist = std::numeric_limits<float>::max(), bool only_exists = true) const
 	{
-		return trace(index(), first, last, inner_f, hit_f, miss);
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(node, ray, pred, hit_f, min_dist, max_dist, only_exists);
 	}
 
-	template <class NodeType, class InnerFun, class HitFun, class T,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] T trace(NodeType node, Ray<Dim, ray_t> const& ray, InnerFun inner_f,
-	                      HitFun hit_f, T const& miss) const
+	template <
+	    class NodeType, class Predicate, class HitFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                      = true>
+	[[nodiscard]] std::pair<Node, float> trace(
+	    NodeType node, Ray<Dim, ray_t> const& ray, Predicate pred, HitFun hit_f,
+	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
+	    bool only_exists = true) const
 	{
-		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
-			// Unless NodeType is Index, we need to check that the node actually exists
-			if (!exists(node)) {
-				return miss;
-			}
+		using Filter = pred::Filter<Predicate>;
+
+		Filter::init(pred, derived());
+
+		Node n = node(node);
+		if (only_exists && !exists(n)) {
+			return std::pair<Node, float>(Node(), std::numeric_limits<float>::infinity());
 		}
 
-		Index n = index(node);
-
-		auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-			return inner_f(node, ray, distance);
-		};
-
-		auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+		auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
 			return hit_f(node, ray, distance);
 		};
 
 		auto params = traceInit(n, ray);
-		return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
+		return trace(n, params, pred, wrapped_hit_f, min_dist, max_dist, only_exists);
 	}
 
-	template <class NodeType, class InputIt, class OutputIt, class InnerFun, class HitFun,
-	          class T, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
-	               InnerFun inner_f, HitFun hit_f, T const& miss) const
+	template <class InputIt, class OutputIt, class Predicate,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Predicate const& pred,
+	               float min_dist    = 0.0f,
+	               float max_dist    = std::numeric_limits<float>::max(),
+	               bool  only_exists = true) const
 	{
-		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
-			// Unless NodeType is Index, we need to check that the node actually exists
-			if (!exists(node)) {
-				return miss;
-			}
-		}
-
-		Index n = index(node);
-
-		auto center      = this->center(n);
-		auto half_length = halfLength(n);
-
-		return std::transform(first, last, d_first, [&](auto const& ray) {
-			auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-				return inner_f(node, ray, distance);
-			};
-
-			auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
-				return hit_f(node, ray, distance);
-			};
-
-			auto params = traceInit(ray, center, half_length);
-			return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
-		});
-	}
-
-	template <class NodeType, class InputIt, class InnerFun, class HitFun, class T,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] std::vector<T> trace(NodeType node, InputIt first, InputIt last,
-	                                   InnerFun inner_f, HitFun hit_f, T const& miss) const
-	{
-		std::vector<T> nodes(std::distance(first, last));
-		trace(node, first, last, nodes.begin(), inner_f, hit_f, miss);
-		return nodes;
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(first, last, d_first, pred, hit_f, min_dist, max_dist, only_exists);
 	}
 
 	template <
-	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class InnerFun,
-	    class HitFun, class T,
+	    class InputIt, class OutputIt, class Predicate, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                      = true>
+	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Predicate const& pred,
+	               HitFun hit_f, float min_dist = 0.0f,
+	               float max_dist    = std::numeric_limits<float>::max(),
+	               bool  only_exists = true) const
+	{
+		return trace(node(), first, last, d_first, pred, hit_f, min_dist, max_dist,
+		             only_exists);
+	}
+
+	template <class NodeType, class InputIt, class OutputIt, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
+	               Predicate const& pred, float min_dist = 0.0f,
+	               float max_dist    = std::numeric_limits<float>::max(),
+	               bool  only_exists = true) const
+	{
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(node, first, last, d_first, pred, hit_f, min_dist, max_dist,
+		             only_exists);
+	}
+
+	template <
+	    class NodeType, class InputIt, class OutputIt, class Predicate, class HitFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                      = true>
+	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
+	               Predicate const& pred, HitFun hit_f, float min_dist = 0.0f,
+	               float max_dist    = std::numeric_limits<float>::max(),
+	               bool  only_exists = true) const
+	{
+		return trace(execution::seq, node, first, last, d_first, pred, hit_f, min_dist,
+		             max_dist, only_exists);
+	}
+
+	template <class InputIt, class Predicate,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    InputIt first, InputIt last, Predicate const& pred, float min_dist = 0.0f,
+	    float max_dist = std::numeric_limits<float>::max(), bool only_exists = true) const
+	{
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(first, last, pred, hit_f, min_dist, max_dist, only_exists);
+	}
+
+	template <
+	    class InputIt, class Predicate, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                      = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    InputIt first, InputIt last, Predicate const& pred, HitFun hit_f,
+	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
+	    bool only_exists = true) const
+	{
+		return trace(node(), first, last, pred, hit_f, min_dist, max_dist, only_exists);
+	}
+
+	template <class NodeType, class InputIt, class Predicate,
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    NodeType node, InputIt first, InputIt last, Predicate const& pred,
+	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
+	    bool only_exists = true) const
+	{
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(node, first, last, pred, hit_f, min_dist, max_dist, only_exists);
+	}
+
+	template <
+	    class NodeType, class InputIt, class Predicate, class HitFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                      = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    NodeType node, InputIt first, InputIt last, Predicate const& pred, HitFun hit_f,
+	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
+	    bool only_exists = true) const
+	{
+		return trace(execution::seq, node, first, last, pred, hit_f, min_dist, max_dist,
+		             only_exists);
+	}
+
+	template <
+	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class Predicate,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1 last,
-	                RandomIt2 d_first, InnerFun inner_f, HitFun hit_f, T const& miss) const
+	                RandomIt2 d_first, Predicate const& pred, float min_dist = 0.0f,
+	                float max_dist    = std::numeric_limits<float>::max(),
+	                bool  only_exists = true) const
 	{
-		return trace(std::forward<ExecutionPolicy>(policy), index(), first, last, d_first,
-		             inner_f, hit_f, miss);
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(std::forward<ExecutionPolicy>(policy), first, last, d_first, pred, hit_f,
+		             min_dist, max_dist, only_exists);
 	}
 
 	template <
-	    class ExecutionPolicy, class RandomIt, class InnerFun, class HitFun, class T,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-	[[nodiscard]] std::vector<T> trace(ExecutionPolicy&& policy, RandomIt first,
-	                                   RandomIt last, InnerFun inner_f, HitFun hit_f,
-	                                   T const& miss) const
+	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class Predicate,
+	    class HitFun, std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                                    = true>
+	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1 last,
+	                RandomIt2 d_first, Predicate const& pred, HitFun hit_f,
+	                float min_dist    = 0.0f,
+	                float max_dist    = std::numeric_limits<float>::max(),
+	                bool  only_exists = true) const
 	{
-		return trace(std::forward<ExecutionPolicy>(policy), index(), first, last, inner_f,
-		             hit_f, miss);
+		return trace(std::forward<ExecutionPolicy>(policy), node(), first, last, d_first,
+		             pred, hit_f, min_dist, max_dist, only_exists);
 	}
 
 	template <
 	    class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
-	    class InnerFun, class HitFun, class T,
+	    class Predicate, std::enable_if_t<is_node_type_v<NodeType>, bool> = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
-	                RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
-	                T const& miss) const
+	                RandomIt1 last, RandomIt2 d_first, Predicate pred,
+	                float min_dist    = 0.0f,
+	                float max_dist    = std::numeric_limits<float>::max(),
+	                bool  only_exists = true) const
 	{
-		if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
-			// Unless NodeType is Index, we need to check that the node actually exists
-			if (!exists(node)) {
-				return miss;
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(std::forward<ExecutionPolicy>(policy), node, first, last, d_first, pred,
+		             hit_f, min_dist, max_dist, only_exists);
+	}
+
+	template <
+	    class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
+	    class Predicate, class HitFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>                          = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                                    = true>
+	RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
+	                RandomIt1 last, RandomIt2 d_first, Predicate pred, HitFun hit_f,
+	                float min_dist    = 0.0f,
+	                float max_dist    = std::numeric_limits<float>::max(),
+	                bool  only_exists = true) const
+	{
+		using Filter = pred::Filter<Predicate>;
+
+		Filter::init(pred, derived());
+
+		Node n = node(node);
+		if (only_exists && !exists(n)) {
+			for (; last != first; ++first, ++d_first) {
+				*d_first = std::pair<Node, float>(Node(), std::numeric_limits<float>::infinity());
 			}
+			return d_first;
 		}
 
+		auto center      = this->center(n);
+		auto half_length = halfLength(n);
+
 		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-			return trace(node, first, last, d_first, inner_f, hit_f, miss);
-		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
-			Index n = index(node);
-
-			auto center      = this->center(n);
-			auto half_length = halfLength(n);
-
-			return std::transform(UFO_TBB_PAR first, last, d_first, [&](auto const& ray) {
-				auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-					return inner_f(node, ray, distance);
-				};
-
-				auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+			return std::transform(first, last, d_first, [&](Ray<Dim, ray_t> const& ray) {
+				auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
 					return hit_f(node, ray, distance);
 				};
 
 				auto params = traceInit(ray, center, half_length);
-				return trace(n, params, wrapped_inner_f, wrapped_hit_f, miss);
+				return trace(n, params, pred, wrapped_hit_f, min_dist, max_dist, only_exists);
 			});
+		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
+			return std::transform(
+			    UFO_TBB_PAR first, last, d_first, [&](Ray<Dim, ray_t> const& ray) {
+				    auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
+					    return hit_f(node, ray, distance);
+				    };
+
+				    auto params = traceInit(ray, center, half_length);
+				    return trace(n, ray, params, pred, wrapped_hit_f, min_dist, max_dist,
+				                 only_exists);
+			    });
 		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
-			Index n = index(node);
-
-			auto center      = this->center(n);
-			auto half_length = halfLength(n);
-
-			std::size_t size = std::distance(first, last);
-
+			std::size_t const size = std::distance(first, last);
 #pragma omp parallel for
-			for (std::size_t i = 0; i != size; ++i) {
-				auto const& ray = first[i];
+			for (std::size_t i = 0; size > i; ++i) {
+				Ray<Dim, ray_t> const& ray = first[i];
 
-				auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
-					return inner_f(node, ray, distance);
-				};
-
-				auto wrapped_hit_f = [&ray, hit_f](Index node, float distance) {
+				auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
 					return hit_f(node, ray, distance);
 				};
+
 				auto params = traceInit(ray, center, half_length);
-				d_first[i]  = trace(n, params, ray, wrapped_inner_f, wrapped_hit_f, miss);
+				d_first[i] =
+				    trace(n, params, pred, wrapped_hit_f, min_dist, max_dist, only_exists);
 			}
 
 			return std::next(d_first, size);
 		} else {
 			static_assert(dependent_false_v<ExecutionPolicy>,
-			              "Not implemented for this execution policy");
+			              "Not implemented for the execution policy");
 		}
 	}
 
-	template <class ExecutionPolicy, class NodeType, class RandomIt, class InnerFun,
-	          class HitFun, class T>
-	[[nodiscard]] std::vector<T> trace(ExecutionPolicy&& policy, NodeType node,
-	                                   RandomIt first, RandomIt last, InnerFun inner_f,
-	                                   HitFun hit_f, T const& miss) const
+	template <
+	    class ExecutionPolicy, class RandomIt, class Predicate,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    ExecutionPolicy&& policy, RandomIt first, RandomIt last, Predicate const& pred,
+	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
+	    bool only_exists = true) const
 	{
-		std::vector<T> nodes(std::distance(first, last));
-		trace(std::forward<ExecutionPolicy>(policy), node, first, last, nodes.begin(),
-		      inner_f, hit_f, miss);
-		return nodes;
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(std::forward<ExecutionPolicy>(policy), first, last, pred, hit_f,
+		             min_dist, max_dist, only_exists);
+	}
+
+	template <
+	    class ExecutionPolicy, class RandomIt, class Predicate, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                                    = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    ExecutionPolicy&& policy, RandomIt first, RandomIt last, Predicate const& pred,
+	    HitFun hit_f, float min_dist = 0.0f,
+	    float max_dist = std::numeric_limits<float>::max(), bool only_exists = true) const
+	{
+		return trace(std::forward<ExecutionPolicy>(policy), node(), first, last, pred, hit_f,
+		             min_dist, max_dist, only_exists);
+	}
+
+	template <
+	    class ExecutionPolicy, class NodeType, class RandomIt, class Predicate,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>                          = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    ExecutionPolicy&& policy, NodeType node, RandomIt first, RandomIt last,
+	    Predicate const& pred, float min_dist = 0.0f,
+	    float max_dist = std::numeric_limits<float>::max(), bool only_exists = true) const
+	{
+		auto hit_f = [](Node const&, Ray<Dim, ray_t> const&, float) { return true; };
+		return trace(std::forward<ExecutionPolicy>(policy), node, first, last, pred, hit_f,
+		             min_dist, max_dist, only_exists);
+	}
+
+	template <
+	    class ExecutionPolicy, class NodeType, class RandomIt, class Predicate,
+	    class HitFun, std::enable_if_t<is_node_type_v<NodeType>, bool> = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, Ray<Dim, ray_t>, float>,
+	                     bool>                                                    = true>
+	[[nodiscard]] std::vector<std::pair<Node, float>> trace(
+	    ExecutionPolicy&& policy, NodeType node, RandomIt first, RandomIt last,
+	    Predicate const& pred, HitFun hit_f, float min_dist = 0.0f,
+	    float max_dist = std::numeric_limits<float>::max(), bool only_exists = true) const
+	{
+		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
+			std::vector<std::pair<Node, float>> nodes;
+			trace(std::forward<ExecutionPolicy>(policy), node, first, last,
+			      std::back_inserter(nodes), pred, hit_f, min_dist, max_dist, only_exists);
+			return nodes;
+		} else {
+			std::vector<std::pair<Node, float>> nodes(std::distance(first, last));
+			trace(std::forward<ExecutionPolicy>(policy), node, first, nodes.begin(), pred,
+			      hit_f, min_dist, max_dist, only_exists);
+		}
 	}
 
  protected:
@@ -2908,7 +3074,7 @@ class Tree
 	{
 		using Filter = pred::Filter<Predicate>;
 
-		Filter::init(pred);
+		Filter::init(pred, derived());
 
 		auto wrapped_value_f = [value_f, &pred](Index node) -> float {
 			return Filter::returnable(pred) ? value_f(node)
@@ -3425,28 +3591,25 @@ class Tree
 		unsigned a{};
 	};
 
+	template <class Node>
 	struct TraceStackElement {
 		Point    t0;
 		Point    t1;
 		Point    tm;
 		unsigned cur_node;
-		Index    node;
+		Node     node;
 
 		TraceStackElement() = default;
 
-		constexpr TraceStackElement(Index node, unsigned cur_node, Point const& t0,
+		constexpr TraceStackElement(Node node, unsigned cur_node, Point const& t0,
 		                            Point const& t1, Point const& tm)
 		    : node(node), cur_node(cur_node), t0(t0), t1(t1), tm(tm)
 		{
 		}
 	};
 
-	[[nodiscard]] TraceParams traceInit(Index node, Ray<Dim, ray_t> const& ray) const
-	{
-		return traceInit(ray, center(node), halfLength(node));
-	}
-
-	[[nodiscard]] TraceParams traceInit(Node node, Ray<Dim, ray_t> const& ray) const
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] TraceParams traceInit(NodeType node, Ray<Dim, ray_t> const& ray) const
 	{
 		return traceInit(ray, center(node), halfLength(node));
 	}
@@ -3492,6 +3655,206 @@ class Tree
 		return ((cur & x) << Dim) | cur | x;
 	}
 
+	template <
+	    class Predicate, class HitFun,
+	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>              = true,
+	    std::enable_if_t<std::is_invocable_r_v<bool, HitFun, Node, float>, bool> = true>
+	[[nodiscard]] constexpr std::pair<Node, float> trace(
+	    Node node, TraceParams const& params, Predicate const& pred, HitFun hit_f,
+	    float near_clip, float far_clip, bool only_exists) const
+	{
+		using Filter = pred::Filter<Predicate>;
+
+		auto returnable = [&](Node const& node, float distance) {
+			return near_clip <= distance && Filter::returnable(pred, derived(), node) &&
+			       hit_f(node, distance);
+		};
+
+		constexpr auto const new_node_lut = []() {
+			std::array<std::array<unsigned, Dim>, BF> lut{};
+			for (unsigned cur{}; BF != cur; ++cur) {
+				for (unsigned dim{}; Dim != dim; ++dim) {
+					lut[cur][dim] = newNode(cur, dim);
+				}
+			}
+			return lut;
+		}();
+
+		auto t0 = params.t0;
+		auto t1 = params.t1;
+		auto tm = (t0 + t1) * 0.5f;
+		auto a  = params.a;
+
+		auto max_t0 = max(t0);
+		auto min_t1 = min(t1);
+
+		auto min_dist = std::max(0.0f, max_t0);
+		auto max_dist = min_t1;
+
+		if (max_t0 >= min_t1 || near_clip > max_dist || far_clip < min_dist) {
+			return std::pair<Node, float>(Node(), std::numeric_limits<float>::infinity());
+		} else if (returnable(node, min_dist)) {
+			return std::pair<Node, float>(node, min_dist);
+		}
+
+		if (only_exists) {
+			auto traversable = [&](Node const& node) {
+				return isParent(node.index) && Filter::traversable(pred, derived(), node);
+			};
+
+			if (!traversable(node)) {
+				return std::pair<Node, float>(Node(), std::numeric_limits<float>::infinity());
+			}
+
+			// TODO: Implement
+		} else {
+			auto traversable = [&](Node const& node) {
+				return !isPureLeaf(node.code) && Filter::traversable(pred, derived(), node);
+			};
+
+			if (!traversable(node)) {
+				return std::pair<Node, float>(Node(), std::numeric_limits<float>::infinity());
+			}
+
+			// TODO: Implement
+		}
+
+		// TODO: Continue from here
+
+		unsigned cur_node = firstNode(t0, tm);
+
+		std::array<TraceStackElement<Node>, maxNumDepthLevels()> stack;
+		stack[0] = {node, cur_node, t0, t1, tm};
+
+		for (int idx{}; 0 <= idx;) {
+			node     = stack[idx].node;
+			cur_node = stack[idx].cur_node;
+			t0       = stack[idx].t0;
+			t1       = stack[idx].t1;
+			tm       = stack[idx].tm;
+
+			node = child(node, cur_node ^ a);
+
+			for (unsigned i{}; Dim > i; ++i) {
+				t0[i] = (cur_node & (1u << i)) ? tm[i] : t0[i];
+				t1[i] = (cur_node & (1u << i)) ? t1[i] : tm[i];
+			}
+
+			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
+			idx -= BF <= stack[idx].cur_node;
+
+			if (0.0f > min(t1)) {
+				continue;
+			}
+
+			distance = UFO_MAX(0.0f, max(t0));
+
+			if (auto [hit, value] = hit_f(node, distance); hit) {
+				return value;
+			}
+
+			if (isLeaf(node) || !inner_f(node, distance)) {
+				continue;
+			}
+
+			tm = 0.5f * (t0 + t1);
+
+			cur_node = firstNode(t0, tm);
+
+			stack[++idx] = {node, cur_node, t0, t1, tm};
+		}
+
+		return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+	}
+
+	template <class InnerFun, class HitFun>
+	[[nodiscard]] constexpr std::pair<Index, float> trace(Index              node,
+	                                                      TraceParams const& params,
+	                                                      InnerFun           inner_f,
+	                                                      HitFun             hit_f) const
+	{
+		// TODO: Implement
+
+		constexpr auto const new_node_lut = []() {
+			std::array<std::array<unsigned, Dim>, BF> lut{};
+			for (unsigned cur{}; BF != cur; ++cur) {
+				for (unsigned dim{}; Dim != dim; ++dim) {
+					lut[cur][dim] = newNode(cur, dim);
+				}
+			}
+			return lut;
+		}();
+
+		auto t0 = params.t0;
+		auto t1 = params.t1;
+		auto a  = params.a;
+
+		if (max(t0) >= min(t1)) {
+			return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+		}
+
+		if (0.0f > min(t1)) {
+			return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+		}
+
+		float distance{};
+
+		if (auto const& [hit, value] = hit_f(node, distance); hit) {
+			return value;
+		}
+
+		if (isLeaf(node) || !inner_f(node, distance)) {
+			return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+		}
+
+		auto tm = 0.5f * (t0 + t1);
+
+		unsigned cur_node = firstNode(t0, tm);
+
+		std::array<TraceStackElement<Index>, maxNumDepthLevels()> stack;
+		stack[0] = {node, cur_node, t0, t1, tm};
+
+		for (int idx{}; 0 <= idx;) {
+			node     = stack[idx].node;
+			cur_node = stack[idx].cur_node;
+			t0       = stack[idx].t0;
+			t1       = stack[idx].t1;
+			tm       = stack[idx].tm;
+
+			node = child(node, cur_node ^ a);
+
+			for (unsigned i{}; Dim > i; ++i) {
+				t0[i] = (cur_node & (1u << i)) ? tm[i] : t0[i];
+				t1[i] = (cur_node & (1u << i)) ? t1[i] : tm[i];
+			}
+
+			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
+			idx -= BF <= stack[idx].cur_node;
+
+			if (0.0f > min(t1)) {
+				continue;
+			}
+
+			distance = UFO_MAX(0.0f, max(t0));
+
+			if (auto [hit, value] = hit_f(node, distance); hit) {
+				return value;
+			}
+
+			if (isLeaf(node) || !inner_f(node, distance)) {
+				continue;
+			}
+
+			tm = 0.5f * (t0 + t1);
+
+			cur_node = firstNode(t0, tm);
+
+			stack[++idx] = {node, cur_node, t0, t1, tm};
+		}
+
+		return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+	}
+
 	template <class InnerFun, class HitFun, class T>
 	[[nodiscard]] constexpr T trace(Index node, TraceParams const& params, InnerFun inner_f,
 	                                HitFun hit_f, T const& miss) const
@@ -3533,7 +3896,7 @@ class Tree
 
 		unsigned cur_node = firstNode(t0, tm);
 
-		std::array<TraceStackElement, maxNumDepthLevels()> stack;
+		std::array<TraceStackElement<Index>, maxNumDepthLevels()> stack;
 		stack[0] = {node, cur_node, t0, t1, tm};
 
 		for (int idx{}; 0 <= idx;) {
@@ -3596,28 +3959,17 @@ template <class Derived, std::size_t Dim, class Block, class... Blocks>
 bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
                 Tree<Derived, Dim, Block, Blocks...> const& rhs)
 {
-	if (lhs.num_depth_levels_ != rhs.num_depth_levels_ ||
-	    lhs.node_half_length_ != rhs.node_half_length_) {
-		return false;
-	}
-
-	auto pred     = pred::Offset(0);
-	auto lhs_it   = lhs.beginQuery(pred);
-	auto lhs_last = lhs.endQuery();
-	auto rhs_it   = rhs.beginQuery(pred);
-	auto rhs_last = rhs.endQuery();
-
-	for (; lhs_last != lhs_it && rhs_last != rhs_it; ++lhs_it, ++rhs_it) {
-		if (lhs_it->code != rhs_it->code ||
-		    lhs.treeBlock(lhs_it->index) != rhs.treeBlock(rhs_it->index) ||
-		    ((lhs.template data<Blocks>(lhs_it->index.pos) !=
-		      rhs.template data<Blocks>(rhs_it->index.pos)) ||
-		     ...)) {
-			return false;
-		}
-	}
-
-	return lhs_last == lhs_it && rhs_last == rhs_it;
+	return lhs.num_depth_levels_ == rhs.num_depth_levels_ &&
+	       lhs.node_half_length_ == rhs.node_half_length_ &&
+	       std::equal(lhs.begin(), lhs.end(), rhs.begin(), rhs.end(),
+	                  [&lhs, &rhs](TreeNode<Dim> const& a, TreeNode<Dim> const& b) {
+		                  return 0 != a.index.offset ||
+		                         (a.code == b.code &&
+		                          lhs.treeBlock(a.index) == rhs.treeBlock(b.index) &&
+		                          ((lhs.template data<Blocks>(a.index.pos) ==
+		                            rhs.template data<Blocks>(b.index.pos)) &&
+		                           ...));
+	                  });
 }
 
 template <class Derived, std::size_t Dim, class Block, class... Blocks>

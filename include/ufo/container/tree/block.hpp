@@ -44,6 +44,7 @@
 
 // UFO
 #include <ufo/container/tree/code.hpp>
+#include <ufo/container/tree/coord.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/geometry/shape/aabb.hpp>
 #include <ufo/math/vec.hpp>
@@ -179,7 +180,8 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 		}
 	}
 
-	[[nodiscard]] Point center(std::size_t offset, length_t half_length) const
+	[[nodiscard]] TreeCoord<Dim, float> center(std::size_t offset,
+	                                           length_t    half_length) const
 	{
 		Point ret;
 
@@ -188,7 +190,7 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 			                                         : center_[i] - half_length;
 		}
 
-		return ret;
+		return TreeCoord<Dim, float>(ret, this->depth());
 	}
 
 	[[nodiscard]] float centerAxis(std::size_t offset, length_t half_length,

@@ -34,13 +34,13 @@ TEST_CASE("[Octree] comparison")
 	SECTION("Equal")
 	{
 		Octree tree1(0.1f, 17);
-		tree1.create(Vec3f(0, 0, 0));
+		tree1.create(OctCoord(0, 0, 0));
 		tree1.clear();
 		Octree tree2(0.1f, 17);
 		REQUIRE(tree1 == tree2);
 
-		tree1.create(Vec3f(0));
-		tree2.create(Vec3f(0));
+		tree1.create(OctCoord(0));
+		tree2.create(OctCoord(0));
 		REQUIRE(tree1 == tree2);
 	}
 
@@ -48,7 +48,7 @@ TEST_CASE("[Octree] comparison")
 	{
 		Octree tree1(0.1f, 17);
 		Octree tree2(0.1f, 17);
-		tree2.create(Vec3f(0, 0, 0));
+		tree2.create(OctCoord(0, 0, 0));
 		Octree tree3(0.01f, 17);
 		Octree tree4(0.1f, 16);
 		REQUIRE(tree1 != tree2);
@@ -66,8 +66,8 @@ TEST_CASE("[Octree] with and without center")
 
 		REQUIRE(tree1.center(tree1.index()) == tree2.center(tree2.index()));
 
-		TreeIndex node1 = tree1.create(Vec3f(0, 0, 0));
-		TreeIndex node2 = tree2.create(Vec3f(0, 0, 0));
+		TreeIndex node1 = tree1.create(OctCoord(0, 0, 0));
+		TreeIndex node2 = tree2.create(OctCoord(0, 0, 0));
 
 		REQUIRE(tree1.center(node1) == tree2.center(node2));
 	}
@@ -79,8 +79,8 @@ TEST_CASE("[Octree] with and without center")
 
 		REQUIRE(tree1.centerAxis(tree1.index(), 2) == tree2.centerAxis(tree2.index(), 2));
 
-		TreeIndex node1 = tree1.create(Vec3f(0, 0, 0));
-		TreeIndex node2 = tree2.create(Vec3f(0, 0, 0));
+		TreeIndex node1 = tree1.create(OctCoord(0, 0, 0));
+		TreeIndex node2 = tree2.create(OctCoord(0, 0, 0));
 
 		REQUIRE(tree1.centerAxis(node1, 1) == tree2.centerAxis(node2, 1));
 	}
@@ -91,7 +91,7 @@ TEST_CASE("[Octree] swap")
 	using std::swap;
 
 	Octree tree1(0.1f, 17);
-	tree1.create(Vec3f(0, 0, 0));
+	tree1.create(OctCoord(0, 0, 0));
 
 	Octree tree2 = tree1;
 
@@ -110,7 +110,7 @@ TEST_CASE("[Octree] traverse")
 	{
 		Octree tree(0.1f, 17);
 		tree.traverse([](TreeIndex) { return true; });
-		tree.traverse(TreeCoord<3>(Vec3f(0), 15), [](TreeIndex) { return true; });
+		tree.traverse(TreeCoord<3>(OctCoord(0), 15), [](TreeIndex) { return true; });
 	}
 
 	SECTION("Node version")
@@ -121,9 +121,10 @@ TEST_CASE("[Octree] traverse")
 		              pred::True(), false);
 
 		tree.traverse(
-		    TreeCoord<3>(Vec3f(0), 15), [](TreeNode<3> const& node) { return true; }, true);
+		    TreeCoord<3>(OctCoord(0), 15), [](TreeNode<3> const& node) { return true; },
+		    true);
 		tree.traverse(
-		    TreeCoord<3>(Vec3f(0), 15),
+		    TreeCoord<3>(OctCoord(0), 15),
 		    [&tree](TreeNode<3> const& node) { return tree.depth(node) > 14; }, pred::True(),
 		    false);
 	}

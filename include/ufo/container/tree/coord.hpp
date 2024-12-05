@@ -60,43 +60,86 @@ struct TreeCoord : public Vec<Dim, T> {
 
 	depth_t depth{};
 
-	constexpr TreeCoord() = default;
+	constexpr TreeCoord() noexcept                       = default;
+	constexpr TreeCoord(TreeCoord const& ohter) noexcept = default;
+	constexpr TreeCoord(TreeCoord&&) noexcept            = default;
 
-	constexpr TreeCoord(T value) : Point(value) {}
-
-	constexpr TreeCoord(Point const& coord) : Point(coord) {}
-
-	constexpr TreeCoord(Point const& coord, depth_t depth) : Point(coord), depth(depth) {}
-
-	template <class... Args,
-	          std::enable_if_t<Point::size() == sizeof...(Args) || 1 == sizeof...(Args),
-	                           bool> = true>
-	constexpr TreeCoord(Args const&... args) : Point(args...)
+	template <std::size_t D, class U>
+	constexpr TreeCoord(TreeCoord<D, U> const& other) noexcept
+	    : Vec<Dim, T>(static_cast<Vec<D, U> const&>(other)), depth(other.depth)
 	{
 	}
 
-	template <class... Args,
-	          std::enable_if_t<Point::size() + 1 == sizeof...(Args), bool> = true>
-	constexpr TreeCoord(Args const&... args)
-	    : TreeCoord(std::integral_constant<std::size_t, Point::size()>{}, args...)
+	constexpr TreeCoord& operator=(TreeCoord const&) noexcept = default;
+	constexpr TreeCoord& operator=(TreeCoord&&) noexcept      = default;
+
+	template <std::size_t D, class U>
+	constexpr TreeCoord& operator=(TreeCoord const& rhs) noexcept
+	{
+		static_cast<Vec<Dim, T>&>(*this) = static_cast<Vec<D, U> const&>(rhs);
+		depth                            = rhs.depth;
+		return *this;
+	}
+
+	constexpr explicit TreeCoord(T value) noexcept : Point(value) {}
+
+	constexpr explicit TreeCoord(Point const& coord) noexcept : Point(coord) {}
+
+	constexpr TreeCoord(Point const& coord, depth_t depth) noexcept
+	    : Point(coord), depth(depth)
+	{
+	}
+
+	template <class... Args, std::enable_if_t<Dim == sizeof...(Args), bool> = true>
+	constexpr TreeCoord(Args&&... args) noexcept : Point(std::forward<Args>(args)...)
+	{
+	}
+
+	template <class... Args, std::enable_if_t<Dim + 1 == sizeof...(Args), bool> = true>
+	constexpr TreeCoord(Args&&... args) noexcept
+	    : TreeCoord(std::integral_constant<std::size_t, Dim>{}, std::forward<Args>(args)...)
 	{
 	}
 
  private:
 	template <std::size_t NumTimes, class First, class... Rest>
-	constexpr TreeCoord(std::integral_constant<std::size_t, NumTimes>, First const& first,
-	                    Rest const&... rest)
-	    : TreeCoord(std::integral_constant<std::size_t, NumTimes - 1>{}, rest..., first)
+	constexpr TreeCoord(std::integral_constant<std::size_t, NumTimes>, First&& first,
+	                    Rest&&... rest) noexcept
+	    : TreeCoord(std::integral_constant<std::size_t, NumTimes - 1>{},
+	                std::forward<Rest>(rest)..., std::forward<First>(first))
 	{
 	}
 
-	template <class Depth, class... PointArgs>
-	constexpr TreeCoord(std::integral_constant<std::size_t, 0>, Depth const& depth,
-	                    PointArgs const&... args)
-	    : Point(args...), depth(depth)
+	template <class Depth, class... Args>
+	constexpr TreeCoord(std::integral_constant<std::size_t, 0>, Depth&& depth,
+	                    Args&&... args) noexcept
+	    : Point(std::forward<Args>(args)...), depth(std::forward<Depth>(depth))
 	{
 	}
 };
+
+//
+// Deduction guide
+//
+
+template <std::size_t Dim, class T>
+TreeCoord(Vec<Dim, T>) -> TreeCoord<Dim, T>;
+
+template <std::size_t Dim, class T>
+TreeCoord(Vec<Dim, T>, unsigned) -> TreeCoord<Dim, T>;
+
+template <std::size_t Dim, class T>
+constexpr bool operator==(TreeCoord<Dim, T> const& lhs, TreeCoord<Dim, T> const& rhs)
+{
+	return lhs.depth == rhs.depth &&
+	       static_cast<Vec<Dim, T> const&>(lhs) == static_cast<Vec<Dim, T> const&>(rhs);
+}
+
+template <std::size_t Dim, class T>
+constexpr bool operator!=(TreeCoord<Dim, T> const& lhs, TreeCoord<Dim, T> const& rhs)
+{
+	return !(lhs == rhs);
+}
 
 template <std::size_t Dim, class T>
 std::ostream& operator<<(std::ostream& out, TreeCoord<Dim, T> const& tc)
