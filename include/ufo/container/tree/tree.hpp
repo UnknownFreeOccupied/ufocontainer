@@ -1052,6 +1052,33 @@ class Tree
 			// });
 
 			return nodes;
+		} else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
+			__block std::vector<Index> nodes(std::distance(first, last));
+
+			dispatch_apply(nodes.size(), dispatch_get_global_queue(0, 0), ^(std::size_t i) {
+				thread_local Index node = this->index();
+
+				// NOTE: `node` can be from last call to `create` (if the same thread still
+				// persists), so we need to check if the node is valid (i.e., has not been
+				// deleted). If it has been deleted, we set it to the root node.
+				// FIXME: Note sure if `valid` is thread safe
+				node          = valid(node) ? node : this->index();
+				Code cur_code = this->code(node);
+
+				Code    e            = this->code(*(first + i));
+				Code    code         = this->code(e);
+				depth_t wanted_depth = this->depth(code);
+				depth_t depth        = Code::depthWhereEqual(code, cur_code);
+
+				node = ancestor(node, depth);
+				for (; wanted_depth < depth; --depth) {
+					node = createChildThreadSafe(node, code.offset(depth - 1));
+				}
+
+				nodes[i] = node;
+			});
+
+			return nodes;
 		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
@@ -1067,7 +1094,7 @@ class Tree
 
 				node = ancestor(node, depth);
 				for (; wanted_depth < depth; --depth) {
-					node = createChild(node, code.offset(depth - 1));
+					node = createChildThreadSafe(node, code.offset(depth - 1));
 				}
 
 				nodes[i] = node;
