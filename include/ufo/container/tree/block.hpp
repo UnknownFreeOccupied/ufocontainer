@@ -134,13 +134,15 @@ struct TreeBlock {
 
 	[[nodiscard]] constexpr bool valid() const { return code_.valid(); }
 
-	template <std::size_t Dim2, std::size_t BF2, bool WithCenter2>
-	friend bool operator==(TreeBlock<Dim2, BF2, WithCenter2> const& lhs,
-	                       TreeBlock<Dim2, BF2, WithCenter2> const& rhs);
+	friend constexpr bool operator==(TreeBlock const& lhs, TreeBlock const& rhs)
+	{
+		return lhs.children == rhs.children && lhs.code_ == rhs.code_;
+	}
 
-	template <std::size_t Dim2, std::size_t BF2, bool WithCenter2>
-	friend bool operator!=(TreeBlock<Dim2, BF2, WithCenter2> const& lhs,
-	                       TreeBlock<Dim2, BF2, WithCenter2> const& rhs);
+	friend constexpr bool operator!=(TreeBlock const& lhs, TreeBlock const& rhs)
+	{
+		return !(lhs == rhs);
+	}
 
  private:
 	// Position of the parent block
@@ -180,8 +182,8 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 		}
 	}
 
-	[[nodiscard]] TreeCoord<Dim, float> center(std::size_t offset,
-	                                           length_t    half_length) const
+	[[nodiscard]] constexpr TreeCoord<Dim, float> center(std::size_t offset,
+	                                                     length_t    half_length) const
 	{
 		Point ret;
 
@@ -193,8 +195,8 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 		return TreeCoord<Dim, float>(ret, this->depth());
 	}
 
-	[[nodiscard]] float centerAxis(std::size_t offset, length_t half_length,
-	                               std::size_t axis) const
+	[[nodiscard]] constexpr float centerAxis(std::size_t offset, length_t half_length,
+	                                         std::size_t axis) const
 	{
 		assert(Dim > axis);
 
@@ -202,36 +204,21 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 		                                          : center_[axis] - half_length;
 	}
 
-	template <std::size_t Dim2, std::size_t BF2>
-	friend bool operator==(TreeBlock<Dim2, BF2, true> const& lhs,
-	                       TreeBlock<Dim2, BF2, true> const& rhs);
+	friend constexpr bool operator==(TreeBlock const& lhs, TreeBlock const& rhs)
+	{
+		return lhs.center_ == rhs.center_ &&
+		       static_cast<TreeBlock<Dim, BF, false> const&>(lhs) ==
+		           static_cast<TreeBlock<Dim, BF, false> const&>(rhs);
+	}
 
-	template <std::size_t Dim2, std::size_t BF2>
-	friend bool operator!=(TreeBlock<Dim2, BF2, true> const& lhs,
-	                       TreeBlock<Dim2, BF2, true> const& rhs);
+	friend constexpr bool operator!=(TreeBlock const& lhs, TreeBlock const& rhs)
+	{
+		return !(lhs == rhs);
+	}
 
  private:
 	Point center_;
 };
-
-template <std::size_t Dim, std::size_t BF, bool WithCenter>
-bool operator==(TreeBlock<Dim, BF, WithCenter> const& lhs,
-                TreeBlock<Dim, BF, WithCenter> const& rhs)
-{
-	bool center = true;
-	if constexpr (WithCenter) {
-		center = lhs.center_ == rhs.center_;
-	}
-
-	return center && lhs.children == rhs.children && lhs.code_ == rhs.code_;
-}
-
-template <std::size_t Dim, std::size_t BF, bool WithCenter>
-bool operator!=(TreeBlock<Dim, BF, WithCenter> const& lhs,
-                TreeBlock<Dim, BF, WithCenter> const& rhs)
-{
-	return !(lhs == rhs);
-}
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_BLOCK_HPP
