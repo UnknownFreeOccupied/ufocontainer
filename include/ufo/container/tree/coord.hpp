@@ -74,7 +74,7 @@ struct TreeCoord : public Vec<Dim, T> {
 	constexpr TreeCoord& operator=(TreeCoord&&) noexcept      = default;
 
 	template <std::size_t D, class U>
-	constexpr TreeCoord& operator=(TreeCoord const& rhs) noexcept
+	constexpr TreeCoord& operator=(TreeCoord<D, U> const& rhs) noexcept
 	{
 		static_cast<Vec<Dim, T>&>(*this) = static_cast<Vec<D, U> const&>(rhs);
 		depth                            = rhs.depth;
