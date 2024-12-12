@@ -44,6 +44,7 @@
 
 // UFO
 #include <ufo/math/detail/vec.hpp>
+#include <ufo/utility/type_traits.hpp>
 
 // STL
 #include <cstddef>
@@ -83,19 +84,27 @@ struct TreeCoord : public Vec<Dim, T> {
 
 	constexpr explicit TreeCoord(T value) noexcept : Point(value) {}
 
-	constexpr explicit TreeCoord(Point const& coord) noexcept : Point(coord) {}
+	template <std::size_t D, class U>
+	constexpr explicit TreeCoord(Vec<D, U> const& coord) noexcept : Point(coord)
+	{
+	}
 
-	constexpr TreeCoord(Point const& coord, depth_t depth) noexcept
+	template <std::size_t D, class U>
+	constexpr TreeCoord(Vec<D, U> const& coord, depth_t depth) noexcept
 	    : Point(coord), depth(depth)
 	{
 	}
 
-	template <class... Args, std::enable_if_t<Dim == sizeof...(Args), bool> = true>
+	template <class... Args,
+	          std::enable_if_t<Dim == sizeof...(Args) && (std::is_scalar_v<Args> && ...),
+	                           bool> = true>
 	constexpr TreeCoord(Args&&... args) noexcept : Point(std::forward<Args>(args)...)
 	{
 	}
 
-	template <class... Args, std::enable_if_t<Dim + 1 == sizeof...(Args), bool> = true>
+	template <class... Args, std::enable_if_t<Dim + 1 == sizeof...(Args) &&
+	                                              (std::is_scalar_v<Args> && ...),
+	                                          bool> = true>
 	constexpr TreeCoord(Args&&... args) noexcept
 	    : TreeCoord(std::integral_constant<std::size_t, Dim>{}, std::forward<Args>(args)...)
 	{
