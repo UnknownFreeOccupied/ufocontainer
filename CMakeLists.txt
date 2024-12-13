@@ -1,6 +1,6 @@
-option(UFO_CONTAINER_DOCS     "Generate documentation" OFF)
-option(UFO_CONTAINER_TESTING  "Unit testing"           OFF)
-option(UFO_CONTAINER_COVERAGE "Test Coverage"          OFF)
+option(UFOCONTAINER_BUILD_DOCS     "Generate documentation" OFF)
+option(UFOCONTAINER_BUILD_TESTS    "Unit testing"           OFF)
+option(UFOCONTAINER_BUILD_COVERAGE "Test Coverage"          OFF)
 
 add_library(Container INTERFACE)
 add_library(UFO::Container ALIAS Container)
@@ -21,11 +21,11 @@ target_include_directories(Container
 		$<INSTALL_INTERFACE:include>
 )
 
-if(UFO_TESTING OR UFO_CONTAINER_TESTING)
+if(UFO_BUILD_TESTS OR UFOCONTAINER_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-if(UFO_DOCS OR UFO_CONTAINER_DOCS)
+if(UFO_BUILD_DOCS OR UFOCONTAINER_BUILD_DOCS)
 	add_subdirectory(docs)
 endif()
 
