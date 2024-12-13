@@ -3970,7 +3970,7 @@ class Tree
 		return miss;
 	}
 
- protected:
+ private:
 	// The number of depth levels
 	depth_t num_depth_levels_;
 	// Half the maximum key value the tree can store
