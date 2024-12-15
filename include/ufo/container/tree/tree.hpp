@@ -46,6 +46,7 @@
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/container.hpp>
 #include <ufo/container/tree/coord.hpp>
+#include <ufo/container/tree/data.hpp>
 #include <ufo/container/tree/distance_node.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/container/tree/iterator.hpp>
@@ -55,12 +56,12 @@
 #include <ufo/container/tree/predicate.hpp>
 #include <ufo/container/tree/query_iterator.hpp>
 #include <ufo/container/tree/query_nearest_iterator.hpp>
+#include <ufo/execution/execution.hpp>
 #include <ufo/geometry/shape/aabb.hpp>
 #include <ufo/geometry/shape/ray.hpp>
 #include <ufo/math/math.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/bit_set.hpp>
-#include <ufo/utility/execution.hpp>
 #include <ufo/utility/io/buffer.hpp>
 #include <ufo/utility/iterator_wrapper.hpp>
 #include <ufo/utility/macros.hpp>
@@ -93,18 +94,20 @@ enum class NearestSearchAlgorithm { DEPTH_FIRST, A_STAR };
  * \tparam Dim ...
  * \tparam Ts ...
  */
-template <class Derived, std::size_t Dim, class Block, class... Blocks>
-class Tree
+template <class Derived, std::size_t Dim, bool GPU, class Block, class... Blocks>
+class Tree : public TreeData<GPU, Block, Blocks...>
 {
  protected:
 	//
 	// Friends
 	//
 
-	template <class, std::size_t, class, class...>
+	template <class, std::size_t, bool, class, class...>
 	friend class Tree;
 
 	static constexpr std::size_t const BF = ipow(std::size_t(2), Dim);
+
+	using Data = TreeData<GPU, Block, Blocks...>;
 
  public:
 	//
@@ -180,18 +183,6 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] TreeContainer<Block, Blocks...>& data() { return block_; }
-
-	[[nodiscard]] TreeContainer<Block, Blocks...> const& data() const { return block_; }
-
-	template <class Derived2, std::size_t Dim2, class Block2, class... Blocks2>
-	friend bool operator==(Tree<Derived2, Dim2, Block2, Blocks2...> const& lhs,
-	                       Tree<Derived2, Dim2, Block2, Blocks2...> const& rhs);
-
-	template <class Derived2, std::size_t Dim2, class Block2, class... Blocks2>
-	friend bool operator!=(Tree<Derived2, Dim2, Block2, Blocks2...> const& lhs,
-	                       Tree<Derived2, Dim2, Block2, Blocks2...> const& rhs);
-
 	/*!
 	 * @brief Returns the branching factor of the tree (i.e., 2 = binary tree, 4 = quadtree,
 	 * 8 = octree, 16 = hextree).
@@ -213,26 +204,29 @@ class Tree
 	 *
 	 * @return The number of nodes in the tree.
 	 */
-	[[nodiscard]] std::size_t size() const
-	{
-		return block_.numUsedBlocks() * BF - (BF - 1);
-	}
+	[[nodiscard]] std::size_t size() const { return Data::size() * BF - (BF - 1); }
 
 	/*!
 	 * @brief Increase the capacity of the tree to at least hold `num_nodes` nodes.
 	 *
 	 * @param num_nodes The new capacity.
 	 */
-	void reserve(std::size_t num_nodes) { block_.reserve(num_nodes / BF); }
+	void reserve(std::size_t num_nodes) { Data::reserve(num_nodes / BF); }
 
 	/*!
 	 * @brief Erases all nodes from the tree.
 	 */
 	void clear()
 	{
-		block_.clear();
+		Data::clear();
 		createRoot();
 		derived().onInitRoot();
+	}
+
+	void clear(length_t leaf_node_length, depth_t num_depth_levels)
+	{
+		init(leaf_node_length, num_depth_levels);
+		clear();
 	}
 
 	//
@@ -565,11 +559,6 @@ class Tree
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
-				// if (isRoot(node)) {
-				// 	return center();
-				// } else {
-				// 	return treeBlock(node).center(node.offset, halfLength(node));
-				// }
 				return isRoot(node) ? center()
 				                    : treeBlock(node).center(node.offset, halfLength(node));
 			} else {
@@ -975,32 +964,39 @@ class Tree
 
 		if constexpr (std::is_same_v<Index, value_type>) {
 			return std::vector<Index>(first, last);
-		} else if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-			std::vector<Index> nodes;
-
+		} else if constexpr (execution::is_seq_v<ExecutionPolicy> ||
+		                     execution::is_unseq_v<ExecutionPolicy>) {
 			Index node = this->index();
 			Code  code = this->code();
 
-			std::transform(first, last, std::back_inserter(nodes),
-			               [this, &node, &code](auto const& x) {
-				               Code    e            = this->code(x);
-				               depth_t wanted_depth = this->depth(e);
-				               depth_t depth        = Code::depthWhereEqual(code, e);
-				               code                 = e;
+			auto fun = [this, &node, &code](auto const& x) {
+				Code    e            = this->code(x);
+				depth_t wanted_depth = this->depth(e);
+				depth_t depth        = Code::depthWhereEqual(code, e);
+				code                 = e;
 
-				               node = ancestor(node, depth);
-				               for (; wanted_depth < depth; --depth) {
-					               node = createChild(node, code.offset(depth - 1));
-				               }
+				node = ancestor(node, depth);
+				for (; wanted_depth < depth; --depth) {
+					node = createChild(node, code.offset(depth - 1));
+				}
 
-				               return node;
-			               });
+				return node;
+			};
+
+			std::vector<Index> nodes;
+			if constexpr (execution::is_seq_v<ExecutionPolicy>) {
+				std::transform(first, last, std::back_inserter(nodes), fun);
+			} else {
+				nodes.resize(std::distance(first, last));
+				std::transform(UFO_PAR_STL_UNSEQ first, last, nodes.begin(), fun);
+			}
 
 			return nodes;
-		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
+		} else if constexpr (execution::is_par_v<ExecutionPolicy> ||
+		                     execution::is_par_unseq_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
-			std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
+			auto fun = [this](auto const& x) {
 				thread_local Index node = this->index();
 
 				// NOTE: `node` can be from last call to `create` (if the same thread still
@@ -1020,7 +1016,13 @@ class Tree
 				}
 
 				return node;
-			});
+			};
+
+			if constexpr (execution::is_par_v<ExecutionPolicy>) {
+				std::transform(UFO_PAR_STL_PAR first, last, nodes.begin(), fun);
+			} else {
+				std::transform(UFO_PAR_STL_PAR_UNSEQ first, last, nodes.begin(), fun);
+			}
 
 			// NOTE: Below is a little bit faster but weird
 
@@ -1053,8 +1055,9 @@ class Tree
 
 			return nodes;
 		}
-#if defined(UFO_GCD)
-		else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
+#if defined(UFO_PAR_GCD)
+		else if constexpr (execution::is_gcd_v<ExecutionPolicy> ||
+		                   execution::is_gcd_unseq_v<ExecutionPolicy>) {
 			__block std::vector<Index> nodes(std::distance(first, last));
 
 			dispatch_apply(nodes.size(), dispatch_get_global_queue(0, 0), ^(std::size_t i) {
@@ -1067,7 +1070,7 @@ class Tree
 				node          = valid(node) ? node : this->index();
 				Code cur_code = this->code(node);
 
-				Code    code            = this->code(*(first + i));
+				Code    code         = this->code(*(first + i));
 				depth_t wanted_depth = this->depth(code);
 				depth_t depth        = Code::depthWhereEqual(code, cur_code);
 
@@ -1082,7 +1085,13 @@ class Tree
 			return nodes;
 		}
 #endif
-		else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+		else if constexpr (execution::is_tbb_v<ExecutionPolicy> ||
+		                   execution::is_tbb_unseq_v<ExecutionPolicy>) {
+			// TODO: Implement
+			static_assert(dependent_false_v<ExecutionPolicy>,
+			              "Not implemented for the execution policy");
+		} else if constexpr (execution::is_omp_v<ExecutionPolicy> ||
+		                     execution::is_omp_unseq_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
 			Index node = this->index();
@@ -1138,7 +1147,7 @@ class Tree
 
 		Block& block = treeBlock(node);
 
-		pos_t children = block_.create();
+		pos_t children = Data::create();
 		initChildren(node, block, children);
 
 		return children;
@@ -1153,7 +1162,7 @@ class Tree
 		pos_t children;
 		if (block.children[node.offset].compare_exchange_strong(null_pos,
 		                                                        Index::PROCESSING_POS)) {
-			children = block_.createThreadSafe();
+			children = Data::createThreadSafe();
 			initChildren(node, block, children);
 		} else {
 			do {
@@ -1348,7 +1357,7 @@ class Tree
 	 * @param block the block to check
 	 * @return `true` if the block is valid, `false` otherwise.
 	 */
-	[[nodiscard]] bool valid(pos_t block) const { return block_.size() > block; }
+	[[nodiscard]] bool valid(pos_t block) const { return Data::valid(block); }
 
 	/*!
 	 * @brief Checks if an index is valid.
@@ -2213,27 +2222,44 @@ class Tree
 		auto center      = this->center(n);
 		auto half_length = halfLength(n);
 
-		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-			return std::transform(first, last, d_first, [&](Ray<Dim, ray_t> const& ray) {
+		if constexpr (execution::is_seq_v<ExecutionPolicy> ||
+		              execution::is_unseq_v<ExecutionPolicy> ||
+		              execution::is_par_v<ExecutionPolicy> ||
+		              execution::is_par_unseq_v<ExecutionPolicy>) {
+			auto fun = [&](Ray<Dim, ray_t> const& ray) {
 				auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
 					return hit_f(node, ray, distance);
 				};
 
 				auto params = traceInit(ray, center, half_length);
 				return trace(n, params, pred, wrapped_hit_f, min_dist, max_dist, only_exists);
-			});
-		} else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
-			return std::transform(
-			    UFO_TBB_PAR first, last, d_first, [&](Ray<Dim, ray_t> const& ray) {
-				    auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
-					    return hit_f(node, ray, distance);
-				    };
+			};
 
-				    auto params = traceInit(ray, center, half_length);
-				    return trace(n, ray, params, pred, wrapped_hit_f, min_dist, max_dist,
-				                 only_exists);
-			    });
-		} else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+			if constexpr (execution::is_seq_v<ExecutionPolicy>) {
+				return std::transform(UFO_PAR_STL_SEQ first, last, d_first, fun);
+			} else if constexpr (execution::is_unseq_v<ExecutionPolicy>) {
+				return std::transform(UFO_PAR_STL_UNSEQ first, last, d_first, fun);
+			} else if constexpr (execution::is_par_v<ExecutionPolicy>) {
+				return std::transform(UFO_PAR_STL_PAR first, last, d_first, fun);
+			} else {
+				return std::transform(UFO_PAR_STL_PAR_UNSEQ first, last, d_first, fun);
+			}
+		}
+#if defined(UFO_PAR_GCD)
+		else if constexpr (execution::is_gcd_v<ExecutionPolicy> ||
+		                   execution::is_gcd_unseq_v<ExecutionPolicy>) {
+			// TODO: Implement
+			static_assert(dependent_false_v<ExecutionPolicy>,
+			              "Not implemented for the execution policy");
+		}
+#endif
+		else if constexpr (execution::is_tbb_v<ExecutionPolicy> ||
+		                   execution::is_tbb_unseq_v<ExecutionPolicy>) {
+			// TODO: Implement
+			static_assert(dependent_false_v<ExecutionPolicy>,
+			              "Not implemented for the execution policy");
+		} else if constexpr (execution::is_omp_v<ExecutionPolicy> ||
+		                     execution::is_omp_unseq_v<ExecutionPolicy>) {
 			std::size_t const size = std::distance(first, last);
 #pragma omp parallel for
 			for (std::size_t i = 0; size > i; ++i) {
@@ -2323,6 +2349,20 @@ class Tree
 		}
 	}
 
+	/**************************************************************************************
+	|                                                                                     |
+	|                                     Comparison                                      |
+	|                                                                                     |
+	**************************************************************************************/
+
+	template <class Derived2, std::size_t Dim2, bool GPU2, class Block2, class... Blocks2>
+	friend bool operator==(Tree<Derived2, Dim2, GPU2, Block2, Blocks2...> const& lhs,
+	                       Tree<Derived2, Dim2, GPU2, Block2, Blocks2...> const& rhs);
+
+	template <class Derived2, std::size_t Dim2, bool GPU2, class Block2, class... Blocks2>
+	friend bool operator!=(Tree<Derived2, Dim2, GPU2, Block2, Blocks2...> const& lhs,
+	                       Tree<Derived2, Dim2, GPU2, Block2, Blocks2...> const& rhs);
+
  protected:
 	/**************************************************************************************
 	|                                                                                     |
@@ -2332,6 +2372,13 @@ class Tree
 
 	Tree(length_t leaf_node_length, depth_t num_depth_levels)
 	{
+		init(leaf_node_length, num_depth_levels);
+
+		createRoot();
+	}
+
+	void init(length_t leaf_node_length, depth_t num_depth_levels)
+	{
 		if (minNumDepthLevels() > num_depth_levels ||
 		    maxNumDepthLevels() < num_depth_levels) {
 			throw std::invalid_argument("'num_depth_levels' has to be in range [" +
@@ -2339,8 +2386,7 @@ class Tree
 			                            std::to_string(+maxNumDepthLevels()) + "], '" +
 			                            std::to_string(+num_depth_levels) + "' was supplied.");
 		}
-		if (static_cast<length_t>(0) >= leaf_node_length ||
-		    !std::isfinite(leaf_node_length)) {
+		if (length_t(0) >= leaf_node_length || !std::isfinite(leaf_node_length)) {
 			throw std::invalid_argument(
 			    "'leaf_node_length' has to be finite and greater than zero, '" +
 			    std::to_string(leaf_node_length) + "' was supplied.");
@@ -2352,25 +2398,22 @@ class Tree
 			    std::to_string(std::ldexp(leaf_node_length, num_depth_levels - 1)) +
 			    "' was supplied.");
 		}
-		if (static_cast<length_t>(0) >=
-		    static_cast<length_t>(1) / std::ldexp(leaf_node_length, -1)) {
+		if (length_t(0) >= length_t(1) / std::ldexp(leaf_node_length, -1)) {
 			throw std::invalid_argument(
 			    "The reciprocal of half 'leaf_node_length' (i.e., 1 / (leaf_node_length / 2)) "
 			    "has to be a greater than zero, '" +
-			    std::to_string(static_cast<length_t>(1) / std::ldexp(leaf_node_length, -1)) +
+			    std::to_string(length_t(1) / std::ldexp(leaf_node_length, -1)) +
 			    "' was supplied.");
 		}
 
 		num_depth_levels_ = num_depth_levels;
-		half_max_value_   = static_cast<key_t>(1) << (num_depth_levels - 2);
+		half_max_value_   = key_t(1) << (num_depth_levels - 2);
 
 		// For increased precision
 		for (int i{}; node_half_length_.size() > i; ++i) {
 			node_half_length_[i]            = std::ldexp(leaf_node_length, i - 1);
-			node_half_length_reciprocal_[i] = static_cast<length_t>(1) / node_half_length_[i];
+			node_half_length_reciprocal_[i] = length_t(1) / node_half_length_[i];
 		}
-
-		createRoot();
 	}
 
 	/**************************************************************************************
@@ -2382,9 +2425,9 @@ class Tree
 	void swap(Tree& other)
 	{
 		using std::swap;
+		swap(static_cast<Data&>(*this), static_cast<Data&>(other));
 		swap(num_depth_levels_, other.num_depth_levels_);
 		swap(half_max_value_, other.half_max_value_);
-		swap(block_, other.block_);
 		swap(node_half_length_, other.node_half_length_);
 		swap(node_half_length_reciprocal_, other.node_half_length_reciprocal_);
 	}
@@ -2420,7 +2463,7 @@ class Tree
 
 	void createRoot()
 	{
-		pos_t p = block_.create();
+		pos_t p = Data::create();
 		treeBlock(p) =
 		    Block(Index::NULL_POS, code(), parentCenter(center(), halfLength(), 0), length());
 	}
@@ -2431,36 +2474,18 @@ class Tree
 	|                                                                                     |
 	**************************************************************************************/
 
-	template <class T>
-	[[nodiscard]] T& data(pos_t block)
-	{
-		return block_.template get<T>(block);
-	}
-
-	template <class T>
-	[[nodiscard]] T const& data(pos_t block) const
-	{
-		return block_.template get<T>(block);
-	}
-
-	template <class T>
-	[[nodiscard]] T const& dataConst(pos_t block) const
-	{
-		return data(block);
-	}
-
 	[[nodiscard]] Block& treeBlock(pos_t block)
 	{
 		assert(valid(block));
 
-		return data<Block>(block);
+		return Data::template data<Block>(block);
 	}
 
 	[[nodiscard]] Block const& treeBlock(pos_t block) const
 	{
 		assert(valid(block));
 
-		return data<Block>(block);
+		return Data::template data<Block>(block);
 	}
 
 	[[nodiscard]] Block const& treeBlockConst(pos_t block) const
@@ -2761,7 +2786,7 @@ class Tree
 	 */
 	[[nodiscard]] bool allPureLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return 0 == treeBlock(block).depth();
 	}
@@ -2774,7 +2799,7 @@ class Tree
 	 */
 	[[nodiscard]] bool anyPureLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return 0 == treeBlock(block).depth();
 	}
@@ -2787,7 +2812,7 @@ class Tree
 	 */
 	[[nodiscard]] bool nonePureLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return 0 != treeBlock(block).depth();
 	}
@@ -2801,7 +2826,7 @@ class Tree
 	 */
 	[[nodiscard]] bool somePureLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return false;
 	}
@@ -2814,7 +2839,7 @@ class Tree
 	 */
 	[[nodiscard]] bool allLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return std::all_of(treeBlock(block).children.begin(), treeBlock(block).children.end(),
 		                   [](auto const& e) {
@@ -2831,7 +2856,7 @@ class Tree
 	 */
 	[[nodiscard]] bool anyLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return std::any_of(treeBlock(block).children.begin(), treeBlock(block).children.end(),
 		                   [](auto const& e) {
@@ -2848,7 +2873,7 @@ class Tree
 	 */
 	[[nodiscard]] bool noneLeaf(pos_t block) const
 	{
-		assert(block_.size() > block);
+		assert(valid(block));
 
 		return std::none_of(treeBlock(block).children.begin(),
 		                    treeBlock(block).children.end(), [](auto const& e) {
@@ -2985,7 +3010,7 @@ class Tree
 		derived().onPruneChildren(node, children);
 		// Important that derived is pruned first in case they use parent code
 		treeBlock(children) = Block();
-		block_.eraseBlock(children);
+		Data::eraseBlock(children);
 	}
 
 	//
@@ -3976,18 +4001,15 @@ class Tree
 	// Half the maximum key value the tree can store
 	key_t half_max_value_;
 
-	// Blocks
-	TreeContainer<Block, Blocks...> block_;
-
 	// Stores the node half length at a given depth, where the index is the depth
 	std::array<length_t, maxNumDepthLevels() + 1> node_half_length_;
 	// Reciprocal of the node half length at a given depth, where the index is the depth
 	std::array<length_t, maxNumDepthLevels() + 1> node_half_length_reciprocal_;
 };
 
-template <class Derived, std::size_t Dim, class Block, class... Blocks>
-bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
-                Tree<Derived, Dim, Block, Blocks...> const& rhs)
+template <class Derived, std::size_t Dim, bool GPU, class Block, class... Blocks>
+bool operator==(Tree<Derived, Dim, GPU, Block, Blocks...> const& lhs,
+                Tree<Derived, Dim, GPU, Block, Blocks...> const& rhs)
 {
 	return lhs.num_depth_levels_ == rhs.num_depth_levels_ &&
 	       lhs.node_half_length_ == rhs.node_half_length_ &&
@@ -4002,16 +4024,16 @@ bool operator==(Tree<Derived, Dim, Block, Blocks...> const& lhs,
 	                  });
 }
 
-template <class Derived, std::size_t Dim, class Block, class... Blocks>
-bool operator!=(Tree<Derived, Dim, Block, Blocks...> const& lhs,
-                Tree<Derived, Dim, Block, Blocks...> const& rhs)
+template <class Derived, std::size_t Dim, bool GPU, class Block, class... Blocks>
+bool operator!=(Tree<Derived, Dim, GPU, Block, Blocks...> const& lhs,
+                Tree<Derived, Dim, GPU, Block, Blocks...> const& rhs)
 {
 	return !(lhs == rhs);
 }
 
-template <class Derived, std::size_t Dim, class Block, class... Blocks>
-void swap(Tree<Derived, Dim, Block, Blocks...>& lhs,
-          Tree<Derived, Dim, Block, Blocks...>& rhs)
+template <class Derived, std::size_t Dim, bool GPU, class Block, class... Blocks>
+void swap(Tree<Derived, Dim, GPU, Block, Blocks...>& lhs,
+          Tree<Derived, Dim, GPU, Block, Blocks...>& rhs)
 {
 	lhs.swap(rhs);
 }

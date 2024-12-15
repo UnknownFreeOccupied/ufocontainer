@@ -61,8 +61,8 @@ TEST_CASE("[Octree] comparison")
 
 TEST_CASE("[Octree] create")
 {
-	std::vector<Vec3f> v;
-	std::mt19937       gen(42);
+	std::vector<Vec3f>                    v;
+	std::mt19937                          gen(42);
 	std::uniform_real_distribution<float> dis_x(-20.0f, 20.0f);
 	std::uniform_real_distribution<float> dis_y(-20.0f, 20.0f);
 	std::uniform_real_distribution<float> dis_z(0.0f, 4.0f);
@@ -70,29 +70,61 @@ TEST_CASE("[Octree] create")
 		v.emplace_back(dis_x(gen), dis_y(gen), dis_z(gen));
 	}
 
-	Octree tree1(0.1f, 17);
-	Octree tree2(0.1f, 17);
+	Octree tree_seq(0.1f, 17);
+	Octree tree_par(0.1f, 17);
+	Octree tree_omp(0.1f, 17);
 
-	auto const t1 = std::chrono::high_resolution_clock::now();
-	auto       n1 = tree1.create(v.begin(), v.end());
-	auto const t2 = std::chrono::high_resolution_clock::now();
-	auto       n2 = tree2.create(execution::par, v.begin(), v.end());
-	auto const t3 = std::chrono::high_resolution_clock::now();
+	auto start = std::chrono::high_resolution_clock::now();
+	auto n_seq = tree_seq.create(execution::seq, v.begin(), v.end());
+	auto stop  = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> seq_ms = stop - start;
 
-	std::chrono::duration<double, std::milli> const serial_ms   = t2 - t1;
-	std::chrono::duration<double, std::milli> const parallel_ms = t3 - t2;
-	std::cout << "Serial:   " << serial_ms.count() << " ms\n";
-	std::cout << "Parallel: " << parallel_ms.count() << " ms\n";
+	start      = std::chrono::high_resolution_clock::now();
+	auto n_par = tree_par.create(execution::par, v.begin(), v.end());
+	stop       = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> par_ms = stop - start;
 
-	std::vector<OctCode> c1;
-	std::vector<OctCode> c2;
+	start      = std::chrono::high_resolution_clock::now();
+	auto n_omp = tree_omp.create(execution::omp, v.begin(), v.end());
+	stop       = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> omp_ms = stop - start;
 
-	std::transform(n1.begin(), n1.end(), std::back_inserter(c1),
-	               [&tree1](auto n) { return tree1.code(n); });
-	std::transform(n2.begin(), n2.end(), std::back_inserter(c2),
-	               [&tree2](auto n) { return tree2.code(n); });
+	std::cout << "Seq (1st iter): " << seq_ms.count() << " ms\n";
+	std::cout << "Par (1st iter): " << par_ms.count() << " ms\n";
+	std::cout << "OMP (1st iter): " << omp_ms.count() << " ms\n";
 
-	REQUIRE(c1 == c2);
+	start  = std::chrono::high_resolution_clock::now();
+	n_seq  = tree_seq.create(execution::seq, v.begin(), v.end());
+	stop   = std::chrono::high_resolution_clock::now();
+	seq_ms = stop - start;
+
+	start  = std::chrono::high_resolution_clock::now();
+	n_par  = tree_par.create(execution::par, v.begin(), v.end());
+	stop   = std::chrono::high_resolution_clock::now();
+	par_ms = stop - start;
+
+	start  = std::chrono::high_resolution_clock::now();
+	n_omp  = tree_omp.create(execution::omp, v.begin(), v.end());
+	stop   = std::chrono::high_resolution_clock::now();
+	omp_ms = stop - start;
+
+	std::cout << "Seq (2nd iter): " << seq_ms.count() << " ms\n";
+	std::cout << "Par (2nd iter): " << par_ms.count() << " ms\n";
+	std::cout << "OMP (2nd iter): " << omp_ms.count() << " ms\n";
+
+	std::vector<OctCode> c_seq;
+	std::vector<OctCode> c_par;
+	std::vector<OctCode> c_omp;
+
+	std::transform(n_seq.begin(), n_seq.end(), std::back_inserter(c_seq),
+	               [&tree_seq](auto n) { return tree_seq.code(n); });
+	std::transform(n_par.begin(), n_par.end(), std::back_inserter(c_par),
+	               [&tree_par](auto n) { return tree_par.code(n); });
+	std::transform(n_omp.begin(), n_omp.end(), std::back_inserter(c_omp),
+	               [&tree_omp](auto n) { return tree_omp.code(n); });
+
+	REQUIRE(c_seq == c_par);
+	REQUIRE(c_seq == c_omp);
 
 	SECTION("SERIAL") {}
 

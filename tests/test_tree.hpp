@@ -50,11 +50,12 @@ namespace ufo
 {
 template <std::size_t Dim, bool WithCenter = false>
 class TestTree
-    : public Tree<TestTree<Dim, WithCenter>, Dim,
+    : public Tree<TestTree<Dim, WithCenter>, Dim, false,
                   TreeBlock<Dim, std::size_t(1) << Dim, WithCenter>>
 {
  protected:
-	using Base = Tree<TestTree, Dim, TreeBlock<Dim, std::size_t(1) << Dim, WithCenter>>;
+	using Base =
+	    Tree<TestTree, Dim, false, TreeBlock<Dim, std::size_t(1) << Dim, WithCenter>>;
 
  public:
 	using Index    = typename Base::Index;

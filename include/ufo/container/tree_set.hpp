@@ -51,7 +51,7 @@
 #include <ufo/container/tree/set/query_nearest_iterator.hpp>
 #include <ufo/container/tree/tree.hpp>
 #include <ufo/geometry/dynamic_geometry.hpp>
-#include <ufo/utility/execution.hpp>
+#include <ufo/execution/execution.hpp>
 
 // STL
 #include <array>
@@ -63,11 +63,11 @@ namespace ufo
 {
 template <std::size_t Dim>
 class TreeSet
-    : protected Tree<TreeSet<Dim>, Dim, TreeSetBlock<Dim, std::size_t(1) << Dim>>
+    : protected Tree<TreeSet<Dim>, Dim, false, TreeSetBlock<Dim, std::size_t(1) << Dim>>
 {
  protected:
 	using Block = TreeSetBlock<Dim, std::size_t(1) << Dim>;
-	using Base  = Tree<TreeSet, Dim, Block>;
+	using Base  = Tree<TreeSet, Dim, false, Block>;
 
 	//
 	// Friends

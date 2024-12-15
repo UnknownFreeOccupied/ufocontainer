@@ -6,7 +6,8 @@ add_library(Container INTERFACE)
 add_library(UFO::Container ALIAS Container)
 
 target_link_libraries(Container 
-	INTERFACE 
+	INTERFACE
+		UFO::Execution
 		UFO::Geometry 
 		UFO::Morton 
 		UFO::Utility
