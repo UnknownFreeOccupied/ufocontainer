@@ -56,7 +56,7 @@
 
 namespace ufo
 {
-template <bool GPU, class... Ts>
+template <class Derived, bool GPU, class... Ts>
 class TreeData
 {
  public:
@@ -140,11 +140,12 @@ class TreeData
 
 #if defined(UFO_WEBGPU)
 
-template <class Block, class... Blocks>
-class TreeData<true, Block, Blocks...> : public TreeData<false, Block, Blocks...>
+template <class Derived, class Block, class... Blocks>
+class TreeData<Derived, true, Block, Blocks...>
+    : public TreeData<Derived, false, Block, Blocks...>
 {
  private:
-	using Base = TreeData<false, Block, Blocks...>;
+	using Base = TreeData<Derived, false, Block, Blocks...>;
 
 	static constexpr std::size_t const NumBuffers = 1 + sizeof...(Blocks);
 
@@ -233,6 +234,13 @@ class TreeData<true, Block, Blocks...> : public TreeData<false, Block, Blocks...
 	{
 		return buffers_[index_v<T, Block, Blocks...>];
 	}
+
+	// template <class Predicate>
+	// void gpuUpdateBuffers(Predicate const& pred)
+	// {
+	// 	// TODO: Implement
+	// 	derived().onGpuUpdateBuffers(pred);
+	// }
 
 	void gpuUpdateBuffers()
 	{
@@ -340,8 +348,8 @@ class TreeData<true, Block, Blocks...> : public TreeData<false, Block, Blocks...
 	std::size_t tree_buffer_size_ = 2'147'483'648;
 };
 
-template <bool GPU, class... Ts>
-void swap(TreeData<GPU, Ts...>& lhs, TreeData<GPU, Ts...>& rhs)
+template <class Derived, bool GPU, class... Ts>
+void swap(TreeData<Derived, GPU, Ts...>& lhs, TreeData<Derived, GPU, Ts...>& rhs)
 {
 	lhs.swap(rhs);
 }
