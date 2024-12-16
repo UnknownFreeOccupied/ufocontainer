@@ -167,54 +167,50 @@ class TreeData<Derived, true, Block, Blocks...>
 		return true;
 	}
 
-	bool gpuInit(WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device,
-	             WGPUQueue queue)
+	bool gpuInit(WGPUDevice device)
 	{
 		if (nullptr != device_) {
 			return false;
 		}
 
-		assert(nullptr != instance);
-		assert(nullptr != adapter);
 		assert(nullptr != device);
-		assert(nullptr != queue);
 
 		// Increase reference count
-		wgpuInstanceReference(instance);
-		wgpuAdapterReference(adapter);
 		wgpuDeviceReference(device);
-		wgpuQueueReference(queue);
 
-		instance_ = instance;
-		adapter_  = adapter;
-		device_   = device;
-		queue_    = queue;
+		device_ = device;
+		queue_  = compute::queue(device);
 
 		return true;
 	}
 
 	void gpuRelease()
 	{
-		for (WGPUBuffer buf : buffers_) {
+		for (WGPUBuffer& buf : buffers_) {
 			if (nullptr != buf) {
 				wgpuBufferRelease(buf);
+				buf = nullptr;
 			}
 		}
 
 		if (nullptr != queue_) {
 			wgpuQueueRelease(queue_);
+			queue_ = nullptr;
 		}
 
 		if (nullptr != device_) {
 			wgpuDeviceRelease(device_);
+			device_ = nullptr;
 		}
 
 		if (nullptr != adapter_) {
 			wgpuAdapterRelease(adapter_);
+			adapter_ = nullptr;
 		}
 
 		if (nullptr != instance_) {
 			wgpuInstanceRelease(instance_);
+			instance_ = nullptr;
 		}
 	}
 
