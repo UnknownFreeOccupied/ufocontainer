@@ -7,6 +7,7 @@ add_library(UFO::Container ALIAS Container)
 
 target_link_libraries(Container 
 	INTERFACE
+		UFO::Compute
 		UFO::Execution
 		UFO::Geometry 
 		UFO::Morton 

@@ -43,17 +43,16 @@
 #define UFO_CONTAINER_TREE_DATA_HPP
 
 // UFO
+#include <ufo/compute/compute.hpp>
 #include <ufo/container/tree/container.hpp>
 #include <ufo/container/tree/index.hpp>
 #include <ufo/utility/type_traits.hpp>
 
 // STL
+#include <cstddef>
+#include <cstdint>
+#include <cstring>
 #include <utility>
-
-// WebGPU
-#if defined(UFO_WEBGPU)
-#include <webgpu/webgpu.h>
-#endif
 
 namespace ufo
 {
@@ -141,27 +140,56 @@ class TreeData
 
 #if defined(UFO_WEBGPU)
 
-template <class... Ts>
-class TreeData<true, Ts...> : public TreeData<false, Ts...>
+template <class Block, class... Blocks>
+class TreeData<true, Block, Blocks...> : public TreeData<false, Block, Blocks...>
 {
  private:
-	using Base = TreeData<false, Ts...>;
+	using Base = TreeData<false, Block, Blocks...>;
 
 	static constexpr std::size_t const NumBuffers = 1 + sizeof...(Blocks);
 
  public:
 	~TreeData() { gpuRelease(); }
 
-	// TODO: Add extra methods
-
-	void gpuInit(WGPUPowerPreference power_preference = WGPUPowerPreference_HighPerformance,
+	bool gpuInit(WGPUPowerPreference power_preference = WGPUPowerPreference_HighPerformance,
 	             WGPUBackendType     backend_type     = WGPUBackendType_Undefined)
 	{
+		if (nullptr != device_) {
+			return false;
+		}
+
 		instance_ = compute::createInstance();
 		adapter_ = compute::createAdapter(instance_, nullptr, power_preference, backend_type);
 		device_  = compute::createDevice(adapter_, requiredLimits(adapter_));
 		queue_   = compute::queue(device_);
-		// TODO: Implement
+
+		return true;
+	}
+
+	bool gpuInit(WGPUInstance instance, WGPUAdapter adapter, WGPUDevice device,
+	             WGPUQueue queue)
+	{
+		if (nullptr != device_) {
+			return false;
+		}
+
+		assert(nullptr != instance);
+		assert(nullptr != adapter);
+		assert(nullptr != device);
+		assert(nullptr != queue);
+
+		// Increase reference count
+		wgpuInstanceReference(instance);
+		wgpuAdapterReference(adapter);
+		wgpuDeviceReference(device);
+		wgpuQueueReference(queue);
+
+		instance_ = instance;
+		adapter_  = adapter;
+		device_   = device;
+		queue_    = queue;
+
+		return true;
 	}
 
 	void gpuRelease()
@@ -172,13 +200,12 @@ class TreeData<true, Ts...> : public TreeData<false, Ts...>
 			}
 		}
 
-		if (!borrowed_device_) {
-			if (nullptr != queue_) {
-				wgpuQueueRelease(queue_);
-			}
-			if (nullptr != device_) {
-				wgpuDeviceRelease(device_);
-			}
+		if (nullptr != queue_) {
+			wgpuQueueRelease(queue_);
+		}
+
+		if (nullptr != device_) {
+			wgpuDeviceRelease(device_);
 		}
 
 		if (nullptr != adapter_) {
@@ -190,18 +217,11 @@ class TreeData<true, Ts...> : public TreeData<false, Ts...>
 		}
 	}
 
-	[[nodiscard]] WGPUDevice gpuDevice() { device_; }
+	[[nodiscard]] WGPUInstance gpuInstance() const { return instance_; }
 
-	void gpuDevice(WGPUDevice device)
-	{
-		release();
-		device_ = device;
-		queue_  = wgpuDeviceGetQueue(device);
+	[[nodiscard]] WGPUAdapter gpuAdapter() const { return adapter_; }
 
-		// TODO: Create buffers
-
-		// TODO: Mark every block as modified in data_
-	}
+	[[nodiscard]] WGPUDevice gpuDevice() const { return device_; }
 
 	[[nodiscard]] std::array<WGPUBuffer, NumBuffers> const& gpuBuffers() const
 	{
@@ -211,31 +231,51 @@ class TreeData<true, Ts...> : public TreeData<false, Ts...>
 	template <class T>
 	[[nodiscard]] WGPUBuffer gpuBuffer() const
 	{
-		return buffers_[index_v<T, Ts...>];
+		return buffers_[index_v<T, Block, Blocks...>];
 	}
 
-	void gpuUpdateBuffers() { (gpuUpdateBuffer<Ts>(), ...); }
+	void gpuUpdateBuffers()
+	{
+		gpuUpdateBuffer<Block>();
+		(gpuUpdateBuffer<Blocks>(), ...);
+	}
 
 	template <class T>
 	void gpuUpdateBuffer()
 	{
-		// TODO: Implement
-
-		WGPUBuffer buffer = buffers_[index_v<T, Ts...>];
+		WGPUBuffer& buffer = buffers_[index_v<T, Block, Blocks...>];
 
 		if (nullptr == buffer) {
-			gpuInit();
-		}
+			double size_factor = sizeof(T) / static_cast<double>(sizeof(Block));
 
-		std::size_t size                = map_.block_.serializedBucketSize<MapBlock<3, 8>>();
-		std::size_t offset              = 0;
-		std::size_t num_buckets_written = 0;
-		for (auto it = map_.block_.beginBucket<MapBlock<3, 8>>();
-		     map_.block_.endBucket<MapBlock<3, 8>>() != it; ++it, offset += size) {
-			if (it->modified) {
-				wgpuQueueWriteBuffer(queue_, buffer, offset, it->data.data(), size);
-				it->modified = false;
-				++num_buckets_written;
+			std::size_t content_size =
+			    static_cast<std::uint64_t>(size_factor * tree_buffer_size_);
+
+			buffer = compute::createBuffer(
+			    device_, content_size, WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst, true);
+
+			assert(nullptr != buffer);
+
+			void* buf = wgpuBufferGetMappedRange(buffer, 0, content_size);
+
+			constexpr std::size_t const size = this->data_.template serializedBucketSize<T>();
+			for (auto& bucket : this->data_.template iterBucket<T>()) {
+				std::memcpy(buf, bucket.data.data(), size);
+				buf             = static_cast<unsigned char*>(buf) + size;
+				bucket.modified = false;
+			}
+
+			wgpuBufferUnmap(buffer);
+		} else {
+			std::size_t size   = this->data_.template serializedBucketSize<T>();
+			std::size_t offset = 0;
+			for (auto it   = this->data_.template beginBucket<T>(),
+			          last = this->data_.template endBucket<T>();
+			     last != it; ++it, offset += size) {
+				if (it->modified) {
+					wgpuQueueWriteBuffer(queue_, buffer, offset, it->data.data(), size);
+					it->modified = false;
+				}
 			}
 		}
 	}
@@ -244,14 +284,16 @@ class TreeData<true, Ts...> : public TreeData<false, Ts...>
 	{
 		using std::swap;
 		swap(static_cast<Base&>(*this), static_cast<Base&>(other));
+		swap(instance_, other.instance_);
+		swap(adapter_, other.adapter_);
+		swap(device_, other.device_);
+		swap(queue_, other.queue_);
+		swap(buffers_, other.buffers_);
 	}
 
  private:
-	WGPURequiredLimits requiredLimits(WGPUAdapter adapter) const
+	WGPURequiredLimits requiredLimits(WGPUAdapter adapter)
 	{
-		// TODO: Implement
-
-		// Get adapter supported limits, in case we need them
 		WGPUSupportedLimits supported{};
 		supported.nextInChain = nullptr;
 		wgpuAdapterGetLimits(adapter, &supported);
@@ -266,55 +308,36 @@ class TreeData<true, Ts...> : public TreeData<false, Ts...>
 		required.limits.minStorageBufferOffsetAlignment =
 		    supported.limits.minStorageBufferOffsetAlignment;
 
-		required.limits.maxBindGroups = 2;
+		tree_buffer_size_ = std::min(
+		    tree_buffer_size_, static_cast<std::size_t>(supported.limits.maxBufferSize));
+		tree_buffer_size_ =
+		    std::min(tree_buffer_size_,
+		             static_cast<std::size_t>(supported.limits.maxStorageBufferBindingSize));
 
-		required.limits.maxBufferSize               = 2'147'483'648;
-		required.limits.maxStorageBufferBindingSize = 2'147'483'648;
+		required.limits.maxBufferSize               = tree_buffer_size_;
+		required.limits.maxStorageBufferBindingSize = tree_buffer_size_;
 
-		required.limits.maxComputeWorkgroupSizeX          = 32;
-		required.limits.maxComputeWorkgroupSizeY          = 4;
-		required.limits.maxComputeWorkgroupSizeZ          = 1;
-		required.limits.maxComputeInvocationsPerWorkgroup = 32;
-		required.limits.maxComputeWorkgroupsPerDimension  = 31250;
+		required.limits.maxComputeWorkgroupStorageSize    = 16352;
+		required.limits.maxComputeInvocationsPerWorkgroup = 256;
+		required.limits.maxComputeWorkgroupSizeX          = 256;
+		required.limits.maxComputeWorkgroupSizeY          = 256;
+		required.limits.maxComputeWorkgroupSizeZ          = 64;
+		required.limits.maxComputeWorkgroupsPerDimension  = 65535;
 
-		required.limits.maxUniformBuffersPerShaderStage = 1;
-		// TODO: required.limits.maxUniformBufferBindingSize     = sizeof(uniform_);
-
-		required.limits.maxTextureDimension1D            = 4096;
-		required.limits.maxTextureDimension2D            = 4096;
-		required.limits.maxTextureDimension3D            = 1;
-		required.limits.maxTextureArrayLayers            = 1;
-		required.limits.maxSampledTexturesPerShaderStage = 1;
-		required.limits.maxSamplersPerShaderStage        = 1;
-
-		// // We use at most 2 vertex attributes
-		// required.limits.maxVertexAttributes = 2;
-		// // We should also tell that we use 1 vertex buffers
-		// required.limits.maxVertexBuffers = 1;
-		// // Maximum size of a buffer is 6 vertices of 5 float each
-		// // Maximum stride between 2 consecutive vertices in the vertex buffer
-		// required.limits.maxVertexBufferArrayStride = 5 * sizeof(float);
-
-		// // There is a maximum of 3 float forwarded from vertex to fragment shader
-		// required.limits.maxInterStageShaderComponents = 3;
-
-		// // We use at most 1 bind group for now
-		// required.limits.maxBindGroups = 1;
-		// // We use at most 1 uniform buffer per stage
-		// required.limits.maxUniformBuffersPerShaderStage = 1;
-		// // Uniform structs have a size of maximum 16 float (more than what we need)
-		// required.limits.maxUniformBufferBindingSize = 16 * 4;
+		required.limits.maxUniformBuffersPerShaderStage = 12;
+		required.limits.maxUniformBufferBindingSize     = 16 << 10;  // (16 KiB)
 
 		return required;
 	}
 
  protected:
-	WGPUInstance                       instance_        = nullptr;
-	WGPUAdapter                        adapter_         = nullptr;
-	bool                               borrowed_device_ = false;
-	WGPUDevice                         device_          = nullptr;
-	WGPUQueue                          queue_           = nullptr;
+	WGPUInstance                       instance_ = nullptr;
+	WGPUAdapter                        adapter_  = nullptr;
+	WGPUDevice                         device_   = nullptr;
+	WGPUQueue                          queue_    = nullptr;
 	std::array<WGPUBuffer, NumBuffers> buffers_{};
+
+	std::size_t tree_buffer_size_ = 2'147'483'648;
 };
 
 template <bool GPU, class... Ts>

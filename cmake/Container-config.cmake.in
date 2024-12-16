@@ -1,7 +1,8 @@
 @PACKAGE_INIT@
 
-# Depends on Execution, Geometry, Morton, Utility, and Vision components
+# Depends on Compute, Execution, Geometry, Morton, Utility, and Vision components
 # FIXME: This is a bit hacky
+include("${CMAKE_CURRENT_LIST_DIR}/Compute-config.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Execution-config.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Geometry-config.cmake")
 include("${CMAKE_CURRENT_LIST_DIR}/Morton-config.cmake")
