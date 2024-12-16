@@ -95,7 +95,7 @@ enum class NearestSearchAlgorithm { DEPTH_FIRST, A_STAR };
  * \tparam Ts ...
  */
 template <class Derived, std::size_t Dim, bool GPU, class Block, class... Blocks>
-class Tree : public TreeData<GPU, Block, Blocks...>
+class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 {
  protected:
 	//
@@ -107,7 +107,7 @@ class Tree : public TreeData<GPU, Block, Blocks...>
 
 	static constexpr std::size_t const BF = ipow(std::size_t(2), Dim);
 
-	using Data = TreeData<GPU, Block, Blocks...>;
+	using Data = TreeData<Derived, GPU, Block, Blocks...>;
 
  public:
 	//
