@@ -52,6 +52,14 @@
 namespace ufo
 {
 struct TreeIndex {
+	// 64 bits instead, either
+	// 	32 bits X high levels
+	// 	32 bits Y low levels
+	// or
+	//  32-Dim bits X high levels
+	//  32 bits Y low levels
+	//  Dim bits for offset
+
 	using pos_t    = std::uint32_t;
 	using offset_t = std::uint32_t;
 
