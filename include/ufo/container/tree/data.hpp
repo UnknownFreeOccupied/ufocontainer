@@ -50,7 +50,6 @@
 
 // STL
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
 #include <utility>
 
@@ -231,6 +230,14 @@ class TreeData<Derived, true, Block, Blocks...>
 		return buffers_[index_v<T, Block, Blocks...>];
 	}
 
+	template <class T>
+	[[nodiscard]] std::size_t gpuBufferSize() const
+	{
+		double      size_factor  = sizeof(T) / static_cast<double>(sizeof(Block));
+		std::size_t content_size = static_cast<std::size_t>(size_factor * tree_buffer_size_);
+		return compute::bufferPaddedSize(content_size);
+	}
+
 	// template <class Predicate>
 	// void gpuUpdateBuffers(Predicate const& pred)
 	// {
@@ -249,11 +256,13 @@ class TreeData<Derived, true, Block, Blocks...>
 	{
 		WGPUBuffer& buffer = buffers_[index_v<T, Block, Blocks...>];
 
+			std::size_t size   = this->data_.template serializedBucketSize<T>();
+
 		if (nullptr == buffer) {
 			double size_factor = sizeof(T) / static_cast<double>(sizeof(Block));
 
 			std::size_t content_size =
-			    static_cast<std::uint64_t>(size_factor * tree_buffer_size_);
+			    static_cast<std::size_t>(size_factor * tree_buffer_size_);
 
 			buffer = compute::createBuffer(
 			    device_, content_size, WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst, true);
@@ -262,7 +271,6 @@ class TreeData<Derived, true, Block, Blocks...>
 
 			void* buf = wgpuBufferGetMappedRange(buffer, 0, content_size);
 
-			constexpr std::size_t const size = this->data_.template serializedBucketSize<T>();
 			for (auto& bucket : this->data_.template iterBucket<T>()) {
 				std::memcpy(buf, bucket.data.data(), size);
 				buf             = static_cast<unsigned char*>(buf) + size;
@@ -271,7 +279,6 @@ class TreeData<Derived, true, Block, Blocks...>
 
 			wgpuBufferUnmap(buffer);
 		} else {
-			std::size_t size   = this->data_.template serializedBucketSize<T>();
 			std::size_t offset = 0;
 			for (auto it   = this->data_.template beginBucket<T>(),
 			          last = this->data_.template endBucket<T>();
@@ -283,6 +290,14 @@ class TreeData<Derived, true, Block, Blocks...>
 			}
 		}
 	}
+
+	//
+	// Tree
+	//
+
+	[[nodiscard]] WGPUBuffer gpuTreeBuffer() const { return gpuBuffer<Block>(); }
+
+	[[nodiscard]] std::size_t gpuTreeBufferSize() const { return gpuBufferSize<Block>(); }
 
 	void swap(TreeData& other)
 	{
