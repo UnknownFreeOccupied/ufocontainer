@@ -177,7 +177,8 @@ class TreeSetQueryNearestIterator
 	}
 
  private:
-	[[nodiscard]] bool returnable(value_type const& value) const
+	[[nodiscard]] bool returnable(
+	    typename std::iterator_traits<RawIterator>::value_type const& value) const
 	{
 		return Filter::returnable(pred_, value);
 	}
