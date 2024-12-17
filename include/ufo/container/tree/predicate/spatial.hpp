@@ -45,6 +45,7 @@
 // UFO
 #include <ufo/container/tree/predicate/filter.hpp>
 #include <ufo/geometry/contains.hpp>
+#include <ufo/geometry/inside.hpp>
 #include <ufo/geometry/intersects.hpp>
 #include <ufo/utility/type_traits.hpp>
 
