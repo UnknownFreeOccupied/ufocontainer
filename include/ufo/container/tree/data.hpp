@@ -219,6 +219,8 @@ class TreeData<Derived, true, Block, Blocks...>
 
 	[[nodiscard]] WGPUDevice gpuDevice() const { return device_; }
 
+	[[nodiscard]] WGPUQueue gpuQueue() const { return queue_; }
+
 	[[nodiscard]] std::array<WGPUBuffer, NumBuffers> const& gpuBuffers() const
 	{
 		return buffers_;
@@ -256,7 +258,7 @@ class TreeData<Derived, true, Block, Blocks...>
 	{
 		WGPUBuffer& buffer = buffers_[index_v<T, Block, Blocks...>];
 
-			std::size_t size   = this->data_.template serializedBucketSize<T>();
+		std::size_t size = this->data_.template serializedBucketSize<T>();
 
 		if (nullptr == buffer) {
 			double size_factor = sizeof(T) / static_cast<double>(sizeof(Block));
