@@ -952,7 +952,33 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class InputIt>
 	std::vector<Index> create(InputIt first, InputIt last)
 	{
-		return create(execution::seq, first, last);
+		using value_type = std::decay_t<typename std::iterator_traits<InputIt>::value_type>;
+
+		if constexpr (std::is_same_v<Index, value_type>) {
+			return std::vector<Index>(first, last);
+		} else {
+			std::vector<Index> nodes;
+
+			Index node = this->index();
+			Code  code = this->code();
+
+			std::transform(first, last, std::back_inserter(nodes),
+			               [this, &node, &code](auto const& x) {
+				               Code    e            = this->code(x);
+				               depth_t wanted_depth = this->depth(e);
+				               depth_t depth        = Code::depthWhereEqual(code, e);
+				               code                 = e;
+
+				               node = ancestor(node, depth);
+				               for (; wanted_depth < depth; --depth) {
+					               node = createChild(node, code.offset(depth - 1));
+				               }
+
+				               return node;
+			               });
+
+			return nodes;
+		}
 	}
 
 	template <
@@ -964,100 +990,40 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		if constexpr (std::is_same_v<Index, value_type>) {
 			return std::vector<Index>(first, last);
-		} else if constexpr (execution::is_seq_v<ExecutionPolicy> ||
-		                     execution::is_unseq_v<ExecutionPolicy>) {
-			Index node = this->index();
-			Code  code = this->code();
-
-			auto fun = [this, &node, &code](auto const& x) {
-				Code    e            = this->code(x);
-				depth_t wanted_depth = this->depth(e);
-				depth_t depth        = Code::depthWhereEqual(code, e);
-				code                 = e;
-
-				node = ancestor(node, depth);
-				for (; wanted_depth < depth; --depth) {
-					node = createChild(node, code.offset(depth - 1));
-				}
-
-				return node;
-			};
-
-			std::vector<Index> nodes;
-			if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-				std::transform(first, last, std::back_inserter(nodes), fun);
-			} else {
-				nodes.resize(std::distance(first, last));
-				std::transform(UFO_PAR_STL_UNSEQ first, last, nodes.begin(), fun);
-			}
-
-			return nodes;
-		} else if constexpr (execution::is_par_v<ExecutionPolicy> ||
-		                     execution::is_par_unseq_v<ExecutionPolicy>) {
+		} else if constexpr (execution::is_stl_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
-			auto fun = [this](auto const& x) {
-				thread_local Index node = this->index();
+			std::transform(execution::toSTL(policy), first, last, nodes.begin(),
+			               [this](auto const& x) {
+				               thread_local Index node = this->index();
 
-				// NOTE: `node` can be from last call to `create` (if the same thread still
-				// persists), so we need to check if the node is valid (i.e., has not been
-				// deleted). If it has been deleted, we set it to the root node.
-				// FIXME: Note sure if `valid` is thread safe
-				node          = valid(node) ? node : this->index();
-				Code cur_code = this->code(node);
+				               // NOTE: `node` can be from last call to `create` (if the same
+				               // thread still persists), so we need to check if the node is valid
+				               // (i.e., has not been deleted). If it has been deleted, we set it
+				               // to the root node.
+				               // FIXME: Note sure if `valid` is thread safe
+				               node          = valid(node) ? node : this->index();
+				               Code cur_code = this->code(node);
 
-				Code    code         = this->code(x);
-				depth_t wanted_depth = this->depth(code);
-				depth_t depth        = Code::depthWhereEqual(code, cur_code);
+				               Code    code         = this->code(x);
+				               depth_t wanted_depth = this->depth(code);
+				               depth_t depth        = Code::depthWhereEqual(code, cur_code);
 
-				node = ancestor(node, depth);
-				for (; wanted_depth < depth; --depth) {
-					node = createChildThreadSafe(node, code.offset(depth - 1));
-				}
+				               node = ancestor(node, depth);
+				               for (; wanted_depth < depth; --depth) {
+					               node = createChildThreadSafe(node, code.offset(depth - 1));
+				               }
 
-				return node;
-			};
-
-			if constexpr (execution::is_par_v<ExecutionPolicy>) {
-				std::transform(UFO_PAR_STL_PAR first, last, nodes.begin(), fun);
-			} else {
-				std::transform(UFO_PAR_STL_PAR_UNSEQ first, last, nodes.begin(), fun);
-			}
-
-			// NOTE: Below is a little bit faster but weird
-
-			// static std::size_t CALLS = 0;
-			// ++CALLS;
-
-			// std::transform(UFO_TBB_PAR first, last, nodes.begin(), [this](auto const& x) {
-			// 	thread_local std::size_t THREAD_CALLS = 0;
-
-			// 	thread_local Index node;
-			// 	thread_local Code  cur_code;
-
-			// 	if (CALLS != THREAD_CALLS) {
-			// 		THREAD_CALLS = CALLS;
-			// 		node         = this->index();
-			// 		cur_code     = this->code();
-			// 	}
-
-			// 	Code    code         = this->code(x);
-			// 	depth_t wanted_depth = this->depth(code);
-			// 	depth_t depth        = Code::depthWhereEqual(code, cur_code);
-
-			// 	node = ancestor(node, depth);
-			// 	for (; wanted_depth < depth; --depth) {
-			// 		node = createChildThreadSafe(node, code.offset(depth - 1));
-			// 	}
-
-			// 	return node;
-			// });
+				               return node;
+			               });
 
 			return nodes;
+		} else if constexpr (execution::is_seq_v<ExecutionPolicy> ||
+		                     execution::is_unseq_v<ExecutionPolicy>) {
+			return create(first, last);
 		}
 #if defined(UFO_PAR_GCD)
-		else if constexpr (execution::is_gcd_v<ExecutionPolicy> ||
-		                   execution::is_gcd_unseq_v<ExecutionPolicy>) {
+		else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
 			__block std::vector<Index> nodes(std::distance(first, last));
 
 			dispatch_apply(nodes.size(), dispatch_get_global_queue(0, 0), ^(std::size_t i) {
@@ -1085,13 +1051,40 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return nodes;
 		}
 #endif
-		else if constexpr (execution::is_tbb_v<ExecutionPolicy> ||
-		                   execution::is_tbb_unseq_v<ExecutionPolicy>) {
-			// TODO: Implement
-			static_assert(dependent_false_v<ExecutionPolicy>,
-			              "Not implemented for the execution policy");
-		} else if constexpr (execution::is_omp_v<ExecutionPolicy> ||
-		                     execution::is_omp_unseq_v<ExecutionPolicy>) {
+#if defined(UFO_PAR_TBB)
+		else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
+			std::vector<Index> nodes(std::distance(first, last));
+
+			oneapi::tbb::parallel_for(std::size_t(0), std::size_t(nodes.size()),
+			                          [this, first, &nodes](std::size_t i) {
+				                          thread_local Index node = this->index();
+
+				                          // NOTE: `node` can be from last call to `create` (if
+				                          // the same thread still persists), so we need to
+				                          // check if the node is valid (i.e., has not been
+				                          // deleted). If it has been deleted, we set it to the
+				                          // root node.
+				                          // FIXME: Note sure if `valid` is thread safe
+				                          node          = valid(node) ? node : this->index();
+				                          Code cur_code = this->code(node);
+
+				                          Code    code         = this->code(*(first + i));
+				                          depth_t wanted_depth = this->depth(code);
+				                          depth_t depth = Code::depthWhereEqual(code, cur_code);
+
+				                          node = ancestor(node, depth);
+				                          for (; wanted_depth < depth; --depth) {
+					                          node = createChildThreadSafe(node,
+					                                                       code.offset(depth - 1));
+				                          }
+
+				                          nodes[i] = node;
+			                          });
+
+			return nodes;
+		}
+#endif
+		else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
 			std::vector<Index> nodes(std::distance(first, last));
 
 			Index node = this->index();
@@ -1099,7 +1092,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 #pragma omp parallel for firstprivate(node, code)
 			for (std::size_t i = 0; nodes.size() > i; ++i) {
-				Code    e            = this->code(*(first + i));
+				Code    e            = this->code(first[i]);
 				depth_t wanted_depth = this->depth(e);
 				depth_t depth        = Code::depthWhereEqual(code, e);
 				code                 = e;
@@ -1293,7 +1286,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	{
 		using T = std::decay_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			// NOTE: PROCESSING_POS is one less than NULL_POS
+			static_assert(TreeIndex::PROCESSING_POS <= TreeIndex::NULL_POS);
 			return TreeIndex::PROCESSING_POS <= children(node);
 		} else {
 			return isLeaf(index(node));
@@ -2093,6 +2086,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	               float max_dist    = std::numeric_limits<float>::max(),
 	               bool  only_exists = true) const
 	{
+		// TODO: Implement
 		return trace(execution::seq, node, first, last, d_first, pred, hit_f, min_dist,
 		             max_dist, only_exists);
 	}
@@ -2143,6 +2137,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max(),
 	    bool only_exists = true) const
 	{
+		// TODO: Implement
 		return trace(execution::seq, node, first, last, pred, hit_f, min_dist, max_dist,
 		             only_exists);
 	}
@@ -2222,10 +2217,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		auto center      = this->center(n);
 		auto half_length = halfLength(n);
 
-		if constexpr (execution::is_seq_v<ExecutionPolicy> ||
-		              execution::is_unseq_v<ExecutionPolicy> ||
-		              execution::is_par_v<ExecutionPolicy> ||
-		              execution::is_par_unseq_v<ExecutionPolicy>) {
+		if constexpr (execution::is_stl_v<ExecutionPolicy>) {
 			auto fun = [&](Ray<Dim, ray_t> const& ray) {
 				auto wrapped_hit_f = [&ray, hit_f](Node const& node, float distance) {
 					return hit_f(node, ray, distance);
@@ -2235,31 +2227,23 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 				return trace(n, params, pred, wrapped_hit_f, min_dist, max_dist, only_exists);
 			};
 
-			if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-				return std::transform(UFO_PAR_STL_SEQ first, last, d_first, fun);
-			} else if constexpr (execution::is_unseq_v<ExecutionPolicy>) {
-				return std::transform(UFO_PAR_STL_UNSEQ first, last, d_first, fun);
-			} else if constexpr (execution::is_par_v<ExecutionPolicy>) {
-				return std::transform(UFO_PAR_STL_PAR first, last, d_first, fun);
-			} else {
-				return std::transform(UFO_PAR_STL_PAR_UNSEQ first, last, d_first, fun);
-			}
+			return std::transform(execution::toSTL(policy), first, last, d_first, fun);
 		}
 #if defined(UFO_PAR_GCD)
-		else if constexpr (execution::is_gcd_v<ExecutionPolicy> ||
-		                   execution::is_gcd_unseq_v<ExecutionPolicy>) {
+		else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
 			// TODO: Implement
 			static_assert(dependent_false_v<ExecutionPolicy>,
 			              "Not implemented for the execution policy");
 		}
 #endif
-		else if constexpr (execution::is_tbb_v<ExecutionPolicy> ||
-		                   execution::is_tbb_unseq_v<ExecutionPolicy>) {
+#if defined(UFO_PAR_TBB)
+		else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
 			// TODO: Implement
 			static_assert(dependent_false_v<ExecutionPolicy>,
 			              "Not implemented for the execution policy");
-		} else if constexpr (execution::is_omp_v<ExecutionPolicy> ||
-		                     execution::is_omp_unseq_v<ExecutionPolicy>) {
+		}
+#endif
+		else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
 			std::size_t const size = std::distance(first, last);
 #pragma omp parallel for
 			for (std::size_t i = 0; size > i; ++i) {

@@ -176,9 +176,9 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 	{
 		Base::fill(parent_block, static_cast<Base const&>(parent), offset, half_length);
 
-		for (std::size_t i{}; Point::size() > i; ++i) {
-			center_[i] = (offset & std::size_t(1u << i)) ? parent.center_[i] + half_length
-			                                             : parent.center_[i] - half_length;
+		for (std::size_t i{}; Dim > i; ++i) {
+			center_[i] = (offset & (std::size_t(1) << i)) ? parent.center_[i] + half_length
+			                                              : parent.center_[i] - half_length;
 		}
 	}
 
@@ -187,9 +187,9 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 	{
 		Point ret;
 
-		for (std::size_t i{}; Point::size() > i; ++i) {
-			ret[i] = (offset & std::size_t(1u << i)) ? center_[i] + half_length
-			                                         : center_[i] - half_length;
+		for (std::size_t i{}; Dim > i; ++i) {
+			ret[i] = (offset & (std::size_t(1) << i)) ? center_[i] + half_length
+			                                          : center_[i] - half_length;
 		}
 
 		return TreeCoord<Dim, float>(ret, this->depth());
@@ -200,8 +200,8 @@ struct TreeBlock<Dim, BF, true> : TreeBlock<Dim, BF, false> {
 	{
 		assert(Dim > axis);
 
-		return (offset & std::size_t(1u << axis)) ? center_[axis] + half_length
-		                                          : center_[axis] - half_length;
+		return (offset & (std::size_t(1) << axis)) ? center_[axis] + half_length
+		                                           : center_[axis] - half_length;
 	}
 
 	friend constexpr bool operator==(TreeBlock const& lhs, TreeBlock const& rhs)

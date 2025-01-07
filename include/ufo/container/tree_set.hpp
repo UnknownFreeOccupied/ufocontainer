@@ -413,6 +413,7 @@ class TreeSet
 	template <class InputIt>
 	void insert(InputIt first, InputIt last)
 	{
+		// TODO: Implement
 		insert(execution::seq, first, last);
 	}
 

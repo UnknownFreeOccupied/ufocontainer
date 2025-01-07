@@ -442,7 +442,16 @@ class TreeMap
 	template <class InputIt>
 	void insert(InputIt first, InputIt last)
 	{
-		insert(execution::seq, first, last);
+		std::vector<Point> points;
+
+		std::transform(first, last, std::back_inserter(points),
+		               [](auto const& v) { return v.first; });
+
+		auto nodes = Base::create(points.begin(), points.end());
+
+		for (std::size_t i{}; first != last; ++i, ++first) {
+			insert(nodes[i], *first);
+		}
 	}
 
 	template <
@@ -450,45 +459,50 @@ class TreeMap
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	void insert(ExecutionPolicy&& policy, RandomIt first, RandomIt last)
 	{
-		// FIXME: Optimize
-
 		std::vector<Point> points(std::distance(first, last));
 
-		if constexpr (execution::is_seq_v<ExecutionPolicy>) {
-			std::transform(UFO_PAR_STL_SEQ first, last, points.begin(),
-			               [](auto const& v) { return v.first; });
-		} else if constexpr (execution::is_unseq_v<ExecutionPolicy>) {
-			std::transform(UFO_PAR_STL_UNSEQ first, last, points.begin(),
-			               [](auto const& v) { return v.first; });
-		} else if constexpr (execution::is_par_v<ExecutionPolicy>) {
-			std::transform(UFO_PAR_STL_PAR first, last, points.begin(),
-			               [](auto const& v) { return v.first; });
-		} else if constexpr (execution::is_par_unseq_v<ExecutionPolicy>) {
-			std::transform(UFO_PAR_STL_PAR_UNSEQ first, last, points.begin(),
+		if constexpr (execution::is_stl_v<ExecutionPolicy>) {
+			std::transform(execution::toSTL(policy), first, last, points.begin(),
 			               [](auto const& v) { return v.first; });
 		}
 #if defined(UFO_PAR_GCD)
-		else if constexpr (execution::is_gcd_v<ExecutionPolicy> ||
-		                   execution::is_gcd_unseq_v<ExecutionPolicy>) {
+		else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
 			// TODO: Implement
 			static_assert(dependent_false_v<ExecutionPolicy>,
 			              "insert not implemented for that execution policy");
 		}
 #endif
-		else if constexpr (execution::is_tbb_v<ExecutionPolicy> ||
-		                   execution::is_tbb_unseq_v<ExecutionPolicy>) {
+#if defined(UFO_PAR_TBB)
+		else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
 			// TODO: Implement
 			static_assert(dependent_false_v<ExecutionPolicy>,
 			              "insert not implemented for that execution policy");
-		} else if constexpr (execution::is_omp_v<ExecutionPolicy> ||
-		                     execution::is_omp_unseq_v<ExecutionPolicy>) {
+		}
+#endif
+		else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
+			if constexpr (execution::is_seq_v<ExecutionPolicy>) {
+				for (std::size_t i = 0; points.size() > i; ++i) {
+					points[i] = first[i].first;
+				}
+			} else if constexpr (execution::is_unseq_v<ExecutionPolicy>) {
+#pragma omp simd
+				for (std::size_t i = 0; points.size() > i; ++i) {
+					points[i] = first[i].first;
+				}
+			} else if constexpr (execution::is_par_v<ExecutionPolicy>) {
 #pragma omp parallel for
-			for (std::size_t i = 0; points.size() > i; ++i) {
-				points[i] = (first + i)->first;
+				for (std::size_t i = 0; points.size() > i; ++i) {
+					points[i] = first[i].first;
+				}
+			} else if constexpr (execution::is_par_unseq_v<ExecutionPolicy>) {
+#pragma omp parallel for simd
+				for (std::size_t i = 0; points.size() > i; ++i) {
+					points[i] = first[i].first;
+				}
 			}
 		} else {
 			static_assert(dependent_false_v<ExecutionPolicy>,
-			              "insert not implemented for that execution policy");
+			              "Not implemented for the execution policy");
 		}
 
 		auto nodes =

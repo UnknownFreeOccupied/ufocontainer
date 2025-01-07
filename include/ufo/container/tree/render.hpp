@@ -42,8 +42,119 @@
 #ifndef UFO_CONTAINER_TREE_RENDER_HPP
 #define UFO_CONTAINER_TREE_RENDER_HPP
 
+// UFO
+#include <ufo/container/tree/node.hpp>
+#include <ufo/container/tree/predicate.hpp>
+#include <ufo/utility/type_traits.hpp>
+#include <ufo/vision/camera.hpp>
+
+// STL
+#include <utility>
+
 namespace ufo
 {
+//
+// New
+//
+
+template <class Map, class Predicate = pred::True,
+          std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool> = true>
+[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
+    Map const& map, Camera const& camera, Predicate const& pred = pred::True{},
+    bool only_exists = true)
+{
+	return render(map.code(), map, camera, pred, only_exists);
+}
+
+template <class NodeType, class Map, class Predicate = pred::True,
+          std::enable_if_t<Map::template is_node_type_v<NodeType>, bool> = true,
+          std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>        = true>
+[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
+    NodeType const& node, Map const& map, Camera const& camera,
+    Predicate const& pred = pred::True{}, bool only_exists = true)
+{
+	if constexpr (2 == Map::dimensions()) {
+		// TODO: Implement
+	} else if constexpr (3 == Map::dimensions()) {
+		return map.trace(node, camera.rays(), pred, only_exists);
+	} else if constexpr (4 == Map::dimensions()) {
+		// TODO: Implement
+	} else {
+		static_assert(dependent_false<Map>, "Does not supprt dimensions");
+	}
+}
+
+template <
+    class ExecutionPolicy, class Map, class Predicate = pred::True,
+    std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>                   = true,
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
+    ExecutionPolicy&& policy, Map const& map, Camera const& camera,
+    Predicate const& pred = pred::True{}, bool only_exists = true)
+{
+	return render(std::forward<ExecutionPolicy>(policy), map.code(), map, camera, pred,
+	              only_exists);
+}
+
+template <
+    class ExecutionPolicy, class NodeType, class Map, class Predicate = pred::True,
+    std::enable_if_t<Map::template is_node_type_v<NodeType>, bool>            = true,
+    std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>                   = true,
+    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
+    ExecutionPolicy&& policy, NodeType const& node, Map const& map, Camera const& camera,
+    Predicate const& pred = pred::True{}, bool only_exists = true)
+{
+	if constexpr (2 == Map::dimensions()) {
+		// TODO: Implement
+	} else if constexpr (3 == Map::dimensions()) {
+		return map.trace(policy, node, camera.rays(policy), pred, only_exists);
+	} else if constexpr (4 == Map::dimensions()) {
+		// TODO: Implement
+	} else {
+		static_assert(dependent_false<Map>, "Does not supprt dimensions");
+	}
+}
+
+template <class Map, class Predicate = pred::True,
+          std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool> = true>
+[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> renderGPU(
+    Map const& map, Camera const& camera, Predicate const& pred = pred::True{},
+    bool only_exists = true)
+{
+	return renderGPU(map.code(), map, camera, pred, only_exists);
+}
+
+template <class NodeType, class Map, class Predicate = pred::True,
+          std::enable_if_t<Map::template is_node_type_v<NodeType>, bool> = true,
+          std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>        = true>
+[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> renderGPU(
+    NodeType const& node, Map const& map, Camera const& camera,
+    Predicate pred = pred::True{}, bool only_exists = true)
+{
+	using Filter = pred::Filter<Predicate>;
+
+	Filter::init(pred, map);
+
+	// TODO: Init GPU
+
+	// TODO: Add shader to some list
+
+	// TODO: Call
+
+	std::pair<Image<typename Map::Node>, Image<float>> ret;
+
+	auto& nodes  = ret.first;
+	auto& depths = ret.second;
+
+	nodes.resize(camera.width, camera.height);
+	depths.resize(camera.width, camera.height);
+
+	// TODO: Implement
+
+	return ret;
+}
+
 //
 // Quadtree
 //

@@ -70,13 +70,20 @@ TEST_CASE("[Octree] create")
 		v.emplace_back(dis_x(gen), dis_y(gen), dis_z(gen));
 	}
 
+	Octree tree(0.1f, 17);
 	Octree tree_seq(0.1f, 17);
 	Octree tree_par(0.1f, 17);
+	Octree tree_tbb(0.1f, 17);
 	Octree tree_omp(0.1f, 17);
 
 	auto start = std::chrono::high_resolution_clock::now();
-	auto n_seq = tree_seq.create(execution::seq, v.begin(), v.end());
+	auto n     = tree.create(v.begin(), v.end());
 	auto stop  = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> ms = stop - start;
+
+	start      = std::chrono::high_resolution_clock::now();
+	auto n_seq = tree_seq.create(execution::seq, v.begin(), v.end());
+	stop       = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> seq_ms = stop - start;
 
 	start      = std::chrono::high_resolution_clock::now();
@@ -85,13 +92,25 @@ TEST_CASE("[Octree] create")
 	std::chrono::duration<double, std::milli> par_ms = stop - start;
 
 	start      = std::chrono::high_resolution_clock::now();
-	auto n_omp = tree_omp.create(execution::omp, v.begin(), v.end());
+	auto n_tbb = tree_tbb.create(execution::tbb_par, v.begin(), v.end());
+	stop       = std::chrono::high_resolution_clock::now();
+	std::chrono::duration<double, std::milli> tbb_ms = stop - start;
+
+	start      = std::chrono::high_resolution_clock::now();
+	auto n_omp = tree_omp.create(execution::omp_par, v.begin(), v.end());
 	stop       = std::chrono::high_resolution_clock::now();
 	std::chrono::duration<double, std::milli> omp_ms = stop - start;
 
-	std::cout << "Seq (1st iter): " << seq_ms.count() << " ms\n";
-	std::cout << "Par (1st iter): " << par_ms.count() << " ms\n";
-	std::cout << "OMP (1st iter): " << omp_ms.count() << " ms\n";
+	std::cout << "None (1st iter): " << ms.count() << " ms\n";
+	std::cout << "Seq  (1st iter): " << seq_ms.count() << " ms\n";
+	std::cout << "Par  (1st iter): " << par_ms.count() << " ms\n";
+	std::cout << "TBB  (1st iter): " << tbb_ms.count() << " ms\n";
+	std::cout << "OMP  (1st iter): " << omp_ms.count() << " ms\n";
+
+	start = std::chrono::high_resolution_clock::now();
+	n     = tree.create(v.begin(), v.end());
+	stop  = std::chrono::high_resolution_clock::now();
+	ms    = stop - start;
 
 	start  = std::chrono::high_resolution_clock::now();
 	n_seq  = tree_seq.create(execution::seq, v.begin(), v.end());
@@ -104,13 +123,20 @@ TEST_CASE("[Octree] create")
 	par_ms = stop - start;
 
 	start  = std::chrono::high_resolution_clock::now();
-	n_omp  = tree_omp.create(execution::omp, v.begin(), v.end());
+	n_tbb  = tree_tbb.create(execution::tbb_par, v.begin(), v.end());
+	stop   = std::chrono::high_resolution_clock::now();
+	tbb_ms = stop - start;
+
+	start  = std::chrono::high_resolution_clock::now();
+	n_omp  = tree_omp.create(execution::omp_par, v.begin(), v.end());
 	stop   = std::chrono::high_resolution_clock::now();
 	omp_ms = stop - start;
 
-	std::cout << "Seq (2nd iter): " << seq_ms.count() << " ms\n";
-	std::cout << "Par (2nd iter): " << par_ms.count() << " ms\n";
-	std::cout << "OMP (2nd iter): " << omp_ms.count() << " ms\n";
+	std::cout << "None (2st iter): " << ms.count() << " ms\n";
+	std::cout << "Seq  (2nd iter): " << seq_ms.count() << " ms\n";
+	std::cout << "Par  (2nd iter): " << par_ms.count() << " ms\n";
+	std::cout << "TBB  (2nd iter): " << tbb_ms.count() << " ms\n";
+	std::cout << "OMP  (2nd iter): " << omp_ms.count() << " ms\n";
 
 	std::vector<OctCode> c_seq;
 	std::vector<OctCode> c_par;
