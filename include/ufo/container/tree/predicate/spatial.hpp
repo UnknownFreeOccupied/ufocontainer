@@ -270,17 +270,17 @@ struct contains_spatial_pred<std::tuple<Ts...>>
 };
 
 template <class L, class R>
-struct contains_spatial_pred<OR<L, R>>
+struct contains_spatial_pred<Or<L, R>>
     : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
 };
 
 template <class L, class R>
-struct contains_spatial_pred<THEN<L, R>>
+struct contains_spatial_pred<Then<L, R>>
     : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
 };
 
 template <class L, class R>
-struct contains_spatial_pred<IFF<L, R>>
+struct contains_spatial_pred<Iff<L, R>>
     : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
 };
 
@@ -312,16 +312,16 @@ struct contains_always_spatial_pred<std::tuple<Ts...>>
 };
 
 template <class L, class R>
-struct contains_always_spatial_pred<OR<L, R>>
+struct contains_always_spatial_pred<Or<L, R>>
     : std::conjunction<contains_always_spatial_pred<L>, contains_always_spatial_pred<R>> {
 };
 
 template <class L, class R>
-struct contains_always_spatial_pred<THEN<L, R>> : std::false_type {
+struct contains_always_spatial_pred<Then<L, R>> : std::false_type {
 };
 
 template <class L, class R>
-struct contains_always_spatial_pred<IFF<L, R>> : std::false_type {
+struct contains_always_spatial_pred<Iff<L, R>> : std::false_type {
 };
 }  // namespace detail
 

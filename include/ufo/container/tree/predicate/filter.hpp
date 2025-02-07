@@ -108,42 +108,42 @@ constexpr std::tuple<std::decay_t<Pred>, Preds...> operator&&(
 }
 
 //
-// OR (||)
+// Or (||)
 //
 
 template <class PredLeft, class PredRight>
-struct OR {
-	OR(PredLeft const& left, PredRight const& right) : left(left), right(right) {}
+struct Or {
+	Or(PredLeft const& left, PredRight const& right) : left(left), right(right) {}
 
 	PredLeft  left;
 	PredRight right;
 };
 
 template <class PredLeft, class PredRight>
-constexpr OR<PredLeft, PredRight> operator||(PredLeft&& p1, PredRight&& p2)
+constexpr Or<PredLeft, PredRight> operator||(PredLeft&& p1, PredRight&& p2)
 {
 	return {std::forward<PredLeft>(p1), std::forward<PredRight>(p2)};
 }
 
 //
-// THEN
+// Then
 //
 
 template <class PredPre, class PredPost>
-struct THEN {
-	THEN(PredPre const& pre, PredPost const& post) : pre(pre), post(post) {}
+struct Then {
+	Then(PredPre const& pre, PredPost const& post) : pre(pre), post(post) {}
 
 	PredPre  pre;
 	PredPost post;
 };
 
 //
-// If and only if (IFF)
+// If and only if (Iff)
 //
 
 template <class PredLeft, class PredRight>
-struct IFF {
-	IFF(PredLeft const& left, PredRight const& right) : left(left), right(right) {}
+struct Iff {
+	Iff(PredLeft const& left, PredRight const& right) : left(left), right(right) {}
 
 	PredLeft  left;
 	PredRight right;
@@ -227,8 +227,8 @@ struct Filter<std::tuple<Preds...>> {
 };
 
 template <class PredLeft, class PredRight>
-struct Filter<OR<PredLeft, PredRight>> {
-	using Pred = OR<PredLeft, PredRight>;
+struct Filter<Or<PredLeft, PredRight>> {
+	using Pred = Or<PredLeft, PredRight>;
 
 	template <class Tree>
 	static constexpr void init(Pred& p, Tree const& t)
@@ -262,8 +262,8 @@ struct Filter<OR<PredLeft, PredRight>> {
 };
 
 template <class PredPre, class PredPost>
-struct Filter<THEN<PredPre, PredPost>> {
-	using Pred = THEN<PredPre, PredPost>;
+struct Filter<Then<PredPre, PredPost>> {
+	using Pred = Then<PredPre, PredPost>;
 
 	template <class Tree>
 	static constexpr void init(Pred& p, Tree const& t)
@@ -297,8 +297,8 @@ struct Filter<THEN<PredPre, PredPost>> {
 };
 
 template <class PredLeft, class PredRight>
-struct Filter<IFF<PredLeft, PredRight>> {
-	using Pred = IFF<PredLeft, PredRight>;
+struct Filter<Iff<PredLeft, PredRight>> {
+	using Pred = Iff<PredLeft, PredRight>;
 
 	template <class Tree>
 	static constexpr void init(Pred& p, Tree const& t)
@@ -440,17 +440,17 @@ struct contains_pred<T, std::tuple<Ts...>> : std::disjunction<contains_pred<T, T
 };
 
 template <class T, class L, class R>
-struct contains_pred<T, OR<L, R>>
+struct contains_pred<T, Or<L, R>>
     : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
 };
 
 template <class T, class L, class R>
-struct contains_pred<T, THEN<L, R>>
+struct contains_pred<T, Then<L, R>>
     : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
 };
 
 template <class T, class L, class R>
-struct contains_pred<T, IFF<L, R>>
+struct contains_pred<T, Iff<L, R>>
     : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
 };
 }  // namespace detail
@@ -481,16 +481,16 @@ struct contains_always_pred<T, std::tuple<Ts...>>
 };
 
 template <class T, class L, class R>
-struct contains_always_pred<T, OR<L, R>>
+struct contains_always_pred<T, Or<L, R>>
     : std::conjunction<contains_always_pred<T, L>, contains_always_pred<T, R>> {
 };
 
 template <class T, class L, class R>
-struct contains_always_pred<T, THEN<L, R>> : std::false_type {
+struct contains_always_pred<T, Then<L, R>> : std::false_type {
 };
 
 template <class T, class L, class R>
-struct contains_always_pred<T, IFF<L, R>> : std::false_type {
+struct contains_always_pred<T, Iff<L, R>> : std::false_type {
 };
 }  // namespace detail
 

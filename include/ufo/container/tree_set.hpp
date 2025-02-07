@@ -50,8 +50,8 @@
 #include <ufo/container/tree/set/query_iterator.hpp>
 #include <ufo/container/tree/set/query_nearest_iterator.hpp>
 #include <ufo/container/tree/tree.hpp>
-#include <ufo/geometry/dynamic_geometry.hpp>
 #include <ufo/execution/execution.hpp>
+#include <ufo/geometry/dynamic_geometry.hpp>
 
 // STL
 #include <array>
@@ -96,6 +96,7 @@ class TreeSet
 	using Point    = typename Base::Point;
 	using Coord    = typename Base::Coord;
 	using Bounds   = typename Base::Bounds;
+	using Length   = typename Base::Length;
 	using coord_t  = typename Base::coord_t;
 	using depth_t  = typename Base::depth_t;
 	using offset_t = typename Base::offset_t;
@@ -189,9 +190,15 @@ class TreeSet
 	|                                                                                     |
 	**************************************************************************************/
 
-	TreeSet(length_t leaf_node_length = length_t(0.1),
-	        depth_t  num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
+	TreeSet(Length  leaf_node_length = Length(0.1),
+	        depth_t num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
 	    : Base(leaf_node_length, num_depth_levels)
+	{
+	}
+
+	TreeSet(length_t leaf_node_length,
+	        depth_t  num_depth_levels = std::min(depth_t(17), Base::maxNumDepthLevels()))
+	    : TreeSet(Length(leaf_node_length), num_depth_levels)
 	{
 	}
 

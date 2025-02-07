@@ -62,6 +62,7 @@ struct TreeSetBlock : public TreeBlock<Dim, BF> {
 
 	using Code           = TreeCode<Dim>;
 	using length_t       = typename Base::length_t;
+	using Length         = typename Base::Length;
 	using Point          = typename Base::Point;
 	using Bounds         = AABB<Dim, typename Point::value_type>;
 	using scalar_type    = typename Point::value_type;
@@ -76,16 +77,16 @@ struct TreeSetBlock : public TreeBlock<Dim, BF> {
 	std::array<Bounds, BF>         bounds = createArray<BF>(Bounds(MAX, MIN));
 	std::array<container_type, BF> values;
 
-	constexpr TreeSetBlock()                    = default;
+	constexpr TreeSetBlock() = default;
 
 	constexpr TreeSetBlock(TreeIndex::pos_t parent_block, Code code, Point center,
-	                       length_t half_length)
+	                       Length half_length)
 	    : Base(parent_block, code, center, half_length)
 	{
 	}
 
 	constexpr TreeSetBlock(TreeIndex::pos_t parent_block, TreeSetBlock const& parent,
-	                       std::size_t offset, length_t half_length)
+	                       std::size_t offset, Length half_length)
 	    : Base(parent_block, parent, offset, half_length)
 	{
 	}

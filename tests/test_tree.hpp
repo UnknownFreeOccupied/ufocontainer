@@ -65,6 +65,7 @@ class TestTree
 	using Point    = typename Base::Point;
 	using Coord    = typename Base::Coord;
 	using Bounds   = typename Base::Bounds;
+	using Length   = typename Base::Length;
 	using coord_t  = typename Base::coord_t;
 	using depth_t  = typename Base::depth_t;
 	using offset_t = typename Base::offset_t;
@@ -72,6 +73,11 @@ class TestTree
 	using pos_t    = typename Base::pos_t;
 
 	TestTree(length_t leaf_node_length, depth_t num_depth_levels)
+	    : TestTree(Length(leaf_node_length), num_depth_levels)
+	{
+	}
+
+	TestTree(Length leaf_node_length, depth_t num_depth_levels)
 	    : Base(leaf_node_length, num_depth_levels)
 	{
 	}

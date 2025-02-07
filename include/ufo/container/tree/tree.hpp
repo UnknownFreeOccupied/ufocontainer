@@ -76,6 +76,7 @@
 #include <deque>
 #include <iterator>
 #include <optional>
+#include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -126,6 +127,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	using Point  = Vec<Dim, coord_t>;
 	using Point2 = Vec<Dim, double>;
 	using Bounds = AABB<Dim, coord_t>;
+	using Length = Vec<Dim, length_t>;
 
 	using Index        = TreeIndex;
 	using Node         = TreeNode<Dim>;
@@ -223,7 +225,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		derived().onInitRoot();
 	}
 
-	void clear(length_t leaf_node_length, depth_t num_depth_levels)
+	void clear(Length leaf_node_length, depth_t num_depth_levels)
 	{
 		init(leaf_node_length, num_depth_levels);
 		clear();
@@ -323,7 +325,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The length of the tree (/ root node).
 	 */
-	[[nodiscard]] length_t length() const { return length(depth()); }
+	[[nodiscard]] Length length() const { return length(depth()); }
 
 	/*!
 	 * @brief Returns the length of nodes at `depth`, i.e. `leaf_node_length *
@@ -334,7 +336,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @param depth the depth
 	 * @return The length of nodes at `depth`.
 	 */
-	[[nodiscard]] length_t length(depth_t depth) const
+	[[nodiscard]] Length length(depth_t depth) const
 	{
 		assert(numDepthLevels() > depth);
 		return node_half_length_[depth + 1];
@@ -347,7 +349,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @return The length of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] length_t length(NodeType node) const
+	[[nodiscard]] Length length(NodeType node) const
 	{
 		return length(depth(node));
 	}
@@ -360,7 +362,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The half length of the tree (/ root node).
 	 */
-	[[nodiscard]] length_t halfLength() const { return halfLength(depth()); }
+	[[nodiscard]] Length halfLength() const { return halfLength(depth()); }
 
 	/*!
 	 * @brief Returns the half length of nodes at `depth`, i.e. `length(depth) / 2`.
@@ -373,7 +375,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @param depth the depth
 	 * @return The half length of nodes at `depth`.
 	 */
-	[[nodiscard]] length_t halfLength(depth_t depth) const
+	[[nodiscard]] Length halfLength(depth_t depth) const
 	{
 		assert(numDepthLevels() > depth);
 		return node_half_length_[depth];
@@ -389,7 +391,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @return The half length of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] constexpr length_t halfLength(NodeType node) const
+	[[nodiscard]] constexpr Length halfLength(NodeType node) const
 	{
 		return halfLength(depth(node));
 	}
@@ -403,7 +405,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The reciprocal of the length of the tree (/ root node).
 	 */
-	[[nodiscard]] length_t lengthReciprocal() const { return lengthReciprocal(depth()); }
+	[[nodiscard]] Length lengthReciprocal() const { return lengthReciprocal(depth()); }
 
 	/*!
 	 * @brief Returns the reciprocal of the length of nodes at `depth`, i.e. `1 /
@@ -417,7 +419,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @param depth the depth
 	 * @return The reciprocal of the length of nodes at `depth`.
 	 */
-	[[nodiscard]] length_t lengthReciprocal(depth_t depth) const
+	[[nodiscard]] Length lengthReciprocal(depth_t depth) const
 	{
 		assert(numDepthLevels() > depth + 1);
 		return node_half_length_reciprocal_[depth + 1];
@@ -433,7 +435,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @return The reciprocal of the length of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] length_t lengthReciprocal(NodeType node) const
+	[[nodiscard]] Length lengthReciprocal(NodeType node) const
 	{
 		return lengthReciprocal(depth(node));
 	}
@@ -447,7 +449,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The reciprocal of the half length of the tree (/ root node).
 	 */
-	[[nodiscard]] length_t halfLengthReciprocal() const
+	[[nodiscard]] Length halfLengthReciprocal() const
 	{
 		return halfLengthReciprocal(depth());
 	}
@@ -464,7 +466,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @param depth the depth
 	 * @return The reciprocal of the half length of nodes at `depth`.
 	 */
-	[[nodiscard]] length_t halfLengthReciprocal(depth_t depth) const
+	[[nodiscard]] Length halfLengthReciprocal(depth_t depth) const
 	{
 		assert(numDepthLevels() > depth);
 		return node_half_length_reciprocal_[depth];
@@ -481,7 +483,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @return The reciprocal of the half length of the node.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] length_t halfLengthReciprocal(NodeType node) const
+	[[nodiscard]] Length halfLengthReciprocal(NodeType node) const
 	{
 		return halfLengthReciprocal(depth(node));
 	}
@@ -495,7 +497,12 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The bounds of the tree (/ root node).
 	 */
-	[[nodiscard]] Bounds bounds() const { return {center(), halfLength(depth())}; }
+	[[nodiscard]] Bounds bounds() const
+	{
+		auto c  = center();
+		auto hl = cast<coord_t>(halfLength(node));
+		return Bounds(c - hl, c + hl);
+	}
 
 	/*!
 	 * @brief Returns the bounds of `node`.
@@ -506,7 +513,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] Bounds bounds(NodeType node) const
 	{
-		return Bounds(center(node), halfLength(node));
+		auto c  = center(node);
+		auto hl = cast<coord_t>(halfLength(node));
+		return Bounds(c - hl, c + hl);
 	}
 
 	//
@@ -523,7 +532,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	{
 		auto const hl = halfLength(depth());
 		for (std::size_t i{}; coord.size() > i; ++i) {
-			if (-hl > coord[i] || hl <= coord[i]) {
+			if (-hl[i] > coord[i] || hl[i] <= coord[i]) {
 				return false;
 			}
 		}
@@ -584,7 +593,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 			// LOOKAT: Check performance, might be a lot faster to have float here and in rest
 			// of method
-			length_t          l = length(node_depth);
+			Length            l = length(node_depth);
 			std::int_fast64_t hmv =
 			    static_cast<std::int_fast64_t>(half_max_value_ >> node_depth);
 
@@ -680,7 +689,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			auto p = node[axis];
 
 			// LOOKAT: Check performance, might be a lot faster to have float here
-			length_t lr = lengthReciprocal(0);
+			Length lr = lengthReciprocal(0);
 
 			k = static_cast<key_t>(static_cast<std::make_signed_t<key_t>>(
 			        std::floor(static_cast<length_t>(p) * lr))) +
@@ -697,7 +706,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		// LOOKAT: Check performance, might be a lot faster to have float here and in rest of
 		// method
-		length_t          l   = length(d);
+		length_t          l   = length(d)[axis];
 		std::int_fast64_t hmv = static_cast<std::int_fast64_t>(half_max_value_ >> d);
 
 		return static_cast<coord_t>(
@@ -906,7 +915,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			Point p = node;
 
 			// LOOKAT: Check performance, might be a lot faster to have float here
-			length_t lr = lengthReciprocal(0);
+			Length lr = lengthReciprocal(0);
 
 			auto k =
 			    cast<key_t>(cast<std::make_signed_t<key_t>>(floor(cast<length_t>(p) * lr))) +
@@ -2355,13 +2364,18 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	**************************************************************************************/
 
 	Tree(length_t leaf_node_length, depth_t num_depth_levels)
+	    : Tree(Length(leaf_node_length), num_depth_levels)
+	{
+	}
+
+	Tree(Length leaf_node_length, depth_t num_depth_levels)
 	{
 		init(leaf_node_length, num_depth_levels);
 
 		createRoot();
 	}
 
-	void init(length_t leaf_node_length, depth_t num_depth_levels)
+	void init(Length leaf_node_length, depth_t num_depth_levels)
 	{
 		if (minNumDepthLevels() > num_depth_levels ||
 		    maxNumDepthLevels() < num_depth_levels) {
@@ -2370,24 +2384,29 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			                            std::to_string(+maxNumDepthLevels()) + "], '" +
 			                            std::to_string(+num_depth_levels) + "' was supplied.");
 		}
-		if (length_t(0) >= leaf_node_length || !std::isfinite(leaf_node_length)) {
+
+		if (length_t(0) >= min(leaf_node_length) || !isfinite(leaf_node_length)) {
+			std::stringstream ss;
+			ss << leaf_node_length;
 			throw std::invalid_argument(
-			    "'leaf_node_length' has to be finite and greater than zero, '" +
-			    std::to_string(leaf_node_length) + "' was supplied.");
+			    "'leaf_node_length' has to be finite and greater than zero, '" + ss.str() +
+			    "' was supplied.");
 		}
-		if (!std::isnormal(std::ldexp(leaf_node_length, num_depth_levels - 1))) {
+		if (!isnormal(ldexp(leaf_node_length, num_depth_levels - 1))) {
+			std::stringstream ss;
+			ss << ldexp(leaf_node_length, num_depth_levels - 1);
 			throw std::invalid_argument(
 			    "'leaf_node_length * 2^(num_depth_levels - 1)' has to be finite and greater "
 			    "than zero, '" +
-			    std::to_string(std::ldexp(leaf_node_length, num_depth_levels - 1)) +
-			    "' was supplied.");
+			    ss.str() + "' was supplied.");
 		}
-		if (length_t(0) >= length_t(1) / std::ldexp(leaf_node_length, -1)) {
+		if (length_t(0) >= min(length_t(1) / ldexp(leaf_node_length, -1))) {
+			std::stringstream ss;
+			ss << (length_t(1) / ldexp(leaf_node_length, -1));
 			throw std::invalid_argument(
-			    "The reciprocal of half 'leaf_node_length' (i.e., 1 / (leaf_node_length / 2)) "
-			    "has to be a greater than zero, '" +
-			    std::to_string(length_t(1) / std::ldexp(leaf_node_length, -1)) +
-			    "' was supplied.");
+			    "The reciprocal of half 'leaf_node_length' (i.e., 1 / (leaf_node_length / "
+			    "2)) has to be a greater than zero, '" +
+			    ss.str() + "' was supplied.");
 		}
 
 		num_depth_levels_ = num_depth_levels;
@@ -2395,7 +2414,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		// For increased precision
 		for (int i{}; node_half_length_.size() > i; ++i) {
-			node_half_length_[i]            = std::ldexp(leaf_node_length, i - 1);
+			node_half_length_[i]            = ldexp(leaf_node_length, i - 1);
 			node_half_length_reciprocal_[i] = length_t(1) / node_half_length_[i];
 		}
 	}
@@ -2935,13 +2954,13 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @param child_index the index of the child
 	 * @return The center of the `child_index`th child.
 	 */
-	[[nodiscard]] static constexpr Point childCenter(Point center, length_t half_length,
+	[[nodiscard]] static constexpr Point childCenter(Point center, Length half_length,
 	                                                 offset_t child_index)
 	{
 		assert(BF > child_index);
-		half_length /= static_cast<length_t>(2);
+		half_length /= length_t(2);
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] += (child_index & offset_t(1u << i)) ? half_length : -half_length;
+			center[i] += (child_index & offset_t(1u << i)) ? half_length[i] : -half_length[i];
 		}
 		return center;
 	}
@@ -2958,12 +2977,12 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @param index the index of the child
 	 * @return The center of the parent.
 	 */
-	[[nodiscard]] static constexpr Point parentCenter(Point center, length_t half_length,
+	[[nodiscard]] static constexpr Point parentCenter(Point center, Length half_length,
 	                                                  offset_t index)
 	{
 		assert(BF > index);
 		for (std::size_t i{}; Point::size() > i; ++i) {
-			center[i] += (index & offset_t(1u << i)) ? -half_length : half_length;
+			center[i] += (index & offset_t(1u << i)) ? -half_length[i] : half_length[i];
 		}
 		return center;
 	}
@@ -2978,7 +2997,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	{
 		if constexpr (Block::HasCenter) {
 			treeBlock(children).fill(node.pos, block, node.offset,
-			                         isRoot(node) ? length_t(0.0) : halfLength(node));
+			                         isRoot(node) ? Length(0.0) : halfLength(node));
 		} else {
 			treeBlock(children).fill(node.pos, block, node.offset, halfLength(node));
 		}
@@ -3986,9 +4005,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	key_t half_max_value_;
 
 	// Stores the node half length at a given depth, where the index is the depth
-	std::array<length_t, maxNumDepthLevels() + 1> node_half_length_;
+	std::array<Length, maxNumDepthLevels() + 1> node_half_length_;
 	// Reciprocal of the node half length at a given depth, where the index is the depth
-	std::array<length_t, maxNumDepthLevels() + 1> node_half_length_reciprocal_;
+	std::array<Length, maxNumDepthLevels() + 1> node_half_length_reciprocal_;
 };
 
 template <class Derived, std::size_t Dim, bool GPU, class Block, class... Blocks>
