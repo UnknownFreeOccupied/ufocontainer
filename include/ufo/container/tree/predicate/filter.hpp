@@ -164,23 +164,14 @@ struct False {
 };
 
 //
-// Static assert check
-//
-
-namespace detail
-{
-template <class T>
-constexpr inline bool False = false;
-};  // namespace detail
-
-//
 // Filter
 //
 
 template <class Pred>
-struct Filter {
-	static_assert(detail::False<Pred>, "Predicate not implemented correctly.");
-};
+struct Filter;
+// {
+// 	static_assert(dependent_false_v<Pred>, "Predicate not implemented correctly.");
+// };
 
 template <class... Preds>
 struct Filter<std::tuple<Preds...>> {
@@ -535,7 +526,7 @@ template <class Pred, class Tree, class Value>
 struct is_value_pred<
     Pred, Tree, Value,
     std::void_t<
-        decltype(Filter<Pred>::init(std::declval<Pred>(), std::declval<Tree>())),
+        decltype(Filter<Pred>::init(std::declval<Pred&>(), std::declval<Tree>())),
         decltype(Filter<Pred>::returnable(std::declval<Pred>(), std::declval<Value>())),
         decltype(Filter<Pred>::traversable(std::declval<Pred>(), std::declval<Tree>(),
                                            std::declval<typename Tree::Node>()))>>
