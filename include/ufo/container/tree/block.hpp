@@ -46,7 +46,7 @@
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/coord.hpp>
 #include <ufo/container/tree/index.hpp>
-#include <ufo/geometry/shape/aabb.hpp>
+#include <ufo/geometry/aabb.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
 

@@ -54,7 +54,6 @@
 #include <ufo/container/tree/predicate/leaf_or_depth.hpp>
 #include <ufo/container/tree/predicate/length.hpp>
 #include <ufo/container/tree/predicate/length_interval.hpp>
-#include <ufo/container/tree/predicate/modified.hpp>
 #include <ufo/container/tree/predicate/offset.hpp>
 #include <ufo/container/tree/predicate/parent.hpp>
 #include <ufo/container/tree/predicate/predicate.hpp>
