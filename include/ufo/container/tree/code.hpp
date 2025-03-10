@@ -295,7 +295,7 @@ class TreeCode
 
 	/*!
 	 * @brief Get the offset at the current depth (same as `c.offset(c.depth())`).
-	 * 
+	 *
 	 * @return The offset at the current depth.
 	 */
 	[[nodiscard]] constexpr code_t offset() const { return offset(depth_); }
@@ -386,6 +386,32 @@ class TreeCode
 		return ret;
 	}
 
+	void append(code_t code, depth_t num_depths)
+	{
+		// TODO: Fix asserts
+		assert(depth() >= num_depths);
+
+		// TODO: Implement
+	}
+
+	code_t remove(depth_t num_depths)
+	{
+		// TODO: Fix asserts
+		assert(maxDepth() - depth() >= num_depths);
+		assert(DEPTHS_PER_IDX >= num_depths);
+
+		// TODO: Implement
+	}
+
+	[[nodiscard]] code_t lowestOffsets(depth_t num_depths) const
+	{
+		// TODO: Fix asserts
+		assert(maxDepth() - depth() >= num_depths);
+		assert(DEPTHS_PER_IDX >= num_depths);
+
+		// TODO: Implement
+	}
+
 	/**************************************************************************************
 	|                                                                                     |
 	|                                       Compare                                       |
@@ -436,7 +462,7 @@ class TreeCode
 
  private:
 	std::array<code_t, 3> code_{};
-	depth_t               depth_{};
+	depth_t               depth_ = maxDepth() + 1;
 };
 
 using BinaryCode = TreeCode<1>;
