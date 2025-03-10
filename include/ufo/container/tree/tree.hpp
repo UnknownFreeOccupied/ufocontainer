@@ -57,8 +57,8 @@
 #include <ufo/container/tree/query_iterator.hpp>
 #include <ufo/container/tree/query_nearest_iterator.hpp>
 #include <ufo/execution/execution.hpp>
-#include <ufo/geometry/shape/aabb.hpp>
-#include <ufo/geometry/shape/ray.hpp>
+#include <ufo/geometry/aabb.hpp>
+#include <ufo/geometry/ray.hpp>
 #include <ufo/math/math.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/bit_set.hpp>
@@ -170,9 +170,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <class T>
 	struct is_node_type
-	    : is_one_of<std::decay_t<T>, Index, Node, Code, Key, Coord, Point,
-	                // We also add the double versions of Coord and Point
-	                Coord2, Point2> {
+	    : contains_type<remove_cvref_t<T>, Index, Node, Code, Key, Coord, Point,
+	                    // We also add the double versions of Coord and Point
+	                    Coord2, Point2> {
 	};
 
 	template <class T>
@@ -225,7 +225,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		derived().onInitRoot();
 	}
 
-	void clear(Length leaf_node_length, depth_t num_depth_levels)
+	void clear(Length const& leaf_node_length, depth_t num_depth_levels)
 	{
 		init(leaf_node_length, num_depth_levels);
 		clear();
@@ -297,7 +297,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr depth_t depth(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return depth(node.pos);
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -306,9 +306,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return node.depth();
 		} else if constexpr (std::is_same_v<T, Key>) {
 			return node.depth();
-		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+		} else if constexpr (contains_type_v<T, Coord, Coord2>) {
 			return node.depth;
-		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+		} else if constexpr (contains_type_v<T, Point, Point2>) {
 			return 0;
 		} else {
 			static_assert(is_node_type_v<NodeType>, "Not one of the node types");
@@ -565,7 +565,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr Coord center(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
 				return isRoot(node) ? center()
@@ -602,9 +602,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			                            l);
 
 			return Coord(coord, node_depth);
-		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+		} else if constexpr (contains_type_v<T, Coord, Coord2>) {
 			return center(key(node));
-		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+		} else if constexpr (contains_type_v<T, Point, Point2>) {
 			return center(Coord(node, 0u));
 		} else {
 			static_assert(is_node_type_v<NodeType>, "Not one of the node types");
@@ -655,7 +655,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		key_t   k;
 		depth_t d;
 
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			if constexpr (Block::HasCenter) {
 				return isRoot(node)
@@ -678,9 +678,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			k = node[axis];
 			d = node.depth();
 		} else {
-			if constexpr (is_one_of_v<T, Coord, Coord2>) {
+			if constexpr (contains_type_v<T, Coord, Coord2>) {
 				d = depth(node);
-			} else if constexpr (is_one_of_v<T, Point, Point2>) {
+			} else if constexpr (contains_type_v<T, Point, Point2>) {
 				d = 0;
 			} else {
 				static_assert(is_node_type_v<NodeType>, "Not one of the node types");
@@ -695,7 +695,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			        std::floor(static_cast<length_t>(p) * lr))) +
 			    half_max_value_;
 
-			if constexpr (is_one_of_v<T, Coord, Coord2>) {
+			if constexpr (contains_type_v<T, Coord, Coord2>) {
 				k >>= d;
 			}
 		}
@@ -753,7 +753,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] pos_t block(NodeType node) const
 	{
-		if constexpr (std::is_same_v<Index, std::decay_t<NodeType>>) {
+		if constexpr (std::is_same_v<Index, remove_cvref_t<NodeType>>) {
 			return node.pos;
 		} else {
 			return block(index(node));
@@ -785,7 +785,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return node;
 		};
 
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return node;
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -828,7 +828,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] Node node(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
 			return Node(code(node), node);
@@ -869,7 +869,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] Code code(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
 			return treeBlock(node).code(node.offset);
@@ -899,7 +899,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] Key key(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return key(treeBlock(node).code(node.offset));
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -908,7 +908,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return Key(node);
 		} else if constexpr (std::is_same_v<T, Key>) {
 			return node;
-		} else if constexpr (is_one_of_v<T, Coord, Coord2>) {
+		} else if constexpr (contains_type_v<T, Coord, Coord2>) {
 			assert(valid(node));
 
 			auto  d = depth(node);
@@ -922,7 +922,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			    half_max_value_;
 
 			return {k >> d, d};
-		} else if constexpr (is_one_of_v<T, Point, Point2>) {
+		} else if constexpr (contains_type_v<T, Point, Point2>) {
 			return key(Coord(node, 0u));
 		}
 	}
@@ -943,10 +943,12 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// Create
 	//
 
+	// TODO: Add proper guards for the templates
+
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	Index create(NodeType node)
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return node;
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -958,35 +960,78 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		}
 	}
 
-	template <class InputIt>
-	std::vector<Index> create(InputIt first, InputIt last)
+	template <class InputIt, class OutputIt>
+	OutputIt create(InputIt first, InputIt last, OutputIt d_first)
 	{
-		using value_type = std::decay_t<typename std::iterator_traits<InputIt>::value_type>;
+		using value_type = remove_cvref_t<typename std::iterator_traits<InputIt>::value_type>;
 
 		if constexpr (std::is_same_v<Index, value_type>) {
-			return std::vector<Index>(first, last);
+			return std::copy(first, last, d_first);
 		} else {
-			std::vector<Index> nodes;
-
 			Index node = this->index();
 			Code  code = this->code();
 
-			std::transform(first, last, std::back_inserter(nodes),
-			               [this, &node, &code](auto const& x) {
-				               Code    e            = this->code(x);
-				               depth_t wanted_depth = this->depth(e);
-				               depth_t depth        = Code::depthWhereEqual(code, e);
-				               code                 = e;
+			return std::transform(first, last, d_first, [this, &node, &code](auto const& x) {
+				Code    e            = this->code(x);
+				depth_t wanted_depth = this->depth(e);
+				depth_t depth        = Code::depthWhereEqual(code, e);
+				code                 = e;
 
-				               node = ancestor(node, depth);
-				               for (; wanted_depth < depth; --depth) {
-					               node = createChild(node, code.offset(depth - 1));
-				               }
+				node = ancestor(node, depth);
+				for (; wanted_depth < depth; --depth) {
+					node = createChild(node, code.offset(depth - 1));
+				}
 
-				               return node;
-			               });
+				return node;
+			});
+		}
+	}
 
-			return nodes;
+	template <class InputIt>
+	std::vector<Index> create(InputIt first, InputIt last)
+	{
+		std::vector<Index> nodes;
+		create(first, last, std::back_inserter(nodes));
+		return nodes;
+	}
+
+	template <
+	    class ExecutionPolicy, class RandomIt1, class RandomIt2,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+	RandomIt2 create(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1 last,
+	                 RandomIt2 d_first)
+	{
+		using value_type =
+		    remove_cvref_t<typename std::iterator_traits<RandomIt1>::value_type>;
+
+		if constexpr (std::is_same_v<Index, value_type>) {
+			// FIXME: Can be parallelize
+			return std::copy(first, last, d_first);
+		} else {
+			return transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
+			                 [this](auto const& x) {
+				                 thread_local Index node = this->index();
+
+				                 // NOTE: `node` can be from last call to `create` (if the same
+				                 // thread still persists), so we need to check if the node is
+				                 // valid (i.e., has not been deleted). If it has been deleted, we
+				                 // set it to the root node.
+				                 // FIXME: Note sure if `valid` is thread safe
+				                 node          = this->valid(node) ? node : this->index();
+				                 Code cur_code = this->code(node);
+
+				                 Code    code         = this->code(x);
+				                 depth_t wanted_depth = this->depth(code);
+				                 depth_t depth        = Code::depthWhereEqual(code, cur_code);
+
+				                 node = this->ancestor(node, depth);
+				                 for (; wanted_depth < depth; --depth) {
+					                 node =
+					                     this->createChildThreadSafe(node, code.offset(depth - 1));
+				                 }
+
+				                 return node;
+			                 });
 		}
 	}
 
@@ -995,148 +1040,51 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	std::vector<Index> create(ExecutionPolicy&& policy, RandomIt first, RandomIt last)
 	{
-		using value_type = std::decay_t<typename std::iterator_traits<RandomIt>::value_type>;
+		__block std::vector<Index> nodes(std::distance(first, last));
+		create(std::forward<ExecutionPolicy>(policy), first, last, nodes.begin());
+		return nodes;
+	}
 
-		if constexpr (std::is_same_v<Index, value_type>) {
-			return std::vector<Index>(first, last);
-		} else if constexpr (execution::is_stl_v<ExecutionPolicy>) {
-			std::vector<Index> nodes(std::distance(first, last));
-
-			std::transform(execution::toSTL(policy), first, last, nodes.begin(),
-			               [this](auto const& x) {
-				               thread_local Index node = this->index();
-
-				               // NOTE: `node` can be from last call to `create` (if the same
-				               // thread still persists), so we need to check if the node is valid
-				               // (i.e., has not been deleted). If it has been deleted, we set it
-				               // to the root node.
-				               // FIXME: Note sure if `valid` is thread safe
-				               node          = valid(node) ? node : this->index();
-				               Code cur_code = this->code(node);
-
-				               Code    code         = this->code(x);
-				               depth_t wanted_depth = this->depth(code);
-				               depth_t depth        = Code::depthWhereEqual(code, cur_code);
-
-				               node = ancestor(node, depth);
-				               for (; wanted_depth < depth; --depth) {
-					               node = createChildThreadSafe(node, code.offset(depth - 1));
-				               }
-
-				               return node;
-			               });
-
-			return nodes;
-		} else if constexpr (execution::is_seq_v<ExecutionPolicy> ||
-		                     execution::is_unseq_v<ExecutionPolicy>) {
-			return create(first, last);
-		}
-#if defined(UFO_PAR_GCD)
-		else if constexpr (execution::is_gcd_v<ExecutionPolicy>) {
-			__block std::vector<Index> nodes(std::distance(first, last));
-
-			dispatch_apply(nodes.size(), dispatch_get_global_queue(0, 0), ^(std::size_t i) {
-				thread_local Index node = this->index();
-
-				// NOTE: `node` can be from last call to `create` (if the same thread still
-				// persists), so we need to check if the node is valid (i.e., has not been
-				// deleted). If it has been deleted, we set it to the root node.
-				// FIXME: Note sure if `valid` is thread safe
-				node          = valid(node) ? node : this->index();
-				Code cur_code = this->code(node);
-
-				Code    code         = this->code(*(first + i));
-				depth_t wanted_depth = this->depth(code);
-				depth_t depth        = Code::depthWhereEqual(code, cur_code);
-
-				node = ancestor(node, depth);
-				for (; wanted_depth < depth; --depth) {
-					node = createChildThreadSafe(node, code.offset(depth - 1));
-				}
-
-				nodes[i] = node;
-			});
-
-			return nodes;
-		}
-#endif
-#if defined(UFO_PAR_TBB)
-		else if constexpr (execution::is_tbb_v<ExecutionPolicy>) {
-			std::vector<Index> nodes(std::distance(first, last));
-
-			oneapi::tbb::parallel_for(std::size_t(0), std::size_t(nodes.size()),
-			                          [this, first, &nodes](std::size_t i) {
-				                          thread_local Index node = this->index();
-
-				                          // NOTE: `node` can be from last call to `create` (if
-				                          // the same thread still persists), so we need to
-				                          // check if the node is valid (i.e., has not been
-				                          // deleted). If it has been deleted, we set it to the
-				                          // root node.
-				                          // FIXME: Note sure if `valid` is thread safe
-				                          node          = valid(node) ? node : this->index();
-				                          Code cur_code = this->code(node);
-
-				                          Code    code         = this->code(*(first + i));
-				                          depth_t wanted_depth = this->depth(code);
-				                          depth_t depth = Code::depthWhereEqual(code, cur_code);
-
-				                          node = ancestor(node, depth);
-				                          for (; wanted_depth < depth; --depth) {
-					                          node = createChildThreadSafe(node,
-					                                                       code.offset(depth - 1));
-				                          }
-
-				                          nodes[i] = node;
-			                          });
-
-			return nodes;
-		}
-#endif
-		else if constexpr (execution::is_omp_v<ExecutionPolicy>) {
-			std::vector<Index> nodes(std::distance(first, last));
-
-			Index node = this->index();
-			Code  code = this->code();
-
-#pragma omp parallel for firstprivate(node, code)
-			for (std::size_t i = 0; nodes.size() > i; ++i) {
-				Code    e            = this->code(first[i]);
-				depth_t wanted_depth = this->depth(e);
-				depth_t depth        = Code::depthWhereEqual(code, e);
-				code                 = e;
-
-				node = ancestor(node, depth);
-				for (; wanted_depth < depth; --depth) {
-					node = createChildThreadSafe(node, code.offset(depth - 1));
-				}
-
-				nodes[i] = node;
-			}
-
-			return nodes;
-		} else {
-			static_assert(dependent_false_v<ExecutionPolicy>,
-			              "create not implemented for the execution policy");
-		}
+	template <
+	    class Range, class OutputIt,
+	    std::enable_if_t<!is_node_type_v<Range> && !execution::is_execution_policy_v<Range>,
+	                     bool> = true>
+	OutputIt create(Range const& r, OutputIt d_first)
+	{
+		using std::begin;
+		using std::end;
+		return create(begin(r), end(r), d_first);
 	}
 
 	template <class Range, std::enable_if_t<!is_node_type_v<Range>, bool> = true>
 	std::vector<Index> create(Range const& r)
 	{
+		std::vector<Index> nodes;
+		create(r, std::back_inserter(nodes));
+		return nodes;
+	}
+
+	template <
+	    class ExecutionPolicy, class Range, class RandomIt,
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true,
+	    std::enable_if_t<!is_node_type_v<Range>, bool>                            = true>
+	RandomIt create(ExecutionPolicy&& policy, Range const& r, RandomIt d_first)
+	{
 		using std::begin;
 		using std::end;
-		return create(begin(r), end(r));
+		return create(std::forward<ExecutionPolicy>(policy), begin(r), end(r), d_first);
 	}
 
 	template <
 	    class ExecutionPolicy, class Range,
-	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
+	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true,
+	    std::enable_if_t<!is_node_type_v<Range>, bool>                            = true>
 	std::vector<Index> create(ExecutionPolicy&& policy, Range const& r)
 	{
-		using std::begin;
-		using std::end;
-		return create(std::forward<ExecutionPolicy>(policy), begin(r), end(r));
+		using std::size;
+		__block std::vector<Index> nodes(std::size(r));
+		create(std::forward<ExecutionPolicy>(policy), r, nodes.begin());
+		return nodes;
 	}
 
 	pos_t createChildren(Index node)
@@ -1160,16 +1108,15 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		assert(!isPureLeaf(node));
 		Block& block = treeBlock(node);
 
-		pos_t null_pos = Index::NULL_POS;
-		pos_t children;
-		if (block.children[node.offset].compare_exchange_strong(null_pos,
+		pos_t children = Index::NULL_POS;
+		if (block.children[node.offset].compare_exchange_strong(children,
 		                                                        Index::PROCESSING_POS)) {
 			children = Data::createThreadSafe();
 			initChildren(node, block, children);
 		} else {
-			do {
+			while (Index::PROCESSING_POS == children) {
 				children = block.children[node.offset].load(std::memory_order_acquire);
-			} while (Index::PROCESSING_POS == children);
+			}
 		}
 
 		return children;
@@ -1198,7 +1145,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	std::array<Index, maxNumDepthLevels()> createTrail(NodeType node)
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			std::array<Index, maxNumDepthLevels()> tail;
 			tail[depth(node)] = node;
@@ -1221,7 +1168,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	void eraseChildren(NodeType node)
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
 			eraseChildren(node, children(node));
@@ -1293,7 +1240,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr bool isLeaf(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			static_assert(TreeIndex::PROCESSING_POS <= TreeIndex::NULL_POS);
 			return TreeIndex::PROCESSING_POS <= children(node);
@@ -1324,6 +1271,11 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	|                                                                                     |
 	**************************************************************************************/
 
+	[[nodiscard]] constexpr bool isRoot(pos_t block) const
+	{
+		return this->block() == block;
+	}
+
 	/*!
 	 * @brief Checks if the node is the root of the tree.
 	 *
@@ -1333,7 +1285,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr bool isRoot(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return index() == node;
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -1370,7 +1322,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] bool valid(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return valid(node.pos) && branchingFactor() > node.offset &&
 			       treeBlock(node).valid();
@@ -1407,7 +1359,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] bool exists(NodeType node) const
 	{
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return valid(node);
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -1459,7 +1411,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		assert(0 < depth(node));
 		assert(BF > i);
 
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
 			return Index(children(node), i);
@@ -1506,7 +1458,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		assert(!isRoot(node));
 		assert(BF > i);
 
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return Index(node.pos, i);
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -1538,12 +1490,24 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// Parent
 	//
 
+	[[nodiscard]] pos_t parentBlock(pos_t block) const
+	{
+		assert(!isRoot(block));
+		return treeBlock(block).parentBlock();
+	}
+
+	[[nodiscard]] Index parent(pos_t block) const
+	{
+		assert(!isRoot(block));
+		return treeBlock(block).parent();
+	}
+
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] NodeType parent(NodeType node) const
 	{
 		assert(!isRoot(node));
 
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			return treeBlock(node).parent();
 		} else if constexpr (std::is_same_v<T, Node>) {
@@ -1582,7 +1546,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return node;
 		}
 
-		using T = std::decay_t<NodeType>;
+		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			pos_t block = node.pos;
 			for (depth_t d = this->depth(node); depth > d + 1; ++d) {
@@ -2509,22 +2473,29 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	**************************************************************************************/
 
 	template <
-	    class NodeFun, class BlockFun, class UpdateFun, class StopFun,
+	    class UpdateFun,
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
+	void recursUpdate(Index node, UpdateFun update_f)
+	{
+		auto const root_depth = depth();
+		for (auto d = depth(node); root_depth > d; ++d) {
+			auto const children = node.pos;
+			node                = parent(node);
+			update_f(node, children);
+		}
+	}
+
+	template <
+	    class NodeFun, class BlockFun, class UpdateFun,
 	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
 	    std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool>         = true,
-	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true,
-	    std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>          = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, UpdateFun update_f,
-	                  StopFun stop_f) const
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
+	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, UpdateFun update_f)
 	{
 		assert(valid(node));
 
 		if (isLeaf(node)) {
 			node_f(node);
-			return;
-		}
-
-		if (stop_f(node)) {
 			return;
 		}
 
@@ -2534,7 +2505,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			block_f(c);
 		} else {
 			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(c, i), node_f, block_f, update_f, stop_f);
+				recursLeaves(Index(c, i), node_f, block_f, update_f);
 			}
 		}
 
@@ -2542,215 +2513,26 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <
-	    class NodeFun, class BlockFun, class UpdateFun,
+	    class NodeType, class NodeFun, class BlockFun, class UpdateFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>                             = true,
 	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
 	    std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool>         = true,
 	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f,
-	                  UpdateFun update_f) const
-	{
-		recursLeaves(node, node_f, block_f, update_f,
-		             [](Index /* node*/) -> bool { return false; });
-	}
-
-	template <
-	    class NodeFun, class UpdateFun,
-	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
-	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, UpdateFun update_f) const
-	{
-		recursLeaves(
-		    node, node_f, [](pos_t /* pos */) -> void {}, update_f,
-		    [](Index /* node*/) -> bool { return false; });
-	}
-
-	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f) const
-	{
-		recursLeaves(
-		    node, node_f, block_f, [](Index /* node */, pos_t /* children */) -> void {},
-		    [](Index /* node */) -> bool { return false; });
-	}
-
-	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f) const
-	{
-		recursLeaves(
-		    node, node_f,
-		    [node_f](pos_t pos) -> void {
-			    for (std::size_t i{}; BF > i; ++i) {
-				    node_f(Index(pos, i));
-			    }
-		    },
-		    [](Index /* node */, pos_t /* children */) -> void {},
-		    [](Index /* node */) -> bool { return false; });
-	}
-
-	template <
-	    class NodeFun, class UpdateFun, class StopFun,
-	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
-	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true,
-	    std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>          = true>
-	void recursLeaves(Index node, NodeFun node_f, UpdateFun update_f, StopFun stop_f) const
-	{
-		recursLeaves(node, node_f, [](pos_t /* pos */) -> void {}, update_f, stop_f);
-	}
-
-	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursLeaves(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f) const
-	{
-		recursLeaves(
-		    node, node_f, block_f, [](Index /* node */, pos_t /* children */) -> void {},
-		    stop_f);
-	}
-
-	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursLeaves(Index node, NodeFun node_f, StopFun stop_f) const
-	{
-		recursLeaves(
-		    node, node_f,
-		    [node_f](pos_t pos) -> void {
-			    for (std::size_t i{}; BF > i; ++i) {
-				    node_f(Index(pos, i));
-			    }
-		    },
-		    [](Index /* node */, pos_t /* children */) -> void {}, stop_f);
-	}
-
-	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursChildrenFirst(Index node, NodeFun node_f, StopFun stop_f)
+	void recursLeaves(NodeType node, NodeFun node_f, BlockFun block_f, UpdateFun update_f,
+	                  bool update)
 	{
 		assert(valid(node));
 
-		if (isParent(node) && !stop_f(node)) {
-			auto c = children(node);
-			for (std::size_t i{}; BF > i; ++i) {
-				recursChildrenFirst(Index(c, i), node_f, stop_f);
-			}
+		Index n = create(node);
+		recursLeaves(n, node_f, block_f, update_f);
+		if (update) {
+			recursUpdate(n, update_f);
 		}
-
-		node_f(node);
-	}
-
-	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true>
-	void recursChildrenFirst(Index node, NodeFun node_f)
-	{
-		recursChildrenFirst(node, node_f, [](Index) { return false; });
-	}
-
-	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursChildrenFirst(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
-	{
-		assert(valid(node));
-
-		if (isParent(node) && !stop_f(node)) {
-			recursChildrenFirst(children(node), block_f, stop_f);
-		}
-
-		node_f(node);
-	}
-
-	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
-	void recursChildrenFirst(Index node, NodeFun node_f, BlockFun block_f)
-	{
-		recursChildrenFirst(node, node_f, block_f, [](Index) { return false; });
-	}
-
-	template <class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursChildrenFirst(pos_t block, BlockFun block_f, StopFun stop_f)
-	{
-		assert(valid(block));
-
-		for (std::size_t i{}; BF > i; ++i) {
-			Index node(block, i);
-			if (isParent(node) && !stop_f(node)) {
-				recursChildrenFirst(children(node), block_f, stop_f);
-			}
-		}
-
-		block_f(block);
 	}
 
 	template <class BlockFun,
 	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
-	void recursChildrenFirst(pos_t block, BlockFun block_f)
-	{
-		recursChildrenFirst(block, block_f, [](Index) { return false; });
-	}
-
-	template <class NodeFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f, StopFun stop_f)
-	{
-		assert(valid(node));
-
-		node_f(node);
-
-		if (isLeaf(node) || stop_f(node)) {
-			return;
-		}
-
-		auto c = children(node);
-		for (std::size_t i{}; BF > i; ++i) {
-			recursParentFirst(Index(c, i), node_f, stop_f);
-		}
-	}
-
-	template <class NodeFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f)
-	{
-		recursParentFirst(node, node_f, [](Index) { return false; });
-	}
-
-	template <class NodeFun, class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f, StopFun stop_f)
-	{
-		assert(valid(node));
-
-		node_f(node);
-
-		if (isLeaf(node) || stop_f(node)) {
-			return;
-		}
-
-		recursParentFirst(children(node), block_f, stop_f);
-	}
-
-	template <class NodeFun, class BlockFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>  = true,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
-	void recursParentFirst(Index node, NodeFun node_f, BlockFun block_f)
-	{
-		recursParentFirst(node, node_f, block_f, [](Index) { return false; });
-	}
-
-	template <class BlockFun, class StopFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true,
-	          std::enable_if_t<std::is_invocable_r_v<bool, StopFun, Index>, bool>  = true>
-	void recursParentFirst(pos_t block, BlockFun block_f, StopFun stop_f)
+	void recursParentFirst(pos_t block, BlockFun block_f)
 	{
 		assert(valid(block));
 
@@ -2762,17 +2544,31 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		for (std::size_t i{}; BF > i; ++i) {
 			Index node(block, i);
-			if (isParent(node) && !stop_f(node)) {
-				recursParentFirst(children(node), block_f, stop_f);
+			if (isParent(node)) {
+				recursParentFirst(children(node), block_f);
 			}
 		}
 	}
 
-	template <class BlockFun,
-	          std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool> = true>
-	void recursParentFirst(pos_t block, BlockFun block_f)
+	template <
+	    class NodeType, class NodeFun, class BlockFun, class UpdateFun,
+	    std::enable_if_t<is_node_type_v<NodeType>, bool>                             = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, NodeFun, Index>, bool>          = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, BlockFun, pos_t>, bool>         = true,
+	    std::enable_if_t<std::is_invocable_r_v<void, UpdateFun, Index, pos_t>, bool> = true>
+	void recursParentFirst(NodeType node, NodeFun node_f, BlockFun block_f,
+	                       UpdateFun update_f, bool update)
 	{
-		recursParentFirst(block, block_f, [](Index) { return false; });
+		assert(valid(node));
+
+		Index n = create(node);
+		node_f(n);
+		if (isParent(n)) {
+			recursParentFirst(children(n), block_f);
+		}
+		if (update) {
+			recursUpdate(n, update_f);
+		}
 	}
 
 	/**************************************************************************************
@@ -3012,7 +2808,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		                                            std::memory_order_relaxed);
 		derived().onPruneChildren(node, children);
 		// Important that derived is pruned first in case they use parent code
-		treeBlock(children) = Block();
+		treeBlock(children) = Block{};
 		Data::eraseBlock(children);
 	}
 
