@@ -103,34 +103,39 @@ struct Spatial {
 
 	constexpr Spatial() = default;
 
-	constexpr Spatial(Geometry geometry) : geometry{geometry} {}
+	constexpr Spatial(Geometry const& geometry) : geometry{geometry} {}
 };
 
 template <class Geometry>
-[[nodiscard]] Spatial<Geometry, SpatialTag::CONTAINS, false> Contains(
-    Geometry geometry = {})
+[[nodiscard]] Spatial<remove_cvref_t<Geometry>, SpatialTag::CONTAINS, false> Contains(
+    Geometry&& geometry = {})
 {
-	return Spatial<Geometry, SpatialTag::CONTAINS, false>(geometry);
+	return Spatial<remove_cvref_t<Geometry>, SpatialTag::CONTAINS, false>(
+	    std::forward<Geometry>(geometry));
 }
 
 template <class Geometry>
-[[nodiscard]] Spatial<Geometry, SpatialTag::DISJOINT, false> Disjoint(
-    Geometry geometry = {})
+[[nodiscard]] Spatial<remove_cvref_t<Geometry>, SpatialTag::DISJOINT, false> Disjoint(
+    Geometry&& geometry = {})
 {
-	return Spatial<Geometry, SpatialTag::DISJOINT, false>(geometry);
+	return Spatial<remove_cvref_t<Geometry>, SpatialTag::DISJOINT, false>(
+	    std::forward<Geometry>(geometry));
 }
 
 template <class Geometry>
-[[nodiscard]] Spatial<Geometry, SpatialTag::INTERSECTS, false> Intersects(
-    Geometry geometry = {})
+[[nodiscard]] Spatial<remove_cvref_t<Geometry>, SpatialTag::INTERSECTS, false> Intersects(
+    Geometry&& geometry = {})
 {
-	return Spatial<Geometry, SpatialTag::INTERSECTS, false>(geometry);
+	return Spatial<remove_cvref_t<Geometry>, SpatialTag::INTERSECTS, false>(
+	    std::forward<Geometry>(geometry));
 }
 
 template <class Geometry>
-[[nodiscard]] Spatial<Geometry, SpatialTag::INSIDE, false> Inside(Geometry geometry = {})
+[[nodiscard]] Spatial<remove_cvref_t<Geometry>, SpatialTag::INSIDE, false> Inside(
+    Geometry&& geometry = {})
 {
-	return Spatial<Geometry, SpatialTag::INSIDE, false>(geometry);
+	return Spatial<remove_cvref_t<Geometry>, SpatialTag::INSIDE, false>(
+	    std::forward<Geometry>(geometry));
 }
 
 //
