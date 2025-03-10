@@ -47,6 +47,7 @@
 #include <ufo/morton/morton.hpp>
 
 // STL
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
@@ -112,6 +113,15 @@ class TreeKey : public Vec<Dim, std::uint32_t>
 
 	[[nodiscard]] constexpr depth_t depth() const noexcept { return depth_; }
 
+	[[nodiscard]] constexpr TreeKey toDepth(depth_t depth) const
+	{
+		assert(maxDepth() >= depth);
+
+		TreeKey ret = *this;
+		ret.setDepth(depth);
+		return ret;
+	}
+
 	/*!
 	 * @brief Change the depth of the key.
 	 *
@@ -143,6 +153,8 @@ class TreeKey : public Vec<Dim, std::uint32_t>
 		}
 		return ret;
 	}
+
+	[[nodiscard]] constexpr TreeKey parent() const { return toDepth(depth_ + 1); }
 
 	void swap(TreeKey& other) noexcept
 	{
@@ -183,7 +195,9 @@ template <std::size_t Dim>
 [[nodiscard]] constexpr bool operator==(TreeKey<Dim> const& lhs,
                                         TreeKey<Dim> const& rhs) noexcept
 {
-	return all(lhs.key == rhs.key) && lhs.depth() == rhs.depth();
+	using Key = typename TreeKey<Dim>::Key;
+	return static_cast<Key const&>(lhs) == static_cast<Key const&>(rhs) &&
+	       lhs.depth() == rhs.depth();
 }
 
 template <std::size_t Dim>
@@ -256,7 +270,9 @@ template <std::size_t Dim>
 struct hash<ufo::TreeKey<Dim>> {
 	std::size_t operator()(ufo::TreeKey<Dim> const& key) const
 	{
-		return static_cast<std::size_t>(ufo::Morton<Dim>::encode(key.key));
+		using Key = typename ufo::TreeKey<Dim>::Key;
+		return static_cast<std::size_t>(
+		    ufo::Morton<Dim>::encode(static_cast<Key const&>(key)));
 	}
 };
 }  // namespace std
