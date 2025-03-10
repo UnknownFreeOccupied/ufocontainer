@@ -46,7 +46,7 @@
 #include <ufo/container/tree/block.hpp>
 #include <ufo/container/tree/code.hpp>
 #include <ufo/container/tree/index.hpp>
-#include <ufo/geometry/shape/aabb.hpp>
+#include <ufo/geometry/aabb.hpp>
 
 // STL
 #include <array>
