@@ -39,37 +39,55 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP
 
 // UFO
-#include <ufo/container/tree/predicate/child_of.hpp>
-#include <ufo/container/tree/predicate/coord.hpp>
-#include <ufo/container/tree/predicate/depth.hpp>
-#include <ufo/container/tree/predicate/depth_interval.hpp>
-#include <ufo/container/tree/predicate/exists.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
-#include <ufo/container/tree/predicate/inner.hpp>
-#include <ufo/container/tree/predicate/leaf.hpp>
-#include <ufo/container/tree/predicate/leaf_or_depth.hpp>
-#include <ufo/container/tree/predicate/length.hpp>
-#include <ufo/container/tree/predicate/length_interval.hpp>
-#include <ufo/container/tree/predicate/modified.hpp>
-#include <ufo/container/tree/predicate/offset.hpp>
-#include <ufo/container/tree/predicate/parent.hpp>
-#include <ufo/container/tree/predicate/predicate.hpp>
-#include <ufo/container/tree/predicate/predicate_compare.hpp>
-#include <ufo/container/tree/predicate/pure_leaf.hpp>
-#include <ufo/container/tree/predicate/satisfies.hpp>
-#include <ufo/container/tree/predicate/satisfies_inner.hpp>
-#include <ufo/container/tree/predicate/spatial.hpp>
 
 namespace ufo::pred
 {
-constexpr PureLeaf operator!(Inner) { return {}; }
-constexpr Inner    operator!(PureLeaf) { return {}; }
-constexpr Parent   operator!(Leaf) { return {}; }
-constexpr Leaf     operator!(Parent) { return {}; }
+template <bool Negated = false>
+struct Modified {
+};
+
+template <bool Negated>
+constexpr Modified<!Negated> operator!(Modified<Negated>)
+{
+	return Modified<!Negated>{};
+}
+
+template <bool Negated>
+struct Filter<Modified<Negated>> {
+	using Pred = Modified<Negated>;
+
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
+	                                               typename Tree::Node const& n)
+	{
+		if constexpr (Negated) {
+			return !t.modified(n.index);
+		} else {
+			return t.modified(n.index);
+		}
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
+	                                                typename Tree::Node const& n)
+	{
+		if constexpr (Negated) {
+			return true;
+		} else {
+			return t.modified(n.index);
+		}
+	}
+};
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_MODIFIED_HPP

@@ -935,6 +935,71 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	/**************************************************************************************
 	|                                                                                     |
+	|                                      Modified                                       |
+	|                                                                                     |
+	**************************************************************************************/
+
+	/*!
+	 * @brief Check if the root of the tree is modified.
+	 *
+	 * @return Whether the root of the tree is in a modified state.
+	 */
+	[[nodiscard]] bool modified() const { return modified(index()); }
+
+	/*!
+	 * @brief Check if a node of the tree is in a modified state (i.e., the node
+	 * or one of its children has been modified).
+	 *
+	 * @param node The node to check.
+	 * @return Whether the node is in a modified state.
+	 */
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	[[nodiscard]] bool modified(NodeType node) const
+	{
+		Index n = index(node);
+		return treeBlock(n.pos).modified(n.offset);
+	}
+
+	void modifiedSet(bool value) { return value ? modifiedSet() : modifiedReset(); }
+
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	void modifiedSet(NodeType node, bool value)
+	{
+		return value ? modifiedSet(node) : modifiedReset(node);
+	}
+
+	void modifiedSet() { modifiedSet(index()); }
+
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	void modifiedSet(NodeType node)
+	{
+		auto node_f = [this](Index node) { treeBlock(node.pos).modifiedSet(node.offset); };
+
+		auto block_f = [this](pos_t block) { treeBlock(block).modifiedSet(); };
+
+		auto update_f = [this](Index node, pos_t children) {
+			treeBlock(node.pos).modifiedSet(node.offset, treeBlock(children).modifiedAny());
+		};
+
+		recursParentFirst(node, node_f, block_f, update_f, !modified(parent(node)));
+	}
+
+	void modifiedReset() { modifiedReset(index()); }
+
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	void modifiedReset(NodeType node)
+	{
+		auto node_f = [this](Index node) { treeBlock(node.pos).modifiedReset(node.offset); };
+
+		auto block_f = [this](pos_t block) { treeBlock(block).modifiedReset(); };
+
+		auto update_f = [this](Index /* node */, pos_t /* children */) {};
+
+		recursParentFirst(node, node_f, block_f, update_f, false);
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
 	|                                 Create/erase nodes                                  |
 	|                                                                                     |
 	**************************************************************************************/
@@ -948,15 +1013,36 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	Index create(NodeType node)
 	{
-		using T = remove_cvref_t<NodeType>;
-		if constexpr (std::is_same_v<T, Index>) {
-			return node;
-		} else if constexpr (std::is_same_v<T, Node>) {
-			return create(code(node), index(node));
-		} else if constexpr (std::is_same_v<T, Code>) {
-			return create(node, index());
+		assert(valid(node));
+
+		if constexpr (std::is_same_v<Index, remove_cvref_t<NodeType>>) {
+			Index      res        = node;
+			auto const root_depth = depth();
+			for (auto d = depth(node); root_depth > d; ++d) {
+				auto const children = node.pos;
+				node                = parent(node);
+				// NOTE: It is important that this check is here so it does not check the incoming
+				// node. This would mess up the `recursLeaves` and `recursParentFirst` otherwise.
+				if (modified(node)) {
+					return res;
+				}
+				treeBlock(node.pos).modifiedSet(node.offset);
+
+				// This is slower than the above
+				// if (treeBlock(node.pos).modifiedFetchSet(node.offset)) {
+				// 	return res;
+				// }
+			}
+			return res;
 		} else {
-			return create(code(node));
+			Code code         = this->code(node);
+			auto wanted_depth = depth(code);
+			auto cur_node     = index();
+			auto cur_depth    = depth();
+			while (wanted_depth < cur_depth) {
+				cur_node = createChild(cur_node, code.offset(--cur_depth));
+			}
+			return cur_node;
 		}
 	}
 
@@ -1085,78 +1171,6 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		__block std::vector<Index> nodes(std::size(r));
 		create(std::forward<ExecutionPolicy>(policy), r, nodes.begin());
 		return nodes;
-	}
-
-	pos_t createChildren(Index node)
-	{
-		assert(!isPureLeaf(node));
-
-		if (isParent(node)) {
-			return children(node);
-		}
-
-		Block& block = treeBlock(node);
-
-		pos_t children = Data::create();
-		initChildren(node, block, children);
-
-		return children;
-	}
-
-	pos_t createChildrenThreadSafe(Index node)
-	{
-		assert(!isPureLeaf(node));
-		Block& block = treeBlock(node);
-
-		pos_t children = Index::NULL_POS;
-		if (block.children[node.offset].compare_exchange_strong(children,
-		                                                        Index::PROCESSING_POS)) {
-			children = Data::createThreadSafe();
-			initChildren(node, block, children);
-		} else {
-			while (Index::PROCESSING_POS == children) {
-				children = block.children[node.offset].load(std::memory_order_acquire);
-			}
-		}
-
-		return children;
-	}
-
-	Index createChild(Index node, offset_t child_index)
-	{
-		assert(0 < depth(node));
-		assert(branchingFactor() > child_index);
-
-		return Index(createChildren(node), child_index);
-	}
-
-	Index createChildThreadSafe(Index node, offset_t child_index)
-	{
-		assert(0 < depth(node));
-		assert(branchingFactor() > child_index);
-
-		return Index(createChildrenThreadSafe(node), child_index);
-	}
-
-	//
-	// Create trail
-	//
-
-	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	std::array<Index, maxNumDepthLevels()> createTrail(NodeType node)
-	{
-		using T = remove_cvref_t<NodeType>;
-		if constexpr (std::is_same_v<T, Index>) {
-			std::array<Index, maxNumDepthLevels()> tail;
-			tail[depth(node)] = node;
-			return tail;
-		} else if constexpr (std::is_same_v<T, Node>) {
-			return createTrail(code(node), index(node));
-		} else if constexpr (std::is_same_v<T, Code>) {
-			return createTrail(node, index());
-		} else {
-			return createTrail(code(node));
-		}
 	}
 
 	//
@@ -2494,6 +2508,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	{
 		assert(valid(node));
 
+		treeBlock(node.pos).modifiedSet(node.offset);
+
 		if (isLeaf(node)) {
 			node_f(node);
 			return;
@@ -2502,6 +2518,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		auto c = children(node);
 
 		if (allLeaf(c)) {
+			treeBlock(c).modifiedSet();
 			block_f(c);
 		} else {
 			for (std::size_t i{}; BF > i; ++i) {
@@ -2523,10 +2540,22 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	{
 		assert(valid(node));
 
-		Index n = create(node);
-		recursLeaves(n, node_f, block_f, update_f);
-		if (update) {
-			recursUpdate(n, update_f);
+		if constexpr (std::is_same_v<Index, remove_cvref_t<NodeType>>) {
+			recursLeaves(node, node_f, block_f, update_f);
+			if (update) {
+				recursUpdate(node, [this, update_f](Index node, pos_t children) {
+					treeBlock(node.pos).modifiedSet(node.offset);
+					update_f(node, children);
+				});
+			} else {
+				create(node);
+			}
+		} else {
+			Index n = create(node);
+			recursLeaves(n, node_f, block_f, update_f);
+			if (update) {
+				recursUpdate(n, update_f);
+			}
 		}
 	}
 
@@ -2535,6 +2564,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	void recursParentFirst(pos_t block, BlockFun block_f)
 	{
 		assert(valid(block));
+
+		treeBlock(block).modifiedSet();
 
 		block_f(block);
 
@@ -2561,13 +2592,30 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	{
 		assert(valid(node));
 
-		Index n = create(node);
-		node_f(n);
-		if (isParent(n)) {
-			recursParentFirst(children(n), block_f);
-		}
-		if (update) {
-			recursUpdate(n, update_f);
+		if constexpr (std::is_same_v<Index, remove_cvref_t<NodeType>>) {
+			treeBlock(node.pos).modifiedSet(node.offset);
+			node_f(node);
+			if (isParent(node)) {
+				recursParentFirst(children(node), block_f);
+			}
+			if (update) {
+				recursUpdate(node, [this, update_f](Index node, pos_t children) {
+					treeBlock(node.pos).modifiedSet(node.offset);
+					update_f(node, children);
+				});
+			} else {
+				create(node);
+			}
+		} else {
+			Index n = create(node);
+			treeBlock(n.pos).modifiedSet(n.offset);
+			node_f(n);
+			if (isParent(n)) {
+				recursParentFirst(children(n), block_f);
+			}
+			if (update) {
+				recursUpdate(n, update_f);
+			}
 		}
 	}
 
@@ -2816,29 +2864,60 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// Create
 	//
 
-	Index create(Code code, Index cur_node)
+	pos_t createChildren(Index node)
 	{
-		assert(valid(code));
-		assert(valid(cur_node));
-		auto wanted_depth = depth(code);
-		auto cur_depth    = depth(cur_node);
-		while (wanted_depth < cur_depth) {
-			cur_node = createChild(cur_node, code.offset(--cur_depth));
+		assert(!isPureLeaf(node));
+
+		Block& block = treeBlock(node);
+
+		pos_t children = this->children(node);
+		assert(TreeIndex::PROCESSING_POS != children);
+
+		if (TreeIndex::NULL_POS == children) {
+			children = Data::create();
+			initChildren(node, block, children);
 		}
-		return cur_node;
+
+		block.modifiedSet(node.offset);
+
+		return children;
 	}
 
-	std::array<Index, maxNumDepthLevels()> createTrail(Code code, Index cur_node)
+	pos_t createChildrenThreadSafe(Index node)
 	{
-		std::array<Index, maxNumDepthLevels()> trail{};
-		auto                                   wanted_depth = depth(code);
-		auto                                   cur_depth    = depth(cur_node);
-		trail[cur_depth]                                    = cur_node;
-		while (wanted_depth < cur_depth) {
-			cur_node         = createChild(cur_node, code.offset(--cur_depth));
-			trail[cur_depth] = cur_node;
+		assert(!isPureLeaf(node));
+		Block& block = treeBlock(node);
+
+		pos_t children = Index::NULL_POS;
+		if (block.children[node.offset].compare_exchange_strong(children,
+		                                                        Index::PROCESSING_POS)) {
+			children = Data::createThreadSafe();
+			initChildren(node, block, children);
+		} else {
+			while (Index::PROCESSING_POS == children) {
+				children = block.children[node.offset].load(std::memory_order_acquire);
+			}
 		}
-		return trail;
+
+		block.modifiedSet(node.offset);
+
+		return children;
+	}
+
+	Index createChild(Index node, offset_t child_index)
+	{
+		assert(0 < depth(node));
+		assert(branchingFactor() > child_index);
+
+		return Index(createChildren(node), child_index);
+	}
+
+	Index createChildThreadSafe(Index node, offset_t child_index)
+	{
+		assert(0 < depth(node));
+		assert(branchingFactor() > child_index);
+
+		return Index(createChildrenThreadSafe(node), child_index);
 	}
 
 	//

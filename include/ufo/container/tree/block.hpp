@@ -53,7 +53,9 @@
 // STL
 #include <array>
 #include <atomic>
+#include <cassert>
 #include <cstddef>
+#include <cstdint>
 
 namespace ufo
 {
@@ -76,13 +78,17 @@ struct TreeBlock {
 	}
 
 	constexpr TreeBlock(TreeBlock const& other)
-	    : parent_block_(other.parent_block_), code_(other.code_)
+	    : parent_block_(other.parent_block_)
+	    , modified_(other.modified_.load())
+	    , code_(other.code_)
 	{
 		for (std::size_t i{}; BF > i; ++i) {
 			children[i].store(other.children[i].load(std::memory_order_relaxed),
 			                  std::memory_order_relaxed);
 		}
 	}
+
+	// For createRoot
 
 	constexpr TreeBlock(TreeIndex::pos_t parent_block, Code code, Point /* center */,
 	                    Length /* half_length */)
@@ -100,9 +106,12 @@ struct TreeBlock {
 			                  std::memory_order_relaxed);
 		}
 		parent_block_ = rhs.parent_block_;
+		modified_     = rhs.modified_.load();
 		code_         = rhs.code_;
 		return *this;
 	}
+
+	// For initChildren
 
 	constexpr void fill(TreeIndex::pos_t parent_block, TreeBlock const& parent,
 	                    std::size_t offset, Length /* half_length */)
@@ -145,11 +154,75 @@ struct TreeBlock {
 		return !(lhs == rhs);
 	}
 
+	/**************************************************************************************
+	|                                                                                     |
+	|                                      Modified                                       |
+	|                                                                                     |
+	**************************************************************************************/
+
+	[[nodiscard]] std::uint32_t modified() { return modified_.load(); }
+
+	[[nodiscard]] bool modified(std::size_t pos) const
+	{
+		assert(BF > pos);
+		return (modified_ >> pos) & std::uint32_t(1);
+	}
+
+	[[nodiscard]] bool modifiedAny() const { return std::uint32_t(0) != modified_; }
+
+	[[nodiscard]] bool modifiedAll() const
+	{
+		return (~(static_cast<std::uint32_t>(-1) << BF)) != modified_;
+	}
+
+	[[nodiscard]] bool modifiedNone() const { return std::uint32_t(0) == modified_; }
+
+	std::uint32_t modifiedExchange(std::uint32_t value)
+	{
+		return modified_.exchange(value);
+	}
+
+	void modifiedFill(bool value)
+	{
+		modified_ = (-static_cast<std::uint32_t>(value)) >> (32 - BF);
+	}
+
+	void modifiedSet() { modified_ = ~(static_cast<std::uint32_t>(-1) << BF); }
+
+	void modifiedSet(std::size_t pos)
+	{
+		assert(BF > pos);
+		modified_ |= std::uint32_t(1) << pos;
+	}
+
+	bool modifiedFetchSet(std::size_t pos)
+	{
+		assert(BF > pos);
+		return (std::uint32_t(1) << pos) & modified_.fetch_or(std::uint32_t(1) << pos);
+	}
+
+	void modifiedSet(std::size_t pos, bool value)
+	{
+		assert(BF > pos);
+		modified_ ^= (-static_cast<std::uint32_t>(value) ^ modified_.load()) &
+		             (std::uint32_t(1) << pos);
+	}
+
+	void modifiedReset() { modified_ = std::uint32_t(0); }
+
+	void modifiedReset(std::size_t pos)
+	{
+		assert(BF > pos);
+		modified_ &= ~(std::uint32_t(1) << pos);
+	}
+
  private:
 	// Position of the parent block
 	TreeIndex::pos_t parent_block_ = TreeIndex::NULL_POS;
-	// NOTE: Padding for GPU
-	float _pad0;
+
+	// Bit set saying if the node corresponding to the bit has been modified
+	std::atomic_uint32_t modified_{};
+
 	// Code to the first node of the block
 	Code code_ = Code::invalid();
 };
