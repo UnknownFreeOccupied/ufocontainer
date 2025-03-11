@@ -49,6 +49,7 @@
 #include <ufo/geometry/aabb.hpp>
 #include <ufo/math/vec.hpp>
 #include <ufo/utility/create_array.hpp>
+#include <ufo/utility/spinlock.hpp>
 
 // STL
 #include <array>
@@ -160,52 +161,52 @@ struct TreeBlock {
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] std::uint32_t modified() { return modified_.load(); }
+	[[nodiscard]] std::uint16_t modified() { return modified_.load(); }
 
 	[[nodiscard]] bool modified(std::size_t pos) const
 	{
 		assert(BF > pos);
-		return (modified_ >> pos) & std::uint32_t(1);
+		return (modified_ >> pos) & std::uint16_t(1);
 	}
 
-	[[nodiscard]] bool modifiedAny() const { return std::uint32_t(0) != modified_; }
+	[[nodiscard]] bool modifiedAny() const { return std::uint16_t(0) != modified_; }
 
 	[[nodiscard]] bool modifiedAll() const
 	{
-		return (~(static_cast<std::uint32_t>(-1) << BF)) != modified_;
+		return (~(static_cast<std::uint16_t>(-1) << BF)) != modified_;
 	}
 
-	[[nodiscard]] bool modifiedNone() const { return std::uint32_t(0) == modified_; }
+	[[nodiscard]] bool modifiedNone() const { return std::uint16_t(0) == modified_; }
 
-	std::uint32_t modifiedExchange(std::uint32_t value)
+	std::uint16_t modifiedExchange(std::uint16_t value)
 	{
 		return modified_.exchange(value);
 	}
 
 	void modifiedFill(bool value)
 	{
-		modified_ = (-static_cast<std::uint32_t>(value)) >> (32 - BF);
+		modified_ = (-static_cast<std::uint16_t>(value)) >> (32 - BF);
 	}
 
-	void modifiedSet() { modified_ = ~(static_cast<std::uint32_t>(-1) << BF); }
+	void modifiedSet() { modified_ = ~(static_cast<std::uint16_t>(-1) << BF); }
 
 	void modifiedSet(std::size_t pos)
 	{
 		assert(BF > pos);
-		modified_ |= std::uint32_t(1) << pos;
+		modified_ |= std::uint16_t(1) << pos;
 	}
 
 	bool modifiedFetchSet(std::size_t pos)
 	{
 		assert(BF > pos);
-		return (std::uint32_t(1) << pos) & modified_.fetch_or(std::uint32_t(1) << pos);
+		return (std::uint16_t(1) << pos) & modified_.fetch_or(std::uint16_t(1) << pos);
 	}
 
 	void modifiedSet(std::size_t pos, bool value)
 	{
 		assert(BF > pos);
-		modified_ ^= (-static_cast<std::uint32_t>(value) ^ modified_.load()) &
-		             (std::uint32_t(1) << pos);
+		modified_ ^= (-static_cast<std::uint16_t>(value) ^ modified_.load()) &
+		             (std::uint16_t(1) << pos);
 	}
 
 	void modifiedReset() { modified_ = std::uint32_t(0); }
@@ -213,15 +214,35 @@ struct TreeBlock {
 	void modifiedReset(std::size_t pos)
 	{
 		assert(BF > pos);
-		modified_ &= ~(std::uint32_t(1) << pos);
+		modified_ &= ~(std::uint16_t(1) << pos);
 	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                        Lock                                         |
+	|                                                                                     |
+	**************************************************************************************/
+
+	[[nodiscard]] Spinlock& chicken() noexcept { return lock_; }
+
+	void lock() noexcept(noexcept(lock_.lock())) { lock_.lock(); }
+
+	[[nodiscard]] bool try_lock() noexcept(noexcept(lock_.try_lock()))
+	{
+		return lock_.try_lock();
+	}
+
+	void unlock() noexcept(noexcept(lock_.unlock())) { lock_.unlock(); }
 
  private:
 	// Position of the parent block
 	TreeIndex::pos_t parent_block_ = TreeIndex::NULL_POS;
 
 	// Bit set saying if the node corresponding to the bit has been modified
-	std::atomic_uint32_t modified_{};
+	std::atomic_uint16_t modified_{};
+
+	// Lock
+	Spinlock lock_;
 
 	// Code to the first node of the block
 	Code code_ = Code::invalid();

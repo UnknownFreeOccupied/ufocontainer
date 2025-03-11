@@ -1000,6 +1000,33 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	/**************************************************************************************
 	|                                                                                     |
+	|                                        Lock                                         |
+	|                                                                                     |
+	**************************************************************************************/
+
+	[[nodiscard]] Spinlock& chicken(pos_t block) noexcept(
+	    noexcept(treeBlock(block).chicken()))
+	{
+		return treeBlock(block).chicken();
+	}
+
+	void lock(pos_t block) noexcept(noexcept(treeBlock(block).lock()))
+	{
+		treeBlock(block).lock();
+	}
+
+	[[nodiscard]] bool try_lock(pos_t block) noexcept(noexcept(treeBlock(block).try_lock()))
+	{
+		return treeBlock(block).try_lock();
+	}
+
+	void unlock(pos_t block) noexcept(noexcept(treeBlock(block).unlock()))
+	{
+		treeBlock(block).unlock();
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
 	|                                 Create/erase nodes                                  |
 	|                                                                                     |
 	**************************************************************************************/
