@@ -122,17 +122,15 @@ class TreeSetIterator
 	pointer operator->() const { return &*it_; }
 
 	template <bool Const2>
-	friend bool operator==(TreeSetIterator const&              lhs,
-	                       TreeSetIterator<Const2, Dim> const& rhs)
+	bool operator==(TreeSetIterator<Const2, Dim> const& other)
 	{
-		return lhs.it_ == rhs.it_;
+		return it_ == other.it_;
 	}
 
 	template <bool Const2>
-	friend bool operator!=(TreeSetIterator const&              lhs,
-	                       TreeSetIterator<Const2, Dim> const& rhs)
+	bool operator!=(TreeSetIterator<Const2, Dim> const& other)
 	{
-		return lhs.it_ != rhs.it_;
+		return !(*this == other);
 	}
 
  private:

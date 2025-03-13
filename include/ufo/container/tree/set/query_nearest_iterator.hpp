@@ -160,20 +160,18 @@ class TreeSetQueryNearestIterator
 	pointer operator->() const { return &ret_; }
 
 	template <bool Const2, class Predicate2, class Geometry2>
-	friend bool operator==(
-	    TreeSetQueryNearestIterator const&                                     lhs,
-	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& rhs)
+	bool operator==(
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& other)
 	{
-		return lhs.queue_.empty() == rhs.queue_.empty() &&
-		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
+		return queue_.empty() == other.queue_.empty() &&
+		       (queue_.empty() || queue_.top().it == other.queue_.top().it);
 	}
 
 	template <bool Const2, class Predicate2, class Geometry2>
-	friend bool operator!=(
-	    TreeSetQueryNearestIterator const&                                     lhs,
-	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& rhs)
+	bool operator!=(
+	    TreeSetQueryNearestIterator<Const2, Dim, Predicate2, Geometry2> const& other)
 	{
-		return !(lhs == rhs);
+		return !(*this == other);
 	}
 
  private:

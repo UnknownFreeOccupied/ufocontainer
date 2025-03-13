@@ -142,17 +142,15 @@ class TreeSetQueryIterator
 	pointer operator->() const { return &*it_; }
 
 	template <bool Const2, class Predicate2>
-	friend bool operator==(TreeSetQueryIterator const&                          lhs,
-	                       TreeSetQueryIterator<Const2, Dim, Predicate2> const& rhs)
+	bool operator==(TreeSetQueryIterator<Const2, Dim, Predicate2> const& other)
 	{
-		return lhs.it_ == rhs.it_;
+		return it_ == other.it_;
 	}
 
 	template <bool Const2, class Predicate2>
-	friend bool operator!=(TreeSetQueryIterator const&                          lhs,
-	                       TreeSetQueryIterator<Const2, Dim, Predicate2> const& rhs)
+	bool operator!=(TreeSetQueryIterator<Const2, Dim, Predicate2> const& other)
 	{
-		return lhs.it_ != rhs.it_;
+		return !(*this == other);
 	}
 
  private:

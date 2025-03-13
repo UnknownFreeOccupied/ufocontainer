@@ -147,18 +147,16 @@ class TreeMapNearestIterator
 	pointer operator->() const { return &*queue_.top().it; }
 
 	template <bool Const2, class Geometry2>
-	friend bool operator==(TreeMapNearestIterator const&                            lhs,
-	                       TreeMapNearestIterator<Const2, Dim, T, Geometry2> const& rhs)
+	bool operator==(TreeMapNearestIterator<Const2, Dim, T, Geometry2> const& other)
 	{
-		return lhs.queue_.empty() == rhs.queue_.empty() &&
-		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
+		return queue_.empty() == other.queue_.empty() &&
+		       (queue_.empty() || queue_.top().it == other.queue_.top().it);
 	}
 
 	template <bool Const2, class Geometry2>
-	friend bool operator!=(TreeMapNearestIterator const&                            lhs,
-	                       TreeMapNearestIterator<Const2, Dim, T, Geometry2> const& rhs)
+	bool operator!=(TreeMapNearestIterator<Const2, Dim, T, Geometry2> const& other)
 	{
-		return !(lhs == rhs);
+		return !(*this == other);
 	}
 
  private:

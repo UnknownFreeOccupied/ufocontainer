@@ -158,20 +158,18 @@ class TreeMapQueryNearestIterator
 	pointer operator->() const { return &*queue_.top().it; }
 
 	template <bool Const2, class Predicate2, class Geometry2>
-	friend bool operator==(
-	    TreeMapQueryNearestIterator const&                                        lhs,
-	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& rhs)
+	bool operator==(
+	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& other)
 	{
-		return lhs.queue_.empty() == rhs.queue_.empty() &&
-		       (lhs.queue_.empty() || lhs.queue_.top().it == rhs.queue_.top().it);
+		return queue_.empty() == other.queue_.empty() &&
+		       (queue_.empty() || queue_.top().it == other.queue_.top().it);
 	}
 
 	template <bool Const2, class Predicate2, class Geometry2>
-	friend bool operator!=(
-	    TreeMapQueryNearestIterator const&                                        lhs,
-	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& rhs)
+	bool operator!=(
+	    TreeMapQueryNearestIterator<Const2, Dim, T, Predicate2, Geometry2> const& other)
 	{
-		return !(lhs == rhs);
+		return !(*this == other);
 	}
 
  private:
@@ -273,7 +271,7 @@ class TreeMapQueryNearestIterator
 	Geometry query_;
 	float    epsilon_sq_;
 
-	Queue                     queue_;
+	Queue queue_;
 };
 }  // namespace ufo
 

@@ -170,17 +170,15 @@ class TreeQueryNearestIterator
 	pointer operator->() const { return &ret_; }
 
 	template <class Predicate2, class Geometry2>
-	friend bool operator==(TreeQueryNearestIterator const&                              lhs,
-	                       TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& rhs)
+	bool operator==(TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& other)
 	{
-		return lhs.ret_ == rhs.ret_;
+		return ret_ == other.ret_;
 	}
 
 	template <class Predicate2, class Geometry2>
-	friend bool operator!=(TreeQueryNearestIterator const&                              lhs,
-	                       TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& rhs)
+	bool operator!=(TreeQueryNearestIterator<Tree, Predicate2, Geometry2> const& other)
 	{
-		return !(lhs == rhs);
+		return !(*this == other);
 	}
 
  private:

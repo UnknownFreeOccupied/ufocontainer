@@ -151,17 +151,15 @@ class TreeQueryIterator
 	pointer operator->() const { return &cur_; }
 
 	template <class Predicate2>
-	friend bool operator==(TreeQueryIterator const&                   lhs,
-	                       TreeQueryIterator<Tree, Predicate2> const& rhs)
+	bool operator==(TreeQueryIterator<Tree, Predicate2> const& other)
 	{
-		return lhs.cur_ == rhs.cur_;
+		return cur_ == other.cur_;
 	}
 
 	template <class Predicate2>
-	friend bool operator!=(TreeQueryIterator const&                   lhs,
-	                       TreeQueryIterator<Tree, Predicate2> const& rhs)
+	bool operator!=(TreeQueryIterator<Tree, Predicate2> const& other)
 	{
-		return !(lhs == rhs);
+		return !(*this == other);
 	}
 
  private:
