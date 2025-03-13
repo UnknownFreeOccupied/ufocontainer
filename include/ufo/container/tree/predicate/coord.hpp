@@ -89,7 +89,7 @@ struct Filter<Coord<Axis, PC>> {
 	                                               typename Tree::Node const& n)
 	{
 		auto c  = t.centerAxis(n, Axis);
-		auto hl = t.halfLength(n);
+		auto hl = t.halfLength(n)[Axis];
 
 		if constexpr (PredicateCompare::EQUAL == PC) {
 			return c - hl <= p.coord && c + hl >= p.coord;
@@ -111,7 +111,7 @@ struct Filter<Coord<Axis, PC>> {
 	                                                typename Tree::Node const& n)
 	{
 		auto c  = t.centerAxis(n, Axis);
-		auto hl = t.halfLength(n);
+		auto hl = t.halfLength(n)[Axis];
 
 		if constexpr (PredicateCompare::EQUAL == PC) {
 			return c - hl <= p.coord && c + hl >= p.coord;
@@ -122,9 +122,9 @@ struct Filter<Coord<Axis, PC>> {
 		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
 			return c + hl >= p.coord;
 		} else if constexpr (PredicateCompare::LESS == PC) {
-			return c - hl + t.length(0) < p.coord;
+			return c - hl + t.length(0)[Axis] < p.coord;
 		} else if constexpr (PredicateCompare::GREATER == PC) {
-			return c + hl - t.length(0) > p.coord;
+			return c + hl - t.length(0)[Axis] > p.coord;
 		}
 	}
 };
