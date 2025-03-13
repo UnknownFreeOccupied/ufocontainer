@@ -1054,11 +1054,6 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 					return res;
 				}
 				treeBlock(node.pos).modifiedSet(node.offset);
-
-				// This is slower than the above
-				// if (treeBlock(node.pos).modifiedFetchSet(node.offset)) {
-				// 	return res;
-				// }
 			}
 			return res;
 		} else {
@@ -1079,24 +1074,25 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		using value_type = remove_cvref_t<typename std::iterator_traits<InputIt>::value_type>;
 
 		if constexpr (std::is_same_v<Index, value_type>) {
+			// TODO: Should be marked modified
 			return std::copy(first, last, d_first);
 		} else {
-			Index node = this->index();
-			Code  code = this->code();
+			Index node      = this->index();
+			Code  node_code = this->code();
 
-			return std::transform(first, last, d_first, [this, &node, &code](auto const& x) {
-				Code    e            = this->code(x);
-				depth_t wanted_depth = this->depth(e);
-				depth_t depth        = Code::depthWhereEqual(code, e);
-				code                 = e;
+			return std::transform(first, last, d_first,
+			                      [this, &node, &node_code](auto const& x) {
+				                      Code    d_code = code(x);
+				                      depth_t d      = Code::depthWhereEqual(node_code, d_code);
 
-				node = ancestor(node, depth);
-				for (; wanted_depth < depth; --depth) {
-					node = createChild(node, code.offset(depth - 1));
-				}
+				                      node      = ancestor(node, d);
+				                      node_code = d_code;
+				                      for (depth_t d_depth = depth(d_code); d_depth < d; --d) {
+					                      node = createChild(node, d_code.offset(d - 1));
+				                      }
 
-				return node;
-			});
+				                      return node;
+			                      });
 		}
 	}
 
@@ -1118,33 +1114,66 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		    remove_cvref_t<typename std::iterator_traits<RandomIt1>::value_type>;
 
 		if constexpr (std::is_same_v<Index, value_type>) {
+			// TODO: Should be marked modified
 			// FIXME: Can be parallelize
 			return std::copy(first, last, d_first);
 		} else {
+			// NOTE: Possible (although, highly unlikely) problem. If this function is called
+			// more than max value of `std::size_t`, so `create_call_num` overflows, *AND* a
+			// thread has persisted but not been used for a multiple of max value of
+			// `std::size_t` iterations in the `transform` call below; then `node` and
+			// `node_code` would not be reset to the root node as they should. This means that
+			// invalid memory is being accessed.
+			static std::size_t create_call_num{};
+			++create_call_num;
+
 			return transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
-			                 [this](auto const& x) {
-				                 thread_local Index node = this->index();
+			                 [this, ccn = create_call_num](auto const& x) {
+				                 thread_local Index node      = index();
+				                 thread_local Code  node_code = code();
 
-				                 // NOTE: `node` can be from last call to `create` (if the same
-				                 // thread still persists), so we need to check if the node is
-				                 // valid (i.e., has not been deleted). If it has been deleted, we
-				                 // set it to the root node.
-				                 // FIXME: Note sure if `valid` is thread safe
-				                 node          = this->valid(node) ? node : this->index();
-				                 Code cur_code = this->code(node);
+				                 thread_local std::size_t thread_create_call_num = 1;
+				                 if (ccn != thread_create_call_num) {
+					                 thread_create_call_num = ccn;
+					                 node                   = index();
+					                 node_code              = code();
+				                 }
 
-				                 Code    code         = this->code(x);
-				                 depth_t wanted_depth = this->depth(code);
-				                 depth_t depth        = Code::depthWhereEqual(code, cur_code);
+				                 Code    d_code = code(x);
+				                 depth_t d      = Code::depthWhereEqual(node_code, d_code);
 
-				                 node = this->ancestor(node, depth);
-				                 for (; wanted_depth < depth; --depth) {
-					                 node =
-					                     this->createChildThreadSafe(node, code.offset(depth - 1));
+				                 node      = ancestor(node, d);
+				                 node_code = d_code;
+				                 for (depth_t d_depth = depth(d_code); d_depth < d; --d) {
+					                 node = createChildThreadSafe(node, d_code.offset(d - 1));
 				                 }
 
 				                 return node;
 			                 });
+
+			// return transform(std::forward<ExecutionPolicy>(policy), first, last, d_first,
+			//                  [this](auto const& x) {
+			// 	                 thread_local Index node = index();
+
+			// 	                 // NOTE: `node` can be from last call to `create` (if the same
+			// 	                 // thread still persists), so we need to check if the node is
+			// 	                 // valid (i.e., has not been deleted). If it has been deleted,
+			// 	                 // we set it to the root node.
+			// 	                 // FIXME: Note sure if `valid` is thread safe
+			// 	                 node           = valid(node) ? node : index();
+			// 	                 Code node_code = code(node);
+
+			// 	                 Code    d_code = code(x);
+			// 	                 depth_t d      = Code::depthWhereEqual(node_code, d_code);
+
+			// 	                 node      = ancestor(node, d);
+			// 	                 node_code = d_code;
+			// 	                 for (depth_t d_depth = depth(d_code); d_depth < d; --d) {
+			// 		                 node = createChildThreadSafe(node, d_code.offset(d - 1));
+			// 	                 }
+
+			// 	                 return node;
+			//                  });
 		}
 	}
 
@@ -2897,7 +2926,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		Block& block = treeBlock(node);
 
-		pos_t children = this->children(node);
+		pos_t children = block.children[node.offset].load(std::memory_order_relaxed);
 		assert(TreeIndex::PROCESSING_POS != children);
 
 		if (TreeIndex::NULL_POS == children) {
@@ -2913,17 +2942,20 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	pos_t createChildrenThreadSafe(Index node)
 	{
 		assert(!isPureLeaf(node));
+
 		Block& block = treeBlock(node);
 
-		pos_t children = Index::NULL_POS;
-		if (block.children[node.offset].compare_exchange_strong(children,
-		                                                        Index::PROCESSING_POS)) {
-			children = Data::createThreadSafe();
-			initChildren(node, block, children);
-		} else {
-			while (Index::PROCESSING_POS == children) {
-				children = block.children[node.offset].load(std::memory_order_acquire);
+		pos_t children = block.children[node.offset].load(std::memory_order_acquire);
+		if (Index::NULL_POS == children) {
+			if (block.children[node.offset].compare_exchange_strong(children,
+			                                                        Index::PROCESSING_POS)) {
+				children = Data::createThreadSafe();
+				initChildren(node, block, children);
 			}
+		}
+
+		while (Index::PROCESSING_POS == children) {
+			children = block.children[node.offset].load(std::memory_order_acquire);
 		}
 
 		block.modifiedSet(node.offset);

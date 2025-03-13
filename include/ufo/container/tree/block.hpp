@@ -93,7 +93,7 @@ struct TreeBlock {
 
 	constexpr TreeBlock(TreeIndex::pos_t parent_block, Code code, Point /* center */,
 	                    Length /* half_length */)
-	    : parent_block_(parent_block), code_(code)
+	    : parent_block_(parent_block), modified_(std::uint16_t(0)), code_(code)
 	{
 		for (std::size_t i{}; BF > i; ++i) {
 			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
@@ -118,7 +118,8 @@ struct TreeBlock {
 	                    std::size_t offset, Length /* half_length */)
 	{
 		parent_block_ = parent_block;
-		code_         = parent.code(offset).firstborn();
+		modifiedFill(parent.modified(offset));
+		code_ = parent.code(offset).firstborn();
 	}
 
 	[[nodiscard]] constexpr TreeIndex::pos_t parentBlock() const { return parent_block_; }
@@ -166,7 +167,7 @@ struct TreeBlock {
 	[[nodiscard]] bool modified(std::size_t pos) const
 	{
 		assert(BF > pos);
-		return (modified_ >> pos) & std::uint16_t(1);
+		return (modified_.load() >> pos) & std::uint16_t(1);
 	}
 
 	[[nodiscard]] bool modifiedAny() const { return std::uint16_t(0) != modified_; }
@@ -185,36 +186,49 @@ struct TreeBlock {
 
 	void modifiedFill(bool value)
 	{
-		modified_ = (-static_cast<std::uint16_t>(value)) >> (32 - BF);
+		value ? modifiedSet() : modifiedReset();
+		// modified_ = (-static_cast<std::uint16_t>(value)) >> (16 - BF);
 	}
 
-	void modifiedSet() { modified_ = ~(static_cast<std::uint16_t>(-1) << BF); }
+	void modifiedSet()
+	{
+		constexpr std::uint16_t const ALL_SET = ~(static_cast<std::uint16_t>(-1) << BF);
+		// if (ALL_SET != modified_) {
+		modified_ = ALL_SET;
+		// }
+	}
 
 	void modifiedSet(std::size_t pos)
 	{
 		assert(BF > pos);
-		modified_ |= std::uint16_t(1) << pos;
-	}
-
-	bool modifiedFetchSet(std::size_t pos)
-	{
-		assert(BF > pos);
-		return (std::uint16_t(1) << pos) & modified_.fetch_or(std::uint16_t(1) << pos);
+		if (!modified(pos)) {
+			modified_ |= std::uint16_t(1) << pos;
+			// modified_.fetch_or(std::uint16_t(1) << pos, std::memory_order_release);
+		}
 	}
 
 	void modifiedSet(std::size_t pos, bool value)
 	{
 		assert(BF > pos);
-		modified_ ^= (-static_cast<std::uint16_t>(value) ^ modified_.load()) &
-		             (std::uint16_t(1) << pos);
+		if (modified(pos) != value) {
+			modified_ ^= (-static_cast<std::uint16_t>(value) ^ modified_.load()) &
+			             (std::uint16_t(1) << pos);
+		}
 	}
 
-	void modifiedReset() { modified_ = std::uint32_t(0); }
+	void modifiedReset()
+	{
+		// if (std::uint16_t(0) != modified_) {
+		modified_ = std::uint16_t(0);
+		// }
+	}
 
 	void modifiedReset(std::size_t pos)
 	{
 		assert(BF > pos);
-		modified_ &= ~(std::uint16_t(1) << pos);
+		if (modified(pos)) {
+			modified_ &= ~(std::uint16_t(1) << pos);
+		}
 	}
 
 	/**************************************************************************************
@@ -223,16 +237,16 @@ struct TreeBlock {
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] Spinlock& chicken() noexcept { return lock_; }
+	[[nodiscard]] Spinlock& chicken() noexcept { return chicken_; }
 
-	void lock() noexcept(noexcept(lock_.lock())) { lock_.lock(); }
+	void lock() noexcept(noexcept(chicken_.lock())) { chicken_.lock(); }
 
-	[[nodiscard]] bool try_lock() noexcept(noexcept(lock_.try_lock()))
+	[[nodiscard]] bool try_lock() noexcept(noexcept(chicken_.try_lock()))
 	{
-		return lock_.try_lock();
+		return chicken_.try_lock();
 	}
 
-	void unlock() noexcept(noexcept(lock_.unlock())) { lock_.unlock(); }
+	void unlock() noexcept(noexcept(chicken_.unlock())) { chicken_.unlock(); }
 
  private:
 	// Position of the parent block
@@ -241,8 +255,8 @@ struct TreeBlock {
 	// Bit set saying if the node corresponding to the bit has been modified
 	std::atomic_uint16_t modified_{};
 
-	// Lock
-	Spinlock lock_;
+	// You want chicken?
+	Spinlock chicken_;
 
 	// Code to the first node of the block
 	Code code_ = Code::invalid();
