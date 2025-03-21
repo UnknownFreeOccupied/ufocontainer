@@ -57,62 +57,70 @@ namespace ufo
 // New
 //
 
-template <class Map, class Predicate = pred::True,
-          std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool> = true>
-[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
-    Map const& map, Camera const& camera, Predicate const& pred = pred::True{},
-    bool only_exists = true)
+template <class Tree, class Predicate,
+          std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool> = true>
+[[nodiscard]] std::pair<Image<TreeIndex>, Image<float>> render(Tree const&      tree,
+                                                               Camera const&    camera,
+                                                               Predicate const& pred)
 {
-	return render(map.code(), map, camera, pred, only_exists);
+	return render(tree.index(), tree, camera, pred);
 }
 
-template <class NodeType, class Map, class Predicate = pred::True,
-          std::enable_if_t<Map::template is_node_type_v<NodeType>, bool> = true,
-          std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>        = true>
-[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
-    NodeType const& node, Map const& map, Camera const& camera,
-    Predicate const& pred = pred::True{}, bool only_exists = true)
+template <class Tree, class NodeType, class Predicate,
+          std::enable_if_t<Tree::template is_node_type_v<NodeType>, bool> = true,
+          std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>        = true>
+[[nodiscard]] std::pair<Image<TreeIndex>, Image<float>> render(Tree const&      tree,
+                                                               NodeType const&  node,
+                                                               Camera const&    camera,
+                                                               Predicate const& pred)
 {
-	if constexpr (2 == Map::dimensions()) {
+	if constexpr (2 == Tree::dimensions()) {
 		// TODO: Implement
-	} else if constexpr (3 == Map::dimensions()) {
-		return map.trace(node, camera.rays(), pred, only_exists);
-	} else if constexpr (4 == Map::dimensions()) {
+	} else if constexpr (3 == Tree::dimensions()) {
+		// TODO: fix this
+		return tree.trace(node, camera.rays(), pred);
+	} else if constexpr (4 == Tree::dimensions()) {
 		// TODO: Implement
 	} else {
-		static_assert(dependent_false<Map>, "Does not supprt dimensions");
+		static_assert(dependent_false_v<Tree>, "Does not support dimensions");
 	}
 }
 
 template <
-    class ExecutionPolicy, class Map, class Predicate = pred::True,
-    std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>                   = true,
+    class ExecutionPolicy, class Tree, class Predicate,
+    std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>                  = true,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
-    ExecutionPolicy&& policy, Map const& map, Camera const& camera,
-    Predicate const& pred = pred::True{}, bool only_exists = true)
+[[nodiscard]] Image<std::pair<TreeIndex, float>> render(ExecutionPolicy&& policy,
+                                                        Tree const&       tree,
+                                                        Camera const&     camera,
+                                                        Predicate const&  pred)
 {
-	return render(std::forward<ExecutionPolicy>(policy), map.code(), map, camera, pred,
-	              only_exists);
+	return render(std::forward<ExecutionPolicy>(policy), tree, tree.index(), camera, pred);
 }
 
 template <
-    class ExecutionPolicy, class NodeType, class Map, class Predicate = pred::True,
-    std::enable_if_t<Map::template is_node_type_v<NodeType>, bool>            = true,
-    std::enable_if_t<pred::is_pred_v<Predicate, Map>, bool>                   = true,
+    class ExecutionPolicy, class Tree, class NodeType, class Predicate,
+    std::enable_if_t<Tree::template is_node_type_v<NodeType>, bool>           = true,
+    std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>                  = true,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-[[nodiscard]] std::pair<Image<typename Map::Node>, Image<float>> render(
-    ExecutionPolicy&& policy, NodeType const& node, Map const& map, Camera const& camera,
-    Predicate const& pred = pred::True{}, bool only_exists = true)
+[[nodiscard]] Image<std::pair<TreeIndex, float>> render(ExecutionPolicy&& policy,
+                                                        Tree const&       tree,
+                                                        NodeType const&   node,
+                                                        Camera const&     camera,
+                                                        Predicate const&  pred)
 {
-	if constexpr (2 == Map::dimensions()) {
+	if constexpr (2 == Tree::dimensions()) {
 		// TODO: Implement
-	} else if constexpr (3 == Map::dimensions()) {
-		return map.trace(policy, node, camera.rays(policy), pred, only_exists);
-	} else if constexpr (4 == Map::dimensions()) {
+	} else if constexpr (3 == Tree::dimensions()) {
+		Image<std::pair<TreeIndex, float>> image(camera.rows, camera.cols);
+		auto                               rays = camera.rays();
+		tree.trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
+		           image.begin(), pred, camera.near_clip, camera.far_clip);
+		return image;
+	} else if constexpr (4 == Tree::dimensions()) {
 		// TODO: Implement
 	} else {
-		static_assert(dependent_false<Map>, "Does not supprt dimensions");
+		static_assert(dependent_false_v<Tree>, "Does not support dimensions");
 	}
 }
 
@@ -147,28 +155,29 @@ template <class NodeType, class Map, class Predicate = pred::True,
 	auto& nodes  = ret.first;
 	auto& depths = ret.second;
 
-	nodes.resize(camera.width, camera.height);
-	depths.resize(camera.width, camera.height);
+	nodes.resize(camera.cols, camera.rows);
+	depths.resize(camera.cols, camera.rows);
 
 	// TODO: Implement
 
 	return ret;
 }
 
+#if 0
 //
 // Quadtree
 //
 
 template <class InnerFun, class HitFun, class T>
 void render(Camera const& camera, Image<T>& image, InnerFun inner_f, HitFun hit_f,
-            T const& miss) const
+            T const& miss)
 {
 	render(Base::index(), camera, image, inner_f, hit_f, miss);
 }
 
 template <class InnerFun, class HitFun, class T>
 [[nodiscard]] Image<T> render(Camera const& camera, std::size_t rows, std::size_t cols,
-                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+                              InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	return render(Base::index(), camera, rows, cols, inner_f, hit_f, miss);
 }
@@ -176,7 +185,7 @@ template <class InnerFun, class HitFun, class T>
 template <class NodeType, class InnerFun, class HitFun, class T,
           std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 void render(NodeType node, Camera const& camera, Image<T>& image, InnerFun inner_f,
-            HitFun hit_f, T const& miss) const
+            HitFun hit_f, T const& miss)
 {
 	Image<Ray3> rays = camera.rays(image.rows(), image.cols());
 	trace3D(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
@@ -186,7 +195,7 @@ template <class NodeType, class InnerFun, class HitFun, class T,
           std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 [[nodiscard]] Image<T> render(NodeType node, Camera const& camera, std::size_t rows,
                               std::size_t cols, InnerFun inner_f, HitFun hit_f,
-                              T const& miss) const
+                              T const& miss)
 {
 	Image<T> image(rows, cols);
 	render(node, camera, image, inner_f, hit_f, miss);
@@ -197,7 +206,7 @@ template <
     class ExecutionPolicy, class InnerFun, class HitFun, class T,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
-            InnerFun inner_f, HitFun hit_f, T const& miss) const
+            InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, image, inner_f,
 	       hit_f, miss);
@@ -208,7 +217,7 @@ template <
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 [[nodiscard]] Image<T> render(ExecutionPolicy&& policy, Camera const& camera,
                               std::size_t rows, std::size_t cols, InnerFun inner_f,
-                              HitFun hit_f, T const& miss) const
+                              HitFun hit_f, T const& miss)
 {
 	return render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, rows, cols,
 	              inner_f, hit_f, miss);
@@ -216,7 +225,7 @@ template <
 
 template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
-            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss) const
+            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	auto rows = image.rows();
 	auto cols = image.cols();
@@ -230,7 +239,7 @@ void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
 template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 [[nodiscard]] Image<T> render(ExecutionPolicy&& policy, NodeType node,
                               Camera const& camera, std::size_t rows, std::size_t cols,
-                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+                              InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	Image<T> image(rows, cols);
 	render(policy, node, camera, image, inner_f, hit_f, miss);
@@ -240,7 +249,7 @@ template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, c
 template <class NodeType, class InputIt, class OutputIt, class InnerFun, class HitFun,
           class T, std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 OutputIt trace3D(NodeType node, InputIt first, InputIt last, OutputIt d_first,
-                 InnerFun inner_f, HitFun hit_f, T const& miss) const
+                 InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	if constexpr (!std::is_same_v<Index, std::decay_t<NodeType>>) {
 		// Unless NodeType is Index, we need to check that the node actually exists
@@ -263,7 +272,7 @@ template <class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt
           class InnerFun, class HitFun, class T>
 RandomIt2 trace3D(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
                   RandomIt1 last, RandomIt2 d_first, InnerFun inner_f, HitFun hit_f,
-                  T const& miss) const
+                  T const& miss)
 {
 	if constexpr (std::is_same_v<execution::sequenced_policy,
 	                             std::decay_t<ExecutionPolicy>>) {
@@ -307,7 +316,7 @@ RandomIt2 trace3D(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
 template <class InnerFun, class HitFun, class T>
 [[nodiscard]] T trace3D(Index node, Vec2f const& center, float half_length,
                         Ray3 const& ray, InnerFun inner_f, HitFun hit_f,
-                        T const& miss) const
+                        T const& miss)
 {
 	auto wrapped_inner_f = [&ray, inner_f](Index node, float distance) {
 		return inner_f(node, ray, distance);
@@ -360,14 +369,14 @@ template <class InnerFun, class HitFun, class T>
 
 template <class InnerFun, class HitFun, class T>
 void render(Camera const& camera, Image<T>& image, InnerFun inner_f, HitFun hit_f,
-            T const& miss) const
+            T const& miss)
 {
 	render(Base::index(), camera, image, inner_f, hit_f, miss);
 }
 
 template <class InnerFun, class HitFun, class T>
 [[nodiscard]] Image<T> render(Camera const& camera, std::size_t rows, std::size_t cols,
-                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+                              InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	return render(Base::index(), camera, rows, cols, inner_f, hit_f, miss);
 }
@@ -375,7 +384,7 @@ template <class InnerFun, class HitFun, class T>
 template <class NodeType, class InnerFun, class HitFun, class T,
           std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 void render(NodeType node, Camera const& camera, Image<T>& image, InnerFun inner_f,
-            HitFun hit_f, T const& miss) const
+            HitFun hit_f, T const& miss)
 {
 	Image<Ray3> rays = camera.rays(image.rows(), image.cols());
 	Base::trace(node, rays.begin(), rays.end(), image.begin(), inner_f, hit_f, miss);
@@ -385,7 +394,7 @@ template <class NodeType, class InnerFun, class HitFun, class T,
           std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 [[nodiscard]] Image<T> render(NodeType node, Camera const& camera, std::size_t rows,
                               std::size_t cols, InnerFun inner_f, HitFun hit_f,
-                              T const& miss) const
+                              T const& miss)
 {
 	Image<T> image(rows, cols);
 	render(node, camera, image, inner_f, hit_f, miss);
@@ -396,7 +405,7 @@ template <
     class ExecutionPolicy, class InnerFun, class HitFun, class T,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 void render(ExecutionPolicy&& policy, Camera const& camera, Image<T>& image,
-            InnerFun inner_f, HitFun hit_f, T const& miss) const
+            InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, image, inner_f,
 	       hit_f, miss);
@@ -407,7 +416,7 @@ template <
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 [[nodiscard]] Image<T> render(ExecutionPolicy&& policy, Camera const& camera,
                               std::size_t rows, std::size_t cols, InnerFun inner_f,
-                              HitFun hit_f, T const& miss) const
+                              HitFun hit_f, T const& miss)
 {
 	return render(std::forward<ExecutionPolicy>(policy), Base::index(), camera, rows, cols,
 	              inner_f, hit_f, miss);
@@ -415,7 +424,7 @@ template <
 
 template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
-            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss) const
+            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	auto rows = image.rows();
 	auto cols = image.cols();
@@ -575,7 +584,7 @@ void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
 template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 [[nodiscard]] Image<T> render(ExecutionPolicy&& policy, NodeType node,
                               Camera const& camera, std::size_t rows, std::size_t cols,
-                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+                              InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	Image<T> image(rows, cols);
 	render(policy, node, camera, image, inner_f, hit_f, miss);
@@ -588,7 +597,7 @@ template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, c
 
 template <class InnerFun, class HitFun, class T>
 void render(float w, Camera const& camera, Image<T>& image, InnerFun inner_f,
-            HitFun hit_f, T const& miss) const
+            HitFun hit_f, T const& miss)
 {
 	render(w, Base::index(), camera, image, inner_f, hit_f, miss);
 }
@@ -596,7 +605,7 @@ void render(float w, Camera const& camera, Image<T>& image, InnerFun inner_f,
 template <class InnerFun, class HitFun, class T>
 [[nodiscard]] Image<T> render(float w, Camera const& camera, std::size_t rows,
                               std::size_t cols, InnerFun inner_f, HitFun hit_f,
-                              T const& miss) const
+                              T const& miss)
 {
 	return render(Base::index(), w, camera, rows, cols, inner_f, hit_f, miss);
 }
@@ -604,7 +613,7 @@ template <class InnerFun, class HitFun, class T>
 template <class NodeType, class InnerFun, class HitFun, class T,
           std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 void render(NodeType node, float w, Camera const& camera, Image<T>& image,
-            InnerFun inner_f, HitFun hit_f, T const& miss) const
+            InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	Image<Ray3> rays = camera.rays(image.rows(), image.cols());
 	Image<Ray4> rays4d(image.rows(), image.cols());
@@ -621,7 +630,7 @@ template <class NodeType, class InnerFun, class HitFun, class T,
           std::enable_if_t<Base::template is_node_type_v<NodeType>, bool> = true>
 [[nodiscard]] Image<T> render(NodeType node, float w, Camera const& camera,
                               std::size_t rows, std::size_t cols, InnerFun inner_f,
-                              HitFun hit_f, T const& miss) const
+                              HitFun hit_f, T const& miss)
 {
 	Image<T> image(rows, cols);
 	render(node, w, camera, image, inner_f, hit_f, miss);
@@ -632,7 +641,7 @@ template <
     class ExecutionPolicy, class InnerFun, class HitFun, class T,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 void render(ExecutionPolicy&& policy, float w, Camera const& camera, Image<T>& image,
-            InnerFun inner_f, HitFun hit_f, T const& miss) const
+            InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	render(std::forward<ExecutionPolicy>(policy), Base::index(), w, camera, image, inner_f,
 	       hit_f, miss);
@@ -643,7 +652,7 @@ template <
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 [[nodiscard]] Image<T> render(ExecutionPolicy&& policy, float w, Camera const& camera,
                               std::size_t rows, std::size_t cols, InnerFun inner_f,
-                              HitFun hit_f, T const& miss) const
+                              HitFun hit_f, T const& miss)
 {
 	return render(std::forward<ExecutionPolicy>(policy), Base::index(), w, camera, rows,
 	              cols, inner_f, hit_f, miss);
@@ -651,7 +660,7 @@ template <
 
 template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 void render(ExecutionPolicy&& policy, NodeType node, float w, Camera const& camera,
-            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss) const
+            Image<T>& image, InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	auto rows = image.rows();
 	auto cols = image.cols();
@@ -672,12 +681,13 @@ void render(ExecutionPolicy&& policy, NodeType node, float w, Camera const& came
 template <class ExecutionPolicy, class NodeType, class InnerFun, class HitFun, class T>
 [[nodiscard]] Image<T> render(ExecutionPolicy&& policy, NodeType node, float w,
                               Camera const& camera, std::size_t rows, std::size_t cols,
-                              InnerFun inner_f, HitFun hit_f, T const& miss) const
+                              InnerFun inner_f, HitFun hit_f, T const& miss)
 {
 	Image<T> image(rows, cols);
 	render(policy, node, w, camera, image, inner_f, hit_f, miss);
 	return image;
 }
+#endif
 }  // namespace ufo
 
 #endif  // UFO_CONTAINER_TREE_RENDER_HPP
