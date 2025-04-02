@@ -112,6 +112,8 @@ class TreeMap
 	using size_type       = std::size_t;
 	using difference_type = std::ptrdiff_t;
 
+	// TODO: Add `iterator` postfix
+
 	// Iterators
 	using iterator       = TreeMapIterator<false, Dim, T>;
 	using const_iterator = TreeMapIterator<true, Dim, T>;
