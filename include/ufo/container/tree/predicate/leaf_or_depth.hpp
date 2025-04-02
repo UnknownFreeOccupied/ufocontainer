@@ -44,21 +44,31 @@
 
 // UFO
 #include <ufo/container/tree/predicate/filter.hpp>
+#include <ufo/container/tree/predicate/predicate_compare.hpp>
 
 namespace ufo::pred
 {
+template <PredicateCompare PC = PredicateCompare::EQUAL>
 struct LeafOrDepth {
-	using depth_t = unsigned;
+	// It is int because length predicate requires it
+	int depth;
 
-	// Depth to consider as leaf
-	depth_t depth;
-
-	constexpr LeafOrDepth(depth_t depth = 0) : depth(depth) {}
+	constexpr LeafOrDepth(int depth = 0) : depth(depth) {}
 };
 
-template <>
-struct Filter<LeafOrDepth> {
-	using Pred = LeafOrDepth;
+using LeafOrDepthE  = LeafOrDepth<PredicateCompare::EQUAL>;
+using LeafOrDepthNE = LeafOrDepth<PredicateCompare::NOT_EQUAL>;
+using LeafOrDepthLE = LeafOrDepth<PredicateCompare::LESS_EQUAL>;
+using LeafOrDepthGE = LeafOrDepth<PredicateCompare::GREATER_EQUAL>;
+using LeafOrDepthL  = LeafOrDepth<PredicateCompare::LESS>;
+using LeafOrDepthG  = LeafOrDepth<PredicateCompare::GREATER>;
+
+using LeafOrDepthMin = LeafOrDepthGE;
+using LeafOrDepthMax = LeafOrDepthLE;
+
+template <PredicateCompare PC>
+struct Filter<LeafOrDepth<PC>> {
+	using Pred = LeafOrDepth<PC>;
 
 	template <class Tree>
 	static constexpr void init(Pred&, Tree const&)
@@ -69,14 +79,28 @@ struct Filter<LeafOrDepth> {
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
 	                                               typename Tree::Node const& n)
 	{
-		return t.isLeaf(n) || p.depth == t.depth(n);
+		// Cast to int to prevent int to be promoted to unsigned
+		int n_depth = static_cast<int>(t.depth(n));
+		if constexpr (PredicateCompare::EQUAL == PC) {
+			return t.isLeaf(n) || n_depth == p.depth;
+		} else if constexpr (PredicateCompare::NOT_EQUAL == PC) {
+			return t.isLeaf(n) || n_depth != p.depth;
+		} else if constexpr (PredicateCompare::LESS_EQUAL == PC) {
+			return t.isLeaf(n) || n_depth <= p.depth;
+		} else if constexpr (PredicateCompare::GREATER_EQUAL == PC) {
+			return t.isLeaf(n) || n_depth >= p.depth;
+		} else if constexpr (PredicateCompare::LESS == PC) {
+			return t.isLeaf(n) || n_depth < p.depth;
+		} else if constexpr (PredicateCompare::GREATER == PC) {
+			return t.isLeaf(n) || n_depth > p.depth;
+		}
 	}
 
 	template <class Tree>
-	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
-	                                                typename Tree::Node const& n)
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                typename Tree::Node const&)
 	{
-		return p.depth < t.depth(n);
+		return true;
 	}
 };
 }  // namespace ufo::pred
