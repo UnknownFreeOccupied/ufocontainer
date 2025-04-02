@@ -248,13 +248,11 @@ class TreeCode
 	{
 		assert(lhs.valid() && rhs.valid());
 
-		auto depth = std::max(lhs.depth(), rhs.depth());
-
-		if (lhs.code_[2] != rhs.code_[2]) {
-			depth = std::max(depth, 2 * DEPTHS_PER_IDX);
-		} else if (lhs.code_[1] != rhs.code_[1]) {
-			depth = std::max(depth, DEPTHS_PER_IDX);
-		}
+		auto depth =
+		    lhs.code_[2] != rhs.code_[2]
+		        ? 2 * DEPTHS_PER_IDX
+		        : static_cast<depth_t>(lhs.code_[1] != rhs.code_[1]) * DEPTHS_PER_IDX;
+		depth = std::max(depth, std::max(lhs.depth(), rhs.depth()));
 
 		auto   i = depth / DEPTHS_PER_IDX;
 		auto   d = depth % DEPTHS_PER_IDX;
@@ -386,30 +384,62 @@ class TreeCode
 		return ret;
 	}
 
-	void append(code_t code, depth_t num_depths)
+	// void append(code_t code, depth_t num_depths)
+	// {
+	// 	// TODO: Fix asserts
+	// 	assert(depth() >= num_depths);
+
+	// 	// TODO: Implement
+	// }
+
+	// code_t remove(depth_t num_depths)
+	// {
+	// 	// TODO: Fix asserts
+	// 	assert(maxDepth() - depth() >= num_depths);
+	// 	assert(DEPTHS_PER_IDX >= num_depths);
+
+	// 	// TODO: Implement
+	// }
+
+	// [[nodiscard]] code_t lowestOffsets(depth_t num_depths) const
+	// {
+	// 	// // TODO: Fix asserts
+	// 	// assert(maxDepth() - depth() >= num_depths);
+	// 	// assert(DEPTHS_PER_IDX >= num_depths);
+
+	// 	// // TODO: Implement
+	// 	// return 0;
+
+	// 	assert(DEPTHS_PER_IDX >= num_depths);
+
+	// 	return code_[0] &
+	// 	       (~code_t(0) >> (std::numeric_limits<code_t>::digits - Dim * num_depths));
+	// }
+
+	// void lowestOffsets(depth_t num_depths, code_t lowest_offsets)
+	// {
+	// 	// // TODO: Fix asserts
+	// 	// assert(maxDepth() - depth() >= num_depths);
+	// 	// assert(DEPTHS_PER_IDX >= num_depths);
+
+	// 	// // TODO: Implement
+	// 	// return 0;
+
+	// 	assert(DEPTHS_PER_IDX >= num_depths);
+
+	// 	// TODO: Fix
+	// 	code_[0] |= lowest_offsets;
+
+	// 	// return code_[0] &
+	// 	//        (~code_t(0) >> (std::numeric_limits<code_t>::digits - Dim * num_depths));
+	// }
+
+	[[nodiscard]] code_t lowestOffsets() const { return code_[0]; }
+
+	void lowestOffsets(code_t lowest_offsets, depth_t depth = 0)
 	{
-		// TODO: Fix asserts
-		assert(depth() >= num_depths);
-
-		// TODO: Implement
-	}
-
-	code_t remove(depth_t num_depths)
-	{
-		// TODO: Fix asserts
-		assert(maxDepth() - depth() >= num_depths);
-		assert(DEPTHS_PER_IDX >= num_depths);
-
-		// TODO: Implement
-	}
-
-	[[nodiscard]] code_t lowestOffsets(depth_t num_depths) const
-	{
-		// TODO: Fix asserts
-		assert(maxDepth() - depth() >= num_depths);
-		assert(DEPTHS_PER_IDX >= num_depths);
-
-		// TODO: Implement
+		code_[0] = lowest_offsets;
+		depth_   = depth;
 	}
 
 	/**************************************************************************************
