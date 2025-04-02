@@ -86,7 +86,8 @@ class TreeContainer
 	};
 
 	using value_type = std::tuple<S<Ts>...>;
-	using Bucket     = std::atomic<value_type*>;
+	// alignas(8) bool active   = false;  // TODO: Use this instead of `free_blocks_`
+	using Bucket = std::atomic<value_type*>;
 
 	template <class T>
 	using bucket_type = S<T>;
@@ -399,7 +400,7 @@ class TreeContainer
 	[[nodiscard]] Data<T>& bucketData(std::size_t idx)
 	{
 		auto& x    = bucket<T>(idx);
-		x.modified = true;
+		x.modified = true;  // TODO: Can be relaxed?
 		return x.data;
 	}
 
@@ -413,7 +414,7 @@ class TreeContainer
 	[[nodiscard]] auto& bucketData(std::size_t idx)
 	{
 		auto& x    = bucket<I>(idx);
-		x.modified = true;
+		x.modified = true;  // TODO: Can be relaxed?
 		return x.data;
 	}
 
@@ -621,6 +622,7 @@ class TreeContainer
 	std::deque<pos_t> free_blocks_;
 
 	std::atomic<pos_t> size_{};
+	// std::atomic<pos_t> cap_{}; // TODO: Current `size_` should be `cap_`
 };
 
 template <class... Ts>
