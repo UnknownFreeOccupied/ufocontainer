@@ -154,7 +154,15 @@ class TreeKey : public Vec<Dim, std::uint32_t>
 		return ret;
 	}
 
-	[[nodiscard]] constexpr TreeKey parent() const { return toDepth(depth_ + 1); }
+	[[nodiscard]] constexpr TreeKey parent() const
+	{
+		assert(maxDepth() > depth_);
+
+		TreeKey ret = *this;
+		ret >>= 1;
+		++ret.depth_;
+		return ret;
+	}
 
 	void swap(TreeKey& other) noexcept
 	{
@@ -261,6 +269,72 @@ template <std::size_t Dim>
 		}
 	}
 	return true;
+}
+
+/**************************************************************************************
+|                                                                                     |
+|                                  Binary operators                                   |
+|                                                                                     |
+**************************************************************************************/
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator+(TreeKey<Dim> key, std::uint32_t v) noexcept
+{
+	key += v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator+(TreeKey<Dim>                   key,
+                                               Vec<Dim, std::uint32_t> const& v) noexcept
+{
+	key += v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator+(std::uint32_t v, TreeKey<Dim> key) noexcept
+{
+	key += v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator+(Vec<Dim, std::uint32_t> const& v,
+                                               TreeKey<Dim> key) noexcept
+{
+	key += v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator-(TreeKey<Dim> key, std::uint32_t v) noexcept
+{
+	key -= v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator-(TreeKey<Dim>                   key,
+                                               Vec<Dim, std::uint32_t> const& v) noexcept
+{
+	key -= v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator-(std::uint32_t v, TreeKey<Dim> key) noexcept
+{
+	key -= v;
+	return key;
+}
+
+template <std::size_t Dim>
+[[nodiscard]] constexpr TreeKey<Dim> operator-(Vec<Dim, std::uint32_t> const& v,
+                                               TreeKey<Dim> key) noexcept
+{
+	key -= v;
+	return key;
 }
 }  // namespace ufo
 
