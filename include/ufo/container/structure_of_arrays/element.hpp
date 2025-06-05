@@ -56,7 +56,11 @@
 
 namespace ufo
 {
-template <template <class...> class SoA, class... Ts>
+// Forward declaration
+template <class... Ts>
+class SoA;
+
+template <class... Ts>
 class SoAElement
 {
 	friend SoA<Ts...>;
@@ -331,44 +335,44 @@ class SoAElement
 	bool is_reference_ = false;
 };
 
-template <template <class...> class SoA, class... Ts>
-bool operator==(SoAElement<SoA, Ts...> const& lhs, SoAElement<SoA, Ts...> const& rhs)
+template <class... Ts>
+bool operator==(SoAElement<Ts...> const& lhs, SoAElement<Ts...> const& rhs)
 {
 	return ((lhs.template get<Ts>() == rhs.template get<Ts>()) && ...);
 }
 
-template <template <class...> class SoA, class... Ts>
-bool operator==(SoAElement<SoA, Ts...> const& lhs, SoAValue<Ts...> const& rhs)
+template <class... Ts>
+bool operator==(SoAElement<Ts...> const& lhs, SoAValue<Ts...> const& rhs)
 {
 	return ((lhs.template get<Ts>() == rhs.template get<Ts>()) && ...);
 }
 
-template <template <class...> class SoA, class... Ts>
-bool operator==(SoAValue<Ts...> const& lhs, SoAElement<SoA, Ts...> const& rhs)
+template <class... Ts>
+bool operator==(SoAValue<Ts...> const& lhs, SoAElement<Ts...> const& rhs)
 {
 	return ((lhs.template get<Ts>() == rhs.template get<Ts>()) && ...);
 }
 
-template <template <class...> class SoA, class... Ts>
-bool operator!=(SoAElement<SoA, Ts...> const& lhs, SoAElement<SoA, Ts...> const& rhs)
+template <class... Ts>
+bool operator!=(SoAElement<Ts...> const& lhs, SoAElement<Ts...> const& rhs)
 {
 	return !(lhs == rhs);
 }
 
-template <template <class...> class SoA, class... Ts>
-bool operator!=(SoAElement<SoA, Ts...> const& lhs, SoAValue<Ts...> const& rhs)
+template <class... Ts>
+bool operator!=(SoAElement<Ts...> const& lhs, SoAValue<Ts...> const& rhs)
 {
 	return !(lhs == rhs);
 }
 
-template <template <class...> class SoA, class... Ts>
-bool operator!=(SoAValue<Ts...> const& lhs, SoAElement<SoA, Ts...> const& rhs)
+template <class... Ts>
+bool operator!=(SoAValue<Ts...> const& lhs, SoAElement<Ts...> const& rhs)
 {
 	return !(lhs == rhs);
 }
 
-template <template <class...> class SoA, class T, class... Ts>
-std::ostream& operator<<(std::ostream& os, SoAElement<SoA, T, Ts...> const& element)
+template <class T, class... Ts>
+std::ostream& operator<<(std::ostream& os, SoAElement<T, Ts...> const& element)
 {
 	os << element.template get<T>();
 	((os << ", " << element.template get<Ts>()), ...);
@@ -379,21 +383,19 @@ std::ostream& operator<<(std::ostream& os, SoAElement<SoA, T, Ts...> const& elem
 // Type traits
 //
 
-template <class T, template <class...> class SoA, class... Ts>
-struct contains_type<T, SoAElement<SoA, Ts...>> : contains_type<T, Ts...> {
+template <class T, class... Ts>
+struct contains_type<T, SoAElement<Ts...>> : contains_type<T, Ts...> {
 };
 }  // namespace ufo
 
 namespace std
 {
-template <template <class...> class SoA, class... Ts>
-struct tuple_size<ufo::SoAElement<SoA, Ts...>>
-    : integral_constant<size_t, sizeof...(Ts)> {
+template <class... Ts>
+struct tuple_size<ufo::SoAElement<Ts...>> : integral_constant<size_t, sizeof...(Ts)> {
 };
 
-template <size_t Index, template <class...> class SoA, class... Ts>
-struct tuple_element<Index, ufo::SoAElement<SoA, Ts...>>
-    : tuple_element<Index, tuple<Ts...>> {
+template <size_t Index, class... Ts>
+struct tuple_element<Index, ufo::SoAElement<Ts...>> : tuple_element<Index, tuple<Ts...>> {
 };
 }  // namespace std
 

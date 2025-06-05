@@ -65,7 +65,7 @@ class SoA
 {
 	static_assert(0 < sizeof...(Ts));
 
-	friend SoAElement<SoA, Ts...>;
+	friend SoAElement<Ts...>;
 
  public:
 	/**************************************************************************************
@@ -75,7 +75,7 @@ class SoA
 	**************************************************************************************/
 
 	using data_type              = std::tuple<std::vector<Ts>...>;
-	using value_type             = SoAElement<SoA, Ts...>;
+	using value_type             = SoAElement<Ts...>;
 	using size_type              = std::size_t;
 	using difference_type        = std::ptrdiff_t;
 	using reference              = value_type&;
@@ -423,7 +423,7 @@ class SoA
 		return begin() + f_idx;
 	}
 
-	size_type erase(SoAElement<SoA, Ts...> const& value)
+	size_type erase(value_type const& value)
 	{
 		// TODO: Implement
 		auto it = std::remove(begin(), end(), value);
