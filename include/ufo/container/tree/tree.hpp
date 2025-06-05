@@ -56,6 +56,7 @@
 #include <ufo/container/tree/predicate.hpp>
 #include <ufo/container/tree/query_iterator.hpp>
 #include <ufo/container/tree/query_nearest_iterator.hpp>
+#include <ufo/container/tree/trace_result.hpp>
 #include <ufo/execution/execution.hpp>
 #include <ufo/geometry/aabb.hpp>
 #include <ufo/geometry/ray.hpp>
@@ -170,9 +171,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <class T>
 	struct is_node_type
-	    : contains_type<remove_cvref_t<T>, Index, Node, Code, Key, Coord, Point,
-	                    // We also add the double versions of Coord and Point
-	                    Coord2, Point2> {
+	    : contains_convertible_type<remove_cvref_t<T>, Index, Node, Code, Key, Coord, Point,
+	                                // We also add the double versions of Coord and Point
+	                                Coord2, Point2> {
 	};
 
 	template <class T>
@@ -499,8 +500,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 */
 	[[nodiscard]] Bounds bounds() const
 	{
-		auto c  = center();
-		auto hl = cast<coord_t>(halfLength(node));
+		Point c  = center();
+		auto  hl = cast<coord_t>(halfLength());
 		return Bounds(c - hl, c + hl);
 	}
 
@@ -513,8 +514,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] Bounds bounds(NodeType node) const
 	{
-		auto c  = center(node);
-		auto hl = cast<coord_t>(halfLength(node));
+		Point c  = center(node);
+		auto  hl = cast<coord_t>(halfLength(node));
 		return Bounds(c - hl, c + hl);
 	}
 
@@ -772,7 +773,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	[[nodiscard]] Index index() const { return Index(block(), 0); }
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] constexpr Index index(NodeType node) const
+	[[nodiscard]] constexpr Index index(NodeType const& node) const
 	{
 		assert(valid(node));
 
@@ -867,7 +868,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	[[nodiscard]] Code code() const { return Code(std::array<code_t, 3>{}, depth()); }
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] Code code(NodeType node) const
+	[[nodiscard]] Code code(NodeType const& node) const
 	{
 		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
@@ -879,13 +880,25 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return node;
 		} else if constexpr (std::is_same_v<T, Key>) {
 			return Code(node);
-		} else {
+		} else if constexpr (contains_type_v<T, Coord, Coord2, Point, Point2>) {
 			return code(key(node));
+		} else if constexpr (std::is_convertible_v<T, Index>) {
+			Index n = static_cast<Index>(node);
+			assert(valid(n));
+			return treeBlock(n).code(n.offset);
+		} else if constexpr (std::is_convertible_v<T, Node>) {
+			return static_cast<Node const&>(node).code;
+		} else if constexpr (std::is_convertible_v<T, Code>) {
+			return static_cast<Code const&>(node);
+		} else if constexpr (std::is_convertible_v<T, Key>) {
+			return Code(static_cast<Key const&>(node));
+		} else {
+			// FIXME: Point is error?
 		}
 	}
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] std::optional<Code> codeChecked(NodeType node) const
+	[[nodiscard]] std::optional<Code> codeChecked(NodeType const& node) const
 	{
 		return valid(node) ? std::optional<Code>(Code(node)) : std::nullopt;
 	}
@@ -897,7 +910,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	[[nodiscard]] Key key() const { return Key(Vec<Dim, key_t>(0), depth()); }
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] Key key(NodeType node) const
+	[[nodiscard]] Key key(NodeType const& node) const
 	{
 		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
@@ -947,8 +960,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	[[nodiscard]] bool modified() const { return modified(index()); }
 
 	/*!
-	 * @brief Check if a node of the tree is in a modified state (i.e., the node
-	 * or one of its children has been modified).
+	 * @brief Check if a node of the tree is in a modified state.
 	 *
 	 * @param node The node to check.
 	 * @return Whether the node is in a modified state.
@@ -986,16 +998,62 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	void modifiedReset() { modifiedReset(index()); }
 
-	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	void modifiedReset(NodeType node)
+	// template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	// void modifiedReset(NodeType node)
+	// {
+	// 	auto node_f = [this](Index node) { treeBlock(node.pos).modifiedReset(node.offset);
+	// };
+
+	// 	auto block_f = [this](pos_t block) { treeBlock(block).modifiedReset(); };
+
+	// 	auto update_f = [this](Index /* node */, pos_t /* children */) {};
+
+	// 	recursParentFirst(node, node_f, block_f, update_f, false);
+	// }
+
+	void modifiedReset(pos_t block)
 	{
-		auto node_f = [this](Index node) { treeBlock(node.pos).modifiedReset(node.offset); };
+		assert(valid(block));
 
-		auto block_f = [this](pos_t block) { treeBlock(block).modifiedReset(); };
+		auto m = treeBlock(block).modified();
 
-		auto update_f = [this](Index /* node */, pos_t /* children */) {};
+		if (0u == m) {
+			return;
+		}
 
-		recursParentFirst(node, node_f, block_f, update_f, false);
+		treeBlock(block).modifiedReset();
+
+		for (std::size_t i{}; BF > i; ++i) {
+			auto n = Index(block, i);
+			auto c = children(n);
+			if (0u == (m & (1u << i)) || !valid(c)) {
+				continue;
+			}
+
+			modifiedReset(c);
+		}
+	}
+
+	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
+	void modifiedReset(NodeType const& node)
+	{
+		assert(valid(node));
+
+		auto n = index(node);
+
+		if (!modified(n)) {
+			return;
+		}
+
+		treeBlock(n.pos).modifiedReset(n.offset);
+
+		auto c = children(n);
+
+		if (!valid(c)) {
+			return;
+		}
+
+		modifiedReset(c);
 	}
 
 	/**************************************************************************************
@@ -1236,12 +1294,20 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	void eraseChildren() { eraseChildren(index()); }
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	void eraseChildren(NodeType node)
+	void eraseChildren(NodeType const& node)
 	{
 		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			assert(valid(node));
-			eraseChildren(node, children(node));
+			if (isLeaf(node)) {
+				return;
+			}
+
+			auto c = children(node);
+			for (offset_t i{}; BF > i; ++i) {
+				eraseChildren(Index(c, i));
+			}
+
+			pruneChildren(node);
 		} else if constexpr (std::is_same_v<T, Node>) {
 			Index n = index(node);
 			if (code(n) != code(node)) {
@@ -1476,7 +1542,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 * @return `i`:th child of `node`.
 	 */
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
-	[[nodiscard]] constexpr NodeType child(NodeType node, offset_t i) const
+	[[nodiscard]] constexpr NodeType child(NodeType const& node, offset_t i) const
 	{
 		assert(0 < depth(node));
 		assert(BF > i);
@@ -2020,7 +2086,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
-	[[nodiscard]] std::pair<Index, float> trace(
+	[[nodiscard]] TraceResult<Dim> trace(
 	    Ray<Dim, ray_t> const& ray, Predicate const& pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
 	{
@@ -2030,7 +2096,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, class Predicate,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
-	[[nodiscard]] std::pair<Index, float> trace(
+	[[nodiscard]] TraceResult<Dim> trace(
 	    NodeType node, Ray<Dim, ray_t> const& ray, Predicate pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
 	{
@@ -2040,7 +2106,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		Node n = node(node);
 		if (!exists(n)) {
-			return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+			return TraceResult<Dim>{
+			    Index(), Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()), -1.0f};
 		}
 
 		auto params = traceInit(n, ray);
@@ -2068,7 +2135,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <class InputIt, class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
-	[[nodiscard]] std::vector<std::pair<Index, float>> trace(
+	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    InputIt first, InputIt last, Predicate const& pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
 	{
@@ -2078,11 +2145,11 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, class InputIt, class Predicate,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
-	[[nodiscard]] std::vector<std::pair<Index, float>> trace(
+	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    NodeType node, InputIt first, InputIt last, Predicate const& pred,
 	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max()) const
 	{
-		std::vector<std::pair<Index, float>> res;
+		std::vector<TraceResult<Dim>> res;
 		trace(node, first, last, std::back_inserter(res), pred, min_dist, max_dist);
 		return res;
 	}
@@ -2116,8 +2183,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		Node n = this->node(node);
 		if (!exists(n)) {
 			for (; last != first; ++first, ++d_first) {
-				*d_first =
-				    std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+				*d_first = TraceResult<Dim>{
+				    Index(), Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()), -1.0f};
 			}
 			return d_first;
 		}
@@ -2136,7 +2203,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	    class ExecutionPolicy, class RandomIt, class Predicate,
 	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-	[[nodiscard]] std::vector<std::pair<Index, float>> trace(
+	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    ExecutionPolicy&& policy, RandomIt first, RandomIt last, Predicate const& pred,
 	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max()) const
 	{
@@ -2149,12 +2216,12 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	    std::enable_if_t<is_node_type_v<NodeType>, bool>                          = true,
 	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-	[[nodiscard]] std::vector<std::pair<Index, float>> trace(
+	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    ExecutionPolicy&& policy, NodeType node, RandomIt first, RandomIt last,
 	    Predicate const& pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
 	{
-		__block std::vector<std::pair<Index, float>> res(std::distance(first, last));
+		__block std::vector<TraceResult<Dim>> res(std::distance(first, last));
 		trace(std::forward<ExecutionPolicy>(policy), node, first, last, res.begin(), pred,
 		      min_dist, max_dist);
 		return res;
@@ -2192,6 +2259,48 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		createRoot();
 	}
+
+	Tree(Tree const&) = default;
+
+	Tree(Tree&&) = default;
+
+	template <class Derived2, bool GPU2, class... Blocks2>
+	Tree(Tree<Derived2, Dim, GPU2, Block, Blocks2...> const& other)
+	{
+		// TODO: Implement
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                     Destructor                                      |
+	|                                                                                     |
+	**************************************************************************************/
+
+	~Tree() = default;
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                 Assignment operator                                 |
+	|                                                                                     |
+	**************************************************************************************/
+
+	Tree& operator=(Tree const&) = default;
+
+	Tree& operator=(Tree&&) = default;
+
+	template <class Derived2, bool GPU2, class... Blocks2>
+	Tree& operator=(Tree<Derived2, Dim, GPU2, Block, Blocks2...> const& rhs)
+	{
+		// TODO: Implement
+
+		return *this;
+	}
+
+	/**************************************************************************************
+	|                                                                                     |
+	|                                        Init                                         |
+	|                                                                                     |
+	**************************************************************************************/
 
 	void init(Length leaf_node_length, depth_t num_depth_levels)
 	{
@@ -2690,13 +2799,14 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		block.children[node.offset].store(children);
 	}
 
-	void pruneChildren(Index node, pos_t children)
+	void pruneChildren(Index node)
 	{
-		treeBlock(node).children[node.offset].store(Index::NULL_POS,
-		                                            std::memory_order_relaxed);
+		// FIXME: What memory order to use?
+		pos_t children = treeBlock(node).children[node.offset].exchange(
+		    Index::NULL_POS, std::memory_order_acq_rel);
 		derived().onPruneChildren(node, children);
-		// Important that derived is pruned first in case they use parent code
-		treeBlock(children) = Block{};
+		// NOTE: Important that derived is pruned first in case they use parent code
+		treeBlock(children).reset();
 		Data::eraseBlock(children);
 	}
 
@@ -2761,24 +2871,6 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		assert(branchingFactor() > child_index);
 
 		return Index(createChildrenThreadSafe(node), child_index);
-	}
-
-	//
-	// Erase
-	//
-
-	void eraseChildren(Index node, pos_t children)
-	{
-		if (!valid(children)) {
-			return;
-		}
-
-		auto child_blocks = this->children(children);
-		for (offset_t i{}; child_blocks.size() > i; ++i) {
-			eraseChildren(Index(children, i), child_blocks[i]);
-		}
-
-		pruneChildren(node, children);
 	}
 
 	/**************************************************************************************
@@ -3362,9 +3454,10 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	**************************************************************************************/
 
 	struct TraceParams {
-		Point    t0;
-		Point    t1;
-		unsigned a{};
+		Ray<Dim, ray_t> ray;
+		Point           t0;
+		Point           t1;
+		unsigned        a{};
 	};
 
 	struct TraceStackElement {
@@ -3394,6 +3487,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	                                                     Length half_length) noexcept
 	{
 		TraceParams params;
+		params.ray = ray;
 
 		for (std::size_t i{}; Dim > i; ++i) {
 			float origin = 0 > ray.direction[i] ? center[i] * 2 - ray.origin[i] : ray.origin[i];
@@ -3432,22 +3526,23 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <class Predicate,
 	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
-	[[nodiscard]] constexpr std::pair<Index, float> trace(Node               node,
-	                                                      TraceParams const& params,
-	                                                      Predicate const&   pred,
-	                                                      float              near_clip,
-	                                                      float              far_clip) const
+	[[nodiscard]] constexpr TraceResult<Dim> trace(Node node, TraceParams const& params,
+	                                               Predicate const& pred,
+	                                               float const      near_clip,
+	                                               float const      far_clip) const
 	{
 		using Filter = pred::Filter<Predicate>;
 
-		auto returnable = [this, near_clip, &pred](Node const& node, float distance) {
-			// TOOD: Should we check below max dist?
-			return near_clip <= distance && Filter::returnable(pred, derived(), node);
+		auto returnable = [this, near_clip, far_clip, &pred](Node const& node, float min_dist,
+		                                                     float max_dist) {
+			return near_clip <= max_dist && far_clip >= min_dist &&
+			       Filter::returnable(pred, derived(), node);
 		};
 
-		auto traversable = [this, &pred](Node const& node) {
-			// Do we even care? About the distance that is
-			return isParent(node.index) && Filter::traversable(pred, derived(), node);
+		auto traversable = [this, near_clip, far_clip, &pred](
+		                       Node const& node, float min_dist, float max_dist) {
+			return near_clip <= max_dist && far_clip >= min_dist && isParent(node.index) &&
+			       Filter::traversable(pred, derived(), node);
 		};
 
 		constexpr auto const new_node_lut = []() {
@@ -3465,18 +3560,21 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		auto tm = (t0 + t1) * 0.5f;
 		auto a  = params.a;
 
-		auto max_t0 = max(t0);
-		auto min_t1 = min(t1);
+		auto min_dist = max(t0);
+		auto max_dist = min(t1);
 
-		auto min_dist = std::max(0.0f, max_t0);
-		auto max_dist = min_t1;
-
-		if (max_t0 >= min_t1 || near_clip > max_dist || far_clip < min_dist) {
-			return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
-		} else if (returnable(node, min_dist)) {
-			return std::pair<Index, float>(node.index, min_dist);
-		} else if (!traversable(node)) {
-			return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+		if (min_dist >= max_dist || near_clip > max_dist || far_clip < min_dist) {
+			return TraceResult<Dim>{Index(),
+			                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
+			                        std::numeric_limits<float>::infinity()};
+		} else if (returnable(node, min_dist, max_dist)) {
+			float distance = std::max(near_clip, min_dist);
+			return TraceResult<Dim>{
+			    node.index, params.ray.origin + params.ray.direction * distance, distance};
+		} else if (!traversable(node, min_dist, max_dist)) {
+			return TraceResult<Dim>{Index(),
+			                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
+			                        std::numeric_limits<float>::infinity()};
 		}
 
 		unsigned cur_node = firstNode(t0, tm);
@@ -3504,27 +3602,27 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			stack[idx].cur_node = new_node_lut[cur_node][minIndex(t1)];
 			idx -= BF <= stack[idx].cur_node;
 
-			if (0.0f > min(t1)) {
+			min_dist = max(t0);
+			max_dist = min(t1);
+
+			if (returnable(node, min_dist, max_dist)) {
+				float distance = std::max(near_clip, min_dist);
+				return TraceResult<Dim>{
+				    node.index, params.ray.origin + params.ray.direction * distance, distance};
+			} else if (!traversable(node, min_dist, max_dist)) {
 				continue;
 			}
 
-			// auto max_t0 = max(t0);
-			auto distance    = std::max(0.0f, max(t0));
-
-			if (returnable(node, distance)) {
-				return std::pair<Index, float>(node.index, distance);
-			} else if (!traversable(node)) {
-				continue;
-			}
-
-			tm = 0.5f * (t0 + t1);
+			tm = (t0 + t1) * 0.5f;
 
 			cur_node = firstNode(t0, tm);
 
 			stack[++idx] = TraceStackElement{node, cur_node, t0, t1, tm};
 		}
 
-		return std::pair<Index, float>(Index(), std::numeric_limits<float>::infinity());
+		return TraceResult<Dim>{Index(),
+		                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
+		                        std::numeric_limits<float>::infinity()};
 	}
 
  private:

@@ -76,7 +76,7 @@ class TreeData
 	 * @param block the block to check
 	 * @return `true` if the block is valid, `false` otherwise.
 	 */
-	[[nodiscard]] bool valid(pos_t block) const { return data_.size() > block; }
+	[[nodiscard]] bool valid(pos_t block) const { return data_.capacity() > block; }
 
 	void swap(TreeData& other)
 	{
@@ -85,7 +85,7 @@ class TreeData
 	}
 
  protected:
-	[[nodiscard]] std::size_t size() const { return data_.numUsedBlocks(); }
+	[[nodiscard]] std::size_t size() const { return data_.size(); }
 
 	void reserve(std::size_t cap) { data_.reserve(cap); }
 
@@ -175,7 +175,7 @@ class TreeData<Derived, true, Block, Blocks...>
 		assert(nullptr != device);
 
 		// Increase reference count
-		wgpuDeviceReference(device);
+		wgpuDeviceAddRef(device);
 
 		device_ = device;
 		queue_  = compute::queue(device);
@@ -313,40 +313,38 @@ class TreeData<Derived, true, Block, Blocks...>
 	}
 
  private:
-	WGPURequiredLimits requiredLimits(WGPUAdapter adapter)
+	WGPULimits requiredLimits(WGPUAdapter adapter)
 	{
-		WGPUSupportedLimits supported{};
+		WGPULimits supported{};
 		supported.nextInChain = nullptr;
 		wgpuAdapterGetLimits(adapter, &supported);
 
-		WGPURequiredLimits required{};
-		compute::setDefault(required.limits);
+		WGPULimits required{};
+		compute::setDefault(required);
 
 		// These two limits are different because they are "minimum" limits,
 		// they are the only ones we may forward from the adapter's supported limits.
-		required.limits.minUniformBufferOffsetAlignment =
-		    supported.limits.minUniformBufferOffsetAlignment;
-		required.limits.minStorageBufferOffsetAlignment =
-		    supported.limits.minStorageBufferOffsetAlignment;
+		required.minUniformBufferOffsetAlignment = supported.minUniformBufferOffsetAlignment;
+		required.minStorageBufferOffsetAlignment = supported.minStorageBufferOffsetAlignment;
 
-		tree_buffer_size_ = std::min(
-		    tree_buffer_size_, static_cast<std::size_t>(supported.limits.maxBufferSize));
+		tree_buffer_size_ =
+		    std::min(tree_buffer_size_, static_cast<std::size_t>(supported.maxBufferSize));
 		tree_buffer_size_ =
 		    std::min(tree_buffer_size_,
-		             static_cast<std::size_t>(supported.limits.maxStorageBufferBindingSize));
+		             static_cast<std::size_t>(supported.maxStorageBufferBindingSize));
 
-		required.limits.maxBufferSize               = tree_buffer_size_;
-		required.limits.maxStorageBufferBindingSize = tree_buffer_size_;
+		required.maxBufferSize               = tree_buffer_size_;
+		required.maxStorageBufferBindingSize = tree_buffer_size_;
 
-		required.limits.maxComputeWorkgroupStorageSize    = 16352;
-		required.limits.maxComputeInvocationsPerWorkgroup = 256;
-		required.limits.maxComputeWorkgroupSizeX          = 256;
-		required.limits.maxComputeWorkgroupSizeY          = 256;
-		required.limits.maxComputeWorkgroupSizeZ          = 64;
-		required.limits.maxComputeWorkgroupsPerDimension  = 65535;
+		required.maxComputeWorkgroupStorageSize    = 16352;
+		required.maxComputeInvocationsPerWorkgroup = 256;
+		required.maxComputeWorkgroupSizeX          = 256;
+		required.maxComputeWorkgroupSizeY          = 256;
+		required.maxComputeWorkgroupSizeZ          = 64;
+		required.maxComputeWorkgroupsPerDimension  = 65535;
 
-		required.limits.maxUniformBuffersPerShaderStage = 12;
-		required.limits.maxUniformBufferBindingSize     = 16 << 10;  // (16 KiB)
+		required.maxUniformBuffersPerShaderStage = 12;
+		required.maxUniformBufferBindingSize     = 16 << 10;  // (16 KiB)
 
 		return required;
 	}

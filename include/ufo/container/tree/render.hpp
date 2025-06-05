@@ -45,6 +45,7 @@
 // UFO
 #include <ufo/container/tree/node.hpp>
 #include <ufo/container/tree/predicate.hpp>
+#include <ufo/container/tree/trace_result.hpp>
 #include <ufo/utility/type_traits.hpp>
 #include <ufo/vision/camera.hpp>
 
@@ -59,9 +60,9 @@ namespace ufo
 
 template <class Tree, class Predicate,
           std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool> = true>
-[[nodiscard]] std::pair<Image<TreeIndex>, Image<float>> render(Tree const&      tree,
-                                                               Camera const&    camera,
-                                                               Predicate const& pred)
+[[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(Tree const&      tree,
+                                                            Camera const&    camera,
+                                                            Predicate const& pred)
 {
 	return render(tree.index(), tree, camera, pred);
 }
@@ -69,10 +70,10 @@ template <class Tree, class Predicate,
 template <class Tree, class NodeType, class Predicate,
           std::enable_if_t<Tree::template is_node_type_v<NodeType>, bool> = true,
           std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>        = true>
-[[nodiscard]] std::pair<Image<TreeIndex>, Image<float>> render(Tree const&      tree,
-                                                               NodeType const&  node,
-                                                               Camera const&    camera,
-                                                               Predicate const& pred)
+[[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(Tree const&      tree,
+                                                            NodeType const&  node,
+                                                            Camera const&    camera,
+                                                            Predicate const& pred)
 {
 	if constexpr (2 == Tree::dimensions()) {
 		// TODO: Implement
@@ -90,10 +91,10 @@ template <
     class ExecutionPolicy, class Tree, class Predicate,
     std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>                  = true,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-[[nodiscard]] Image<std::pair<TreeIndex, float>> render(ExecutionPolicy&& policy,
-                                                        Tree const&       tree,
-                                                        Camera const&     camera,
-                                                        Predicate const&  pred)
+[[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(ExecutionPolicy&& policy,
+                                                            Tree const&       tree,
+                                                            Camera const&     camera,
+                                                            Predicate const&  pred)
 {
 	return render(std::forward<ExecutionPolicy>(policy), tree, tree.index(), camera, pred);
 }
@@ -103,17 +104,17 @@ template <
     std::enable_if_t<Tree::template is_node_type_v<NodeType>, bool>           = true,
     std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>                  = true,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
-[[nodiscard]] Image<std::pair<TreeIndex, float>> render(ExecutionPolicy&& policy,
-                                                        Tree const&       tree,
-                                                        NodeType const&   node,
-                                                        Camera const&     camera,
-                                                        Predicate const&  pred)
+[[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(ExecutionPolicy&& policy,
+                                                            Tree const&       tree,
+                                                            NodeType const&   node,
+                                                            Camera const&     camera,
+                                                            Predicate const&  pred)
 {
 	if constexpr (2 == Tree::dimensions()) {
 		// TODO: Implement
 	} else if constexpr (3 == Tree::dimensions()) {
-		Image<std::pair<TreeIndex, float>> image(camera.rows, camera.cols);
-		auto                               rays = camera.rays();
+		Image<TraceResult<Tree::dimensions()>> image(camera.rows, camera.cols);
+		auto                                   rays = camera.rays();
 		tree.trace(std::forward<ExecutionPolicy>(policy), node, rays.begin(), rays.end(),
 		           image.begin(), pred, camera.near_clip, camera.far_clip);
 		return image;

@@ -156,13 +156,24 @@ struct TreeBlock {
 		return !(lhs == rhs);
 	}
 
+	void reset()
+	{
+		for (std::size_t i{}; BF > i; ++i) {
+			children[i].store(TreeIndex::NULL_POS, std::memory_order_relaxed);
+		}
+
+		parent_block_ = TreeIndex::NULL_POS;
+		modified_     = {};
+		code_         = Code::invalid();
+	}
+
 	/**************************************************************************************
 	|                                                                                     |
 	|                                      Modified                                       |
 	|                                                                                     |
 	**************************************************************************************/
 
-	[[nodiscard]] std::uint16_t modified() { return modified_.load(); }
+	[[nodiscard]] std::uint16_t modified() const { return modified_.load(); }
 
 	[[nodiscard]] bool modified(std::size_t pos) const
 	{
@@ -230,6 +241,8 @@ struct TreeBlock {
 			modified_ &= ~(std::uint16_t(1) << pos);
 		}
 	}
+
+	void modifiedUpdate(std::uint16_t update) { modified_ |= update; }
 
 	/**************************************************************************************
 	|                                                                                     |
