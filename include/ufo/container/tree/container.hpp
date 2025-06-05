@@ -56,7 +56,6 @@
 #include <atomic>
 #include <cstddef>
 #include <cstring>
-#include <deque>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -85,14 +84,13 @@ class TreeContainer
 		alignas(8) bool modified = false;
 	};
 
-	using value_type = std::tuple<S<Ts>...>;
-	// alignas(8) bool active   = false;  // TODO: Use this instead of `free_blocks_`
-	using Bucket = std::atomic<value_type*>;
-
 	template <class T>
 	using bucket_type = S<T>;
 	using size_type   = std::size_t;
 	using pos_t       = TreeIndex::pos_t;
+
+	using value_type = std::tuple<std::array<pos_t, NUM_BLOCKS_PER_BUCKET>, S<Ts>...>;
+	using Bucket     = std::atomic<value_type*>;
 
 	template <class T>
 	using iterator = TreeContainterIterator<T, false, Ts...>;
@@ -116,7 +114,7 @@ class TreeContainer
 	TreeContainer() = default;
 
 	TreeContainer(TreeContainer const& other)
-	    : free_blocks_(other.free_blocks_), size_(other.size_.load())
+	    : cap_(other.cap_.load()), num_inactive_(other.num_inactive_.load())
 	{
 		for (std::size_t i{}; NUM_BUCKETS > i; ++i) {
 			if (nullptr == other.buckets_[i]) {
@@ -125,6 +123,13 @@ class TreeContainer
 
 			buckets_[i] = new value_type(*other.buckets_[i]);
 		}
+	}
+
+	template <class... Ts2>
+	TreeContainer(TreeContainer<Ts2...> const& other)
+	    : cap_(other.cap_.load()), num_inactive_(other.num_inactive_.load())
+	{
+		// TODO: Implement
 	}
 
 	~TreeContainer()
@@ -145,11 +150,26 @@ class TreeContainer
 				break;
 			}
 
-			buckets_[i] = new value_type(*rhs.buckets_[i]);
+			if (nullptr == buckets_[i]) {
+				buckets_[i] = new value_type(*rhs.buckets_[i]);
+			} else {
+				bucket(i) = rhs.bucket(i);
+			}
 		}
 
-		free_blocks_ = rhs.free_blocks_;
-		size_        = rhs.size_.load();
+		cap_          = rhs.cap_.load();
+		num_inactive_ = rhs.num_inactive_.load();
+
+		return *this;
+	}
+
+	template <class... Ts2>
+	TreeContainer& operator=(TreeContainer<Ts2...> const& rhs)
+	{
+		// TODO: Implement
+
+		cap_          = rhs.cap_.load();
+		num_inactive_ = rhs.num_inactive_.load();
 
 		return *this;
 	}
@@ -175,13 +195,13 @@ class TreeContainer
 	template <class T>
 	[[nodiscard]] iterator<T> end()
 	{
-		return iterator<T>(this, size_);
+		return iterator<T>(this, capacity());
 	}
 
 	template <class T>
 	[[nodiscard]] const_iterator<T> end() const
 	{
-		return const_iterator<T>(const_cast<TreeContainer*>(this), size_);
+		return const_iterator<T>(const_cast<TreeContainer*>(this), capacity());
 	}
 
 	template <class T>
@@ -400,7 +420,7 @@ class TreeContainer
 	[[nodiscard]] Data<T>& bucketData(std::size_t idx)
 	{
 		auto& x    = bucket<T>(idx);
-		x.modified = true;  // TODO: Can be relaxed?
+		x.modified = true;
 		return x.data;
 	}
 
@@ -414,7 +434,7 @@ class TreeContainer
 	[[nodiscard]] auto& bucketData(std::size_t idx)
 	{
 		auto& x    = bucket<I>(idx);
-		x.modified = true;  // TODO: Can be relaxed?
+		x.modified = true;
 		return x.data;
 	}
 
@@ -450,7 +470,7 @@ class TreeContainer
 
 	[[nodiscard]] constexpr pos_t numBuckets() const noexcept
 	{
-		return empty() ? 0 : bucketPos(size_ - 1) + 1;
+		return empty() ? 0 : bucketPos(capacity() - 1) + 1;
 	}
 
 	[[nodiscard]] constexpr pos_t numBlocksPerBucket() const noexcept
@@ -470,19 +490,22 @@ class TreeContainer
 
 	[[nodiscard]] pos_t create()
 	{
-		if (!free_blocks_.empty()) {
-			pos_t idx = free_blocks_.front();
-			free_blocks_.pop_front();
-			return idx;
+		if (pos_t idx = num_inactive_.load(std::memory_order_relaxed); 0u < idx) {
+			--idx;
+			num_inactive_.store(idx, std::memory_order_relaxed);
+			auto& b = *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
+			return std::get<0>(b)[blockPos(idx)];
 		}
 
-		pos_t idx = size_++;
+		pos_t idx = cap_.fetch_add(pos_t(1u), std::memory_order_relaxed);
 
 		pos_t bucket = bucketPos(idx);
 
-		if (nullptr == buckets_[bucket]) {
+		value_type* b = buckets_[bucket];
+		if (nullptr == b) {
 			// Create bucket
-			buckets_[bucket] = new value_type();
+			b                = new value_type();
+			buckets_[bucket] = b;
 		}
 
 		return idx;
@@ -490,29 +513,32 @@ class TreeContainer
 
 	[[nodiscard]] pos_t createThreadSafe()
 	{
-		if (!free_blocks_.empty()) {
-			if (std::unique_lock lock{free_blocks_mutex_, std::try_to_lock};
-			    lock && !free_blocks_.empty()) {
-				pos_t idx = free_blocks_.front();
-				free_blocks_.pop_front();
-				return idx;
+		if (0u < num_inactive_.load(std::memory_order_relaxed)) {
+			std::scoped_lock lock(mutex_);
+			if (pos_t idx = num_inactive_.load(std::memory_order_acquire); 0u < idx) {
+				--idx;
+				num_inactive_.store(idx, std::memory_order_release);
+				auto& b = *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
+				return std::get<0>(b)[blockPos(idx)];
 			}
 		}
 
-		pos_t idx = size_++;
+		pos_t idx = cap_.fetch_add(pos_t(1u), std::memory_order_acq_rel);
 
 		pos_t bucket = bucketPos(idx);
 		pos_t block  = blockPos(idx);
 
+		value_type* v = buckets_[bucket];
 		if (0 == block) {
 			// This will create bucket if it does not exist
-			if (nullptr == buckets_[bucket]) {
+			if (nullptr == v) {
 				// Create bucket
-				buckets_[bucket] = new value_type();
+				v                = new value_type();
+				buckets_[bucket] = v;
 			}
 		} else {
 			// This will wait for someone else to create the bucket if it does not exist
-			while (nullptr == buckets_[bucket]) {
+			for (; nullptr == v; v = buckets_[bucket]) {
 				// Wait
 			}
 		}
@@ -522,8 +548,9 @@ class TreeContainer
 
 	void eraseBlock(pos_t block)
 	{
-		std::scoped_lock lock(free_blocks_mutex_);
-		free_blocks_.push_front(block);
+		pos_t idx = num_inactive_.fetch_add(pos_t(1), std::memory_order_acq_rel);
+		auto& b   = *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
+		std::get<0>(b)[blockPos(idx)] = block;
 	}
 
 	void clear()
@@ -534,23 +561,20 @@ class TreeContainer
 				break;
 			}
 
-			*buckets_[i] = value_type();
+			bucket(i) = value_type();
 		}
 
-		size_ = 0;
-		std::scoped_lock lock(free_blocks_mutex_);
-		free_blocks_.clear();
+		cap_          = 0;
+		num_inactive_ = 0;
 	}
 
 	void reserve(pos_t cap)
 	{
 		// FIXME: Can be improved
-		pos_t first = bucketPos(size_);
+		pos_t first = bucketPos(capacity());
 		pos_t last  = bucketPos(cap);
 		for (; last >= first; ++first) {
 			if (nullptr == buckets_[first]) {
-				// Create bucket
-				buckets_[first] = new value_type();
 				break;
 			}
 		}
@@ -575,11 +599,11 @@ class TreeContainer
 		}
 	}
 
-	[[nodiscard]] bool empty() const { return 0 == size_; }
+	[[nodiscard]] bool empty() const { return 0 == size(); }
 
-	[[nodiscard]] pos_t size() const { return size_; }
+	[[nodiscard]] pos_t size() const { return cap_ - num_inactive_; }
 
-	[[nodiscard]] pos_t numUsedBlocks() const { return size_ - free_blocks_.size(); }
+	[[nodiscard]] pos_t capacity() const { return cap_; }
 
 	template <class T>
 	[[nodiscard]] constexpr size_type serializedBucketSize() const
@@ -597,32 +621,34 @@ class TreeContainer
 	{
 		using std::swap;
 		swap(buckets_, other.buckets_);
-		swap(free_blocks_, other.free_blocks_);
 
-		pos_t const tmp = size_;
-		size_           = other.size_.load();
-		other.size_     = tmp;
+		pos_t tmp  = cap_;
+		cap_       = other.cap_.load();
+		other.cap_ = tmp;
+
+		tmp                 = num_inactive_;
+		num_inactive_       = other.num_inactive_.load();
+		other.num_inactive_ = tmp;
 	}
 
  private:
 	[[nodiscard]] value_type& bucket(std::size_t idx)
 	{
-		return *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
+		return *buckets_[bucketPos(idx)].load(std::memory_order_acquire);
 	}
 
 	[[nodiscard]] value_type const& bucket(std::size_t idx) const
 	{
-		return *buckets_[bucketPos(idx)].load(std::memory_order_relaxed);
+		return *buckets_[bucketPos(idx)].load(std::memory_order_acquire);
 	}
 
  private:
 	std::unique_ptr<Bucket[]> buckets_ = std::make_unique<Bucket[]>(NUM_BUCKETS);
 
-	Spinlock          free_blocks_mutex_;
-	std::deque<pos_t> free_blocks_;
+	std::atomic<pos_t> cap_{};
+	std::atomic<pos_t> num_inactive_{};
 
-	std::atomic<pos_t> size_{};
-	// std::atomic<pos_t> cap_{}; // TODO: Current `size_` should be `cap_`
+	std::mutex mutex_;
 };
 
 template <class... Ts>
