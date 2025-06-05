@@ -56,73 +56,130 @@ namespace ufo::pred
 // AND (&&)
 //
 
-template <
-    class Pred1, class Pred2,
-    std::enable_if_t<!is_tuple_v<std::decay_t<Pred1>> && !is_tuple_v<std::decay_t<Pred2>>,
-                     bool> = true>
-constexpr std::tuple<Pred1, Pred2> operator&&(Pred1&& p1, Pred2&& p2)
+template <class... Preds>
+struct And {
+	And(Preds&&... preds) : preds(std::forward<Preds>(preds)...) {}
+
+	std::tuple<Preds...> preds;
+};
+
+template <class PredLeft, class PredRight,
+          std::enable_if_t<!is_specialization_of_v<And, PredLeft> &&
+                               !is_specialization_of_v<And, PredRight>,
+                           bool> = true>
+constexpr And<remove_cvref_t<PredLeft>, remove_cvref_t<PredRight>> operator&&(
+    PredLeft&& p1, PredRight&& p2)
 {
-	return std::make_tuple(std::forward<Pred1>(p1), std::forward<Pred2>(p2));
+	return {std::forward<PredLeft>(p1), std::forward<PredRight>(p2)};
 }
 
-template <class... Preds1, class... Preds2>
-constexpr std::tuple<Preds1..., Preds2...> operator&&(std::tuple<Preds1...>&& t1,
-                                                      std::tuple<Preds2...>&& t2)
+template <class... PredsLeft, class... PredsRight>
+constexpr And<PredsLeft..., PredsRight...> operator&&(And<PredsLeft...>&&  p1,
+                                                      And<PredsRight...>&& p2)
 {
-	return std::tuple_cat(std::move(t1), std::move(t2));
+	return {std::tuple_cat(std::move(p1.preds), std::move(p2.preds))};
 }
 
-template <class... Preds1, class... Preds2>
-constexpr std::tuple<Preds1..., Preds2...> operator&&(std::tuple<Preds1...> const& t1,
-                                                      std::tuple<Preds2...> const& t2)
+template <class... PredsLeft, class... PredsRight>
+constexpr And<PredsLeft..., PredsRight...> operator&&(And<PredsLeft...> const&  p1,
+                                                      And<PredsRight...> const& p2)
 {
-	return std::tuple_cat(t1, t2);
+	return {std::tuple_cat(p1.preds, p2.preds)};
 }
 
-template <class... Preds, class Pred>
-constexpr std::tuple<Preds..., std::decay_t<Pred>> operator&&(std::tuple<Preds...>&& t,
-                                                              Pred&&                 p)
+template <class... PredsLeft, class PredRight>
+constexpr And<PredsLeft..., remove_cvref_t<PredRight>> operator&&(And<PredsLeft...>&& p1,
+                                                                  PredRight&&         p2)
 {
-	return std::tuple_cat(std::move(t), std::make_tuple(std::forward<Pred>(p)));
+	return {
+	    std::tuple_cat(std::move(p1.preds), std::make_tuple(std::forward<PredRight>(p2)))};
 }
 
-template <class... Preds, class Pred>
-constexpr std::tuple<Preds..., std::decay_t<Pred>> operator&&(
-    std::tuple<Preds...> const& t, Pred&& p)
+template <class... PredsLeft, class PredRight>
+constexpr And<PredsLeft..., remove_cvref_t<PredRight>> operator&&(
+    And<PredsLeft...> const& p1, PredRight&& p2)
 {
-	return std::tuple_cat(t, std::make_tuple(std::forward<Pred>(p)));
+	return {std::tuple_cat(p1.preds, std::make_tuple(std::forward<PredRight>(p2)))};
 }
 
-template <class Pred, class... Preds>
-constexpr std::tuple<std::decay_t<Pred>, Preds...> operator&&(Pred&&                 p,
-                                                              std::tuple<Preds...>&& t)
+template <class PredLeft, class... PredsRight>
+constexpr And<remove_cvref_t<PredLeft>, PredsRight...> operator&&(PredLeft&&           p1,
+                                                                  And<PredsRight...>&& p2)
 {
-	return std::tuple_cat(std::make_tuple(std::forward<Pred>(p)), std::move(t));
+	return {
+	    std::tuple_cat(std::make_tuple(std::forward<PredLeft>(p1)), std::move(p2.preds))};
 }
 
-template <class Pred, class... Preds>
-constexpr std::tuple<std::decay_t<Pred>, Preds...> operator&&(
-    Pred&& p, std::tuple<Preds...> const& t)
+template <class PredLeft, class... PredsRight>
+constexpr And<remove_cvref_t<PredLeft>, PredsRight...> operator&&(
+    PredLeft&& p1, And<PredsRight...> const& p2)
 {
-	return std::tuple_cat(std::make_tuple(std::forward<Pred>(p)), t);
+	return {std::tuple_cat(std::make_tuple(std::forward<PredLeft>(p1)), p2.preds)};
 }
 
 //
 // Or (||)
 //
 
-template <class PredLeft, class PredRight>
+template <class... Preds>
 struct Or {
-	Or(PredLeft const& left, PredRight const& right) : left(left), right(right) {}
+	Or(Preds&&... preds) : preds(std::forward<Preds>(preds)...) {}
 
-	PredLeft  left;
-	PredRight right;
+	std::tuple<Preds...> preds;
 };
 
-template <class PredLeft, class PredRight>
-constexpr Or<PredLeft, PredRight> operator||(PredLeft&& p1, PredRight&& p2)
+template <class PredLeft, class PredRight,
+          std::enable_if_t<!is_specialization_of_v<Or, PredLeft> &&
+                               !is_specialization_of_v<Or, PredRight>,
+                           bool> = true>
+constexpr Or<remove_cvref_t<PredLeft>, remove_cvref_t<PredRight>> operator||(
+    PredLeft&& p1, PredRight&& p2)
 {
 	return {std::forward<PredLeft>(p1), std::forward<PredRight>(p2)};
+}
+
+template <class... PredsLeft, class... PredsRight>
+constexpr Or<PredsLeft..., PredsRight...> operator||(Or<PredsLeft...>&&  p1,
+                                                     Or<PredsRight...>&& p2)
+{
+	return {std::tuple_cat(std::move(p1.preds), std::move(p2.preds))};
+}
+
+template <class... PredsLeft, class... PredsRight>
+constexpr Or<PredsLeft..., PredsRight...> operator||(Or<PredsLeft...> const&  p1,
+                                                     Or<PredsRight...> const& p2)
+{
+	return {std::tuple_cat(p1.preds, p2.preds)};
+}
+
+template <class... PredsLeft, class PredRight>
+constexpr Or<PredsLeft..., remove_cvref_t<PredRight>> operator||(Or<PredsLeft...>&& p1,
+                                                                 PredRight&&        p2)
+{
+	return {
+	    std::tuple_cat(std::move(p1.preds), std::make_tuple(std::forward<PredRight>(p2)))};
+}
+
+template <class... PredsLeft, class PredRight>
+constexpr Or<PredsLeft..., remove_cvref_t<PredRight>> operator||(
+    Or<PredsLeft...> const& p1, PredRight&& p2)
+{
+	return {std::tuple_cat(p1.preds, std::make_tuple(std::forward<PredRight>(p2)))};
+}
+
+template <class PredLeft, class... PredsRight>
+constexpr Or<remove_cvref_t<PredLeft>, PredsRight...> operator||(PredLeft&&          p1,
+                                                                 Or<PredsRight...>&& p2)
+{
+	return {
+	    std::tuple_cat(std::make_tuple(std::forward<PredLeft>(p1)), std::move(p2.preds))};
+}
+
+template <class PredLeft, class... PredsRight>
+constexpr Or<remove_cvref_t<PredLeft>, PredsRight...> operator||(
+    PredLeft&& p1, Or<PredsRight...> const& p2)
+{
+	return {std::tuple_cat(std::make_tuple(std::forward<PredLeft>(p1)), p2.preds)};
 }
 
 //
@@ -167,6 +224,52 @@ struct False {
 // Filter
 //
 
+template <class Derived>
+struct FilterBase {
+	using Pred = typename Derived::Pred;
+
+	template <class Tree>
+	static constexpr void init(Pred&, Tree const&)
+	{
+	}
+
+	template <class Value>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Value const&)
+	{
+		return true;
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&,
+	                                               typename Tree::Node const&)
+	{
+		return true;
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
+	                                               typename Tree::Node const& n,
+	                                               typename Tree::Ray const&)
+	{
+		return Derived::returnable(p, t, n);
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                typename Tree::Node const&)
+	{
+		return true;
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
+	                                                typename Tree::Node const& n,
+	                                                typename Tree::Ray const&)
+	{
+		return Derived::traversable(p, t, n);
+	}
+};
+
 template <class Pred>
 struct Filter;
 // {
@@ -174,14 +277,15 @@ struct Filter;
 // };
 
 template <class... Preds>
-struct Filter<std::tuple<Preds...>> {
-	using Pred = std::tuple<Preds...>;
+struct Filter<And<Preds...>> {
+	using Pred = And<Preds...>;
 
 	template <class Tree>
 	static constexpr void init(Pred& p, Tree const& t)
 	{
 		std::apply(
-		    [&t](auto&... p) { ((Filter<std::decay_t<decltype(p)>>::init(p, t)), ...); }, p);
+		    [&t](auto&... p) { ((Filter<remove_cvref_t<decltype(p)>>::init(p, t)), ...); },
+		    p.preds);
 	}
 
 	template <class Value>
@@ -189,9 +293,9 @@ struct Filter<std::tuple<Preds...>> {
 	{
 		return std::apply(
 		    [&v](auto const&... p) {
-			    return ((Filter<std::decay_t<decltype(p)>>::returnable(p, v)) && ...);
+			    return ((Filter<remove_cvref_t<decltype(p)>>::returnable(p, v)) && ...);
 		    },
-		    p);
+		    p.preds);
 	}
 
 	template <class Tree>
@@ -200,9 +304,9 @@ struct Filter<std::tuple<Preds...>> {
 	{
 		return std::apply(
 		    [&t, &n](auto const&... p) {
-			    return ((Filter<std::decay_t<decltype(p)>>::returnable(p, t, n)) && ...);
+			    return ((Filter<remove_cvref_t<decltype(p)>>::returnable(p, t, n)) && ...);
 		    },
-		    p);
+		    p.preds);
 	}
 
 	template <class Tree>
@@ -211,44 +315,54 @@ struct Filter<std::tuple<Preds...>> {
 	{
 		return std::apply(
 		    [&t, &n](auto const&... p) {
-			    return ((Filter<std::decay_t<decltype(p)>>::traversable(p, t, n)) && ...);
+			    return ((Filter<remove_cvref_t<decltype(p)>>::traversable(p, t, n)) && ...);
 		    },
-		    p);
+		    p.preds);
 	}
 };
 
-template <class PredLeft, class PredRight>
-struct Filter<Or<PredLeft, PredRight>> {
-	using Pred = Or<PredLeft, PredRight>;
+template <class... Preds>
+struct Filter<Or<Preds...>> {
+	using Pred = Or<Preds...>;
 
 	template <class Tree>
 	static constexpr void init(Pred& p, Tree const& t)
 	{
-		Filter<PredLeft>::init(p.left, t);
-		Filter<PredRight>::init(p.right, t);
+		std::apply(
+		    [&t](auto&... p) { ((Filter<remove_cvref_t<decltype(p)>>::init(p, t)), ...); },
+		    p.preds);
 	}
 
 	template <class Value>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Value const& v)
 	{
-		return Filter<PredLeft>::returnable(p.left, v) ||
-		       Filter<PredRight>::returnable(p.right, v);
+		return std::apply(
+		    [&v](auto const&... p) {
+			    return ((Filter<remove_cvref_t<decltype(p)>>::returnable(p, v)) || ...);
+		    },
+		    p.preds);
 	}
 
 	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
 	                                               typename Tree::Node const& n)
 	{
-		return Filter<PredLeft>::returnable(p.left, t, n) ||
-		       Filter<PredRight>::returnable(p.right, t, n);
+		return std::apply(
+		    [&t, &n](auto const&... p) {
+			    return ((Filter<remove_cvref_t<decltype(p)>>::returnable(p, t, n)) || ...);
+		    },
+		    p.preds);
 	}
 
 	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
 	                                                typename Tree::Node const& n)
 	{
-		return Filter<PredLeft>::traversable(p.left, t, n) ||
-		       Filter<PredRight>::traversable(p.right, t, n);
+		return std::apply(
+		    [&t, &n](auto const&... p) {
+			    return ((Filter<remove_cvref_t<decltype(p)>>::traversable(p, t, n)) || ...);
+		    },
+		    p.preds);
 	}
 };
 
@@ -427,12 +541,11 @@ struct contains_pred<T, T> : std::true_type {
 };
 
 template <class T, class... Ts>
-struct contains_pred<T, std::tuple<Ts...>> : std::disjunction<contains_pred<T, Ts>...> {
+struct contains_pred<T, And<Ts...>> : std::disjunction<contains_pred<T, Ts>...> {
 };
 
-template <class T, class L, class R>
-struct contains_pred<T, Or<L, R>>
-    : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
+template <class T, class... Ts>
+struct contains_pred<T, Or<Ts...>> : std::disjunction<contains_pred<T, Ts>...> {
 };
 
 template <class T, class L, class R>
@@ -467,13 +580,13 @@ struct contains_always_pred<T, T> : std::true_type {
 };
 
 template <class T, class... Ts>
-struct contains_always_pred<T, std::tuple<Ts...>>
+struct contains_always_pred<T, And<Ts...>>
     : std::disjunction<contains_always_pred<T, Ts>...> {
 };
 
-template <class T, class L, class R>
-struct contains_always_pred<T, Or<L, R>>
-    : std::conjunction<contains_always_pred<T, L>, contains_always_pred<T, R>> {
+template <class T, class... Ts>
+struct contains_always_pred<T, Or<Ts...>>
+    : std::conjunction<contains_always_pred<T, Ts>...> {
 };
 
 template <class T, class L, class R>
