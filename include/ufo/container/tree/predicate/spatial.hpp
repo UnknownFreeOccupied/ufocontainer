@@ -43,7 +43,11 @@
 #define UFO_CONTAINER_TREE_PREDICATE_SPATIAL_HPP
 
 // UFO
+#include <ufo/container/tree/predicate/and.hpp>
 #include <ufo/container/tree/predicate/filter.hpp>
+#include <ufo/container/tree/predicate/if_and_only_if.hpp>
+#include <ufo/container/tree/predicate/or.hpp>
+#include <ufo/container/tree/predicate/then.hpp>
 #include <ufo/geometry/contains.hpp>
 #include <ufo/geometry/inside.hpp>
 #include <ufo/geometry/intersects.hpp>
@@ -270,13 +274,12 @@ struct contains_spatial_pred<Spatial<Geometry, Tag, Negated>> : std::true_type {
 };
 
 template <class... Ts>
-struct contains_spatial_pred<std::tuple<Ts...>>
+struct contains_spatial_pred<And<Ts...>>
     : std::disjunction<contains_spatial_pred<Ts>...> {
 };
 
-template <class L, class R>
-struct contains_spatial_pred<Or<L, R>>
-    : std::disjunction<contains_spatial_pred<L>, contains_spatial_pred<R>> {
+template <class... Ts>
+struct contains_spatial_pred<Or<Ts...>> : std::disjunction<contains_spatial_pred<Ts>...> {
 };
 
 template <class L, class R>
@@ -312,13 +315,13 @@ struct contains_always_spatial_pred<Spatial<Geometry, Tag, Negated>> : std::true
 };
 
 template <class... Ts>
-struct contains_always_spatial_pred<std::tuple<Ts...>>
+struct contains_always_spatial_pred<And<Ts...>>
     : std::disjunction<contains_always_spatial_pred<Ts>...> {
 };
 
-template <class L, class R>
-struct contains_always_spatial_pred<Or<L, R>>
-    : std::conjunction<contains_always_spatial_pred<L>, contains_always_spatial_pred<R>> {
+template <class... Ts>
+struct contains_always_spatial_pred<Or<Ts...>>
+    : std::conjunction<contains_always_spatial_pred<Ts>...> {
 };
 
 template <class L, class R>

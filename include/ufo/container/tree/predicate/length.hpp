@@ -73,7 +73,7 @@ using LengthMin = LengthGE;
 using LengthMax = LengthLE;
 
 template <PredicateCompare PC>
-struct Filter<Length<PC>> {
+struct Filter<Length<PC>> : public FilterBase<Length<PC>> {
 	using Pred = Length<PC>;
 
 	template <class Tree>

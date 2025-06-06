@@ -76,7 +76,7 @@ struct W : Coord<3, PC> {
 };
 
 template <std::size_t Axis, PredicateCompare PC>
-struct Filter<Coord<Axis, PC>> {
+struct Filter<Coord<Axis, PC>> : public FilterBase<Coord<Axis, PC>> {
 	using Pred = Coord<Axis, PC>;
 
 	template <class Tree>

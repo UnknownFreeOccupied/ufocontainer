@@ -61,7 +61,7 @@ template <bool Negated>
 }
 
 template <bool Negated>
-struct Filter<Offset<Negated>> {
+struct Filter<Offset<Negated>> : public FilterBase<Offset<Negated>> {
 	using Pred = Offset<Negated>;
 
 	template <class Tree>

@@ -64,7 +64,7 @@ template <std::size_t Dim>
 ChildOf(TreeCode<Dim>) -> ChildOf<Dim>;
 
 template <std::size_t Dim>
-struct Filter<ChildOf<Dim>> {
+struct Filter<ChildOf<Dim>> : public FilterBase<ChildOf<Dim>> {
 	using Pred = ChildOf<Dim>;
 
 	template <class Tree>

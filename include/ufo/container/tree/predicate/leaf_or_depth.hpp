@@ -67,7 +67,7 @@ using LeafOrDepthMin = LeafOrDepthGE;
 using LeafOrDepthMax = LeafOrDepthLE;
 
 template <PredicateCompare PC>
-struct Filter<LeafOrDepth<PC>> {
+struct Filter<LeafOrDepth<PC>> : public FilterBase<LeafOrDepth<PC>> {
 	using Pred = LeafOrDepth<PC>;
 
 	template <class Tree>

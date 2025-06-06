@@ -69,7 +69,7 @@ constexpr LengthInterval<!Negated> operator!(LengthInterval<Negated> const& p)
 }
 
 template <bool Negated>
-struct Filter<LengthInterval<Negated>> {
+struct Filter<LengthInterval<Negated>> : public FilterBase<LengthInterval<Negated>> {
 	using Pred = LengthInterval<Negated>;
 
 	template <class Tree>

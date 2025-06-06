@@ -67,7 +67,7 @@ using DepthMin = DepthGE;
 using DepthMax = DepthLE;
 
 template <PredicateCompare PC>
-struct Filter<Depth<PC>> {
+struct Filter<Depth<PC>> : public FilterBase<Depth<PC>> {
 	using Pred = Depth<PC>;
 
 	template <class Tree>

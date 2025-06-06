@@ -51,7 +51,7 @@ struct Parent {
 };
 
 template <>
-struct Filter<Parent> {
+struct Filter<Parent> : public FilterBase<Parent> {
 	using Pred = Parent;
 
 	template <class Tree>

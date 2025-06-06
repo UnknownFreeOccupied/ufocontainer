@@ -69,7 +69,7 @@ constexpr DepthInterval<!Negated> operator!(DepthInterval<Negated> const& p)
 }
 
 template <bool Negated>
-struct Filter<DepthInterval<Negated>> {
+struct Filter<DepthInterval<Negated>> : public FilterBase<DepthInterval<Negated>> {
 	using Pred = DepthInterval<Negated>;
 
 	template <class Tree>

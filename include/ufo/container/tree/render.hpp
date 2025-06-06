@@ -59,7 +59,7 @@ namespace ufo
 //
 
 template <class Tree, class Predicate,
-          std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool> = true>
+          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 [[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(Tree const&      tree,
                                                             Camera const&    camera,
                                                             Predicate const& pred)
@@ -69,7 +69,7 @@ template <class Tree, class Predicate,
 
 template <class Tree, class NodeType, class Predicate,
           std::enable_if_t<Tree::template is_node_type_v<NodeType>, bool> = true,
-          std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>        = true>
+          std::enable_if_t<pred::is_pred_v<Predicate>, bool>              = true>
 [[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(Tree const&      tree,
                                                             NodeType const&  node,
                                                             Camera const&    camera,
@@ -89,7 +89,7 @@ template <class Tree, class NodeType, class Predicate,
 
 template <
     class ExecutionPolicy, class Tree, class Predicate,
-    std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>                  = true,
+    std::enable_if_t<pred::is_pred_v<Predicate>, bool>                        = true,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 [[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(ExecutionPolicy&& policy,
                                                             Tree const&       tree,
@@ -102,7 +102,7 @@ template <
 template <
     class ExecutionPolicy, class Tree, class NodeType, class Predicate,
     std::enable_if_t<Tree::template is_node_type_v<NodeType>, bool>           = true,
-    std::enable_if_t<pred::is_pred_v<Predicate, Tree>, bool>                  = true,
+    std::enable_if_t<pred::is_pred_v<Predicate>, bool>                        = true,
     std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 [[nodiscard]] Image<TraceResult<Tree::dimensions()>> render(ExecutionPolicy&& policy,
                                                             Tree const&       tree,

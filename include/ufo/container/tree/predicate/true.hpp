@@ -39,40 +39,52 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_TRUE_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_TRUE_HPP
 
 // UFO
 #include <ufo/container/tree/predicate/filter.hpp>
+#include <ufo/utility/type_traits.hpp>
+
+// STL
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 namespace ufo::pred
 {
-struct Inner {
+struct True {
 };
 
 template <>
-struct Filter<Inner> : public FilterBase<Inner> {
-	using Pred = Inner;
+struct Filter<True> : public FilterBase<True> {
+	using Pred = True;
 
 	template <class Tree>
 	static constexpr void init(Pred&, Tree const&)
 	{
 	}
 
-	template <class Tree>
-	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
-	                                               typename Tree::Node const& n)
+	template <class Value>
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Value const&)
 	{
-		return 0 < t.depth(n);
+		return true;
 	}
 
 	template <class Tree>
-	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
-	                                                typename Tree::Node const& n)
+	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const&,
+	                                               typename Tree::Node const&)
 	{
-		return 1 < t.depth(n);
+		return true;
+	}
+
+	template <class Tree>
+	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const&,
+	                                                typename Tree::Node const&)
+	{
+		return true;
 	}
 };
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_TRUE_HPP

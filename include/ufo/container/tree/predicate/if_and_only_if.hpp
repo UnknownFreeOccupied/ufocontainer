@@ -39,40 +39,74 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
-#define UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
+#ifndef UFO_CONTAINER_TREE_PREDICATE_IF_AND_ONLY_IF_HPP
+#define UFO_CONTAINER_TREE_PREDICATE_IF_AND_ONLY_IF_HPP
 
 // UFO
 #include <ufo/container/tree/predicate/filter.hpp>
+#include <ufo/utility/type_traits.hpp>
+
+// STL
+#include <tuple>
+#include <type_traits>
+#include <utility>
 
 namespace ufo::pred
 {
-struct Inner {
+template <class PredLeft, class PredRight>
+struct Iff {
+	Iff(PredLeft const& left, PredRight const& right) : left(left), right(right) {}
+
+	PredLeft  left;
+	PredRight right;
 };
 
-template <>
-struct Filter<Inner> : public FilterBase<Inner> {
-	using Pred = Inner;
+template <class PredLeft, class PredRight>
+struct Filter<Iff<PredLeft, PredRight>> : public FilterBase<Iff<PredLeft, PredRight>> {
+	using Pred = Iff<PredLeft, PredRight>;
 
 	template <class Tree>
-	static constexpr void init(Pred&, Tree const&)
+	static constexpr void init(Pred& p, Tree const& t)
 	{
+		Filter<PredLeft>::init(p.left, t);
+		Filter<PredRight>::init(p.right, t);
+	}
+
+	template <class Value>
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Value const& v)
+	{
+		return Filter<PredLeft>::returnable(p.left, v) ==
+		       Filter<PredRight>::returnable(p.right, v);
 	}
 
 	template <class Tree>
-	[[nodiscard]] static constexpr bool returnable(Pred const&, Tree const& t,
+	[[nodiscard]] static constexpr bool returnable(Pred const& p, Tree const& t,
 	                                               typename Tree::Node const& n)
 	{
-		return 0 < t.depth(n);
+		return Filter<PredLeft>::returnable(p.left, t, n) ==
+		       Filter<PredRight>::returnable(p.right, t, n);
 	}
 
 	template <class Tree>
-	[[nodiscard]] static constexpr bool traversable(Pred const&, Tree const& t,
+	[[nodiscard]] static constexpr bool traversable(Pred const& p, Tree const& t,
 	                                                typename Tree::Node const& n)
 	{
-		return 1 < t.depth(n);
+		return Filter<PredLeft>::traversable(p.left, t, n) ==
+		       Filter<PredRight>::traversable(p.right, t, n);
 	}
 };
+
+namespace detail
+{
+template <class T, class L, class R>
+struct contains_pred<T, Iff<L, R>>
+    : std::disjunction<contains_pred<T, L>, contains_pred<T, R>> {
+};
+
+template <class T, class L, class R>
+struct contains_always_pred<T, Iff<L, R>> : std::false_type {
+};
+}  // namespace detail
 }  // namespace ufo::pred
 
-#endif  // UFO_CONTAINER_TREE_PREDICATE_INNER_HPP
+#endif  // UFO_CONTAINER_TREE_PREDICATE_IF_AND_ONLY_IF_HPP

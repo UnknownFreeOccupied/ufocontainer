@@ -61,7 +61,8 @@ constexpr SatisfiesInner<Fun, !Negated> operator!(SatisfiesInner<Fun, Negated> c
 }
 
 template <class Fun, bool Negated>
-struct Filter<SatisfiesInner<Fun, Negated>> {
+struct Filter<SatisfiesInner<Fun, Negated>>
+    : public FilterBase<SatisfiesInner<Fun, Negated>> {
 	using Pred = SatisfiesInner<Fun, Negated>;
 
 	template <class Tree>

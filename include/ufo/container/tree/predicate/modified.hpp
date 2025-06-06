@@ -58,7 +58,7 @@ constexpr Modified<!Negated> operator!(Modified<Negated>)
 }
 
 template <bool Negated>
-struct Filter<Modified<Negated>> {
+struct Filter<Modified<Negated>> : public FilterBase<Modified<Negated>> {
 	using Pred = Modified<Negated>;
 
 	template <class Tree>

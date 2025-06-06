@@ -51,7 +51,7 @@ struct PureLeaf {
 };
 
 template <>
-struct Filter<PureLeaf> {
+struct Filter<PureLeaf>  : public FilterBase<PureLeaf> {
 	using Pred = PureLeaf;
 
 	template <class Tree>

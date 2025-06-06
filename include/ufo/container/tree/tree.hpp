@@ -1784,7 +1784,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 */
 	template <class UnaryFun, class Predicate = pred::True,
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>         = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool>                  = true>
 	void traverse(UnaryFun f, Predicate const& pred = pred::True{},
 	              bool only_exists = true) const
 	{
@@ -1804,7 +1804,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <class NodeType, class UnaryFun, class Predicate = pred::True,
 	          std::enable_if_t<is_node_type_v<NodeType>, bool>                    = true,
 	          std::enable_if_t<std::is_invocable_r_v<bool, UnaryFun, Node>, bool> = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>         = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool>                  = true>
 	void traverse(NodeType node, UnaryFun f, Predicate pred = pred::True{},
 	              bool only_exists = true) const
 	{
@@ -1916,8 +1916,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// Query iterator
 	//
 
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	template <class Predicate, std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] const_query_iterator_pred<Predicate> beginQuery(
 	    Predicate const& pred, bool only_exists = true, bool early_stopping = false) const
 	{
@@ -1925,8 +1924,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] const_query_iterator_pred<Predicate> beginQuery(
 	    NodeType node, Predicate const& pred, bool only_exists = true,
 	    bool early_stopping = false) const
@@ -1971,7 +1970,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	//
 
 	template <class Predicate, class Geometry,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
 	beginQueryNearest(Predicate const& pred, Geometry const& geometry, double epsilon = 0.0,
 	                  bool only_exists = true, bool early_stopping = false) const
@@ -1981,8 +1980,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class Predicate, class Geometry,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] const_query_nearest_iterator_pred_geom<Predicate, Geometry>
 	beginQueryNearest(NodeType node, Predicate const& pred, Geometry const& geometry,
 	                  double epsilon = 0.0, bool only_exists = true,
@@ -2008,8 +2007,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// Query
 	//
 
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	template <class Predicate, std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] ConstQuery<Predicate> query(Predicate const& pred,
 	                                          bool             only_exists    = true,
 	                                          bool             early_stopping = false) const
@@ -2018,8 +2016,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] ConstQuery<Predicate> query(NodeType node, Predicate const& pred,
 	                                          bool only_exists    = true,
 	                                          bool early_stopping = false) const
@@ -2058,7 +2056,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	//
 
 	template <class Predicate, class Geometry,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
 	    Predicate const& pred, Geometry const& geometry, double epsilon = 0.0,
 	    bool only_exists = true, bool early_stopping = false) const
@@ -2067,8 +2065,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class Predicate, class Geometry,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] ConstQueryNearest<Predicate, Geometry> queryNearest(
 	    NodeType node, Predicate const& pred, Geometry const& geometry,
 	    double epsilon = 0.0, bool only_exists = true, bool early_stopping = false) const
@@ -2084,8 +2082,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	|                                                                                     |
 	**************************************************************************************/
 
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	template <class Predicate, std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] TraceResult<Dim> trace(
 	    Ray<Dim, ray_t> const& ray, Predicate const& pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
@@ -2094,8 +2091,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] TraceResult<Dim> trace(
 	    NodeType node, Ray<Dim, ray_t> const& ray, Predicate pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
@@ -2115,7 +2112,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class InputIt, class OutputIt, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	OutputIt trace(InputIt first, InputIt last, OutputIt d_first, Predicate const& pred,
 	               float min_dist = 0.0f,
 	               float max_dist = std::numeric_limits<float>::max()) const
@@ -2124,8 +2121,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class InputIt, class OutputIt, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	OutputIt trace(NodeType node, InputIt first, InputIt last, OutputIt d_first,
 	               Predicate const& pred, float min_dist = 0.0f,
 	               float max_dist = std::numeric_limits<float>::max()) const
@@ -2134,7 +2131,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class InputIt, class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    InputIt first, InputIt last, Predicate const& pred, float min_dist = 0.0f,
 	    float max_dist = std::numeric_limits<float>::max()) const
@@ -2143,8 +2140,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class NodeType, class InputIt, class Predicate,
-	          std::enable_if_t<is_node_type_v<NodeType>, bool>            = true,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<is_node_type_v<NodeType>, bool>   = true,
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    NodeType node, InputIt first, InputIt last, Predicate const& pred,
 	    float min_dist = 0.0f, float max_dist = std::numeric_limits<float>::max()) const
@@ -2156,7 +2153,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <
 	    class ExecutionPolicy, class RandomIt1, class RandomIt2, class Predicate,
-	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate>, bool>                        = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, RandomIt1 first, RandomIt1 last,
 	                RandomIt2 d_first, Predicate const& pred, float min_dist = 0.0f,
@@ -2169,7 +2166,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <
 	    class ExecutionPolicy, class NodeType, class RandomIt1, class RandomIt2,
 	    class Predicate, std::enable_if_t<is_node_type_v<NodeType>, bool> = true,
-	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate>, bool>                        = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	RandomIt2 trace(ExecutionPolicy&& policy, NodeType node, RandomIt1 first,
 	                RandomIt1 last, RandomIt2 d_first, Predicate pred,
@@ -2201,7 +2198,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	template <
 	    class ExecutionPolicy, class RandomIt, class Predicate,
-	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate>, bool>                        = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    ExecutionPolicy&& policy, RandomIt first, RandomIt last, Predicate const& pred,
@@ -2214,7 +2211,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	template <
 	    class ExecutionPolicy, class NodeType, class RandomIt, class Predicate,
 	    std::enable_if_t<is_node_type_v<NodeType>, bool>                          = true,
-	    std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool>               = true,
+	    std::enable_if_t<pred::is_pred_v<Predicate>, bool>                        = true,
 	    std::enable_if_t<execution::is_execution_policy_v<ExecutionPolicy>, bool> = true>
 	[[nodiscard]] std::vector<TraceResult<Dim>> trace(
 	    ExecutionPolicy&& policy, NodeType node, RandomIt first, RandomIt last,
@@ -2934,7 +2931,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	}
 
 	template <class Predicate, class ValueFun, class InnerFun,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	          std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] std::pair<float, Index> nearest(Index node, Predicate pred,
 	                                              NearestSearchAlgorithm search_alg,
 	                                              ValueFun value_f, InnerFun inner_f,
@@ -3524,8 +3521,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		return ((cur & x) << Dim) | cur | x;
 	}
 
-	template <class Predicate,
-	          std::enable_if_t<pred::is_pred_v<Predicate, Derived>, bool> = true>
+	template <class Predicate, std::enable_if_t<pred::is_pred_v<Predicate>, bool> = true>
 	[[nodiscard]] constexpr TraceResult<Dim> trace(Node node, TraceParams const& params,
 	                                               Predicate const& pred,
 	                                               float const      near_clip,

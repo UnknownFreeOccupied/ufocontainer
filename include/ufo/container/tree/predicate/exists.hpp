@@ -59,7 +59,7 @@ constexpr Exists<!Negated> operator!(Exists<Negated> const&)
 }
 
 template <bool Negated>
-struct Filter<Exists<Negated>> {
+struct Filter<Exists<Negated>> : public FilterBase<Exists<Negated>> {
 	using Pred = Exists<Negated>;
 
 	template <class Tree>
