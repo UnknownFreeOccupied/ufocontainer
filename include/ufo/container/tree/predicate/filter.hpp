@@ -207,10 +207,13 @@ namespace detail
 {
 template <class Predicate, class Derived>
 struct is_pred {
-	template <FilterType Type>
-	static constexpr std::true_type  test(FilterBase<Predicate, Type> const*);
-	static constexpr std::false_type test(...);
 	using type = decltype(test(std::declval<Derived const*>()));
+
+ private:
+	template <FilterType Type>
+	static constexpr std::true_type test(FilterBase<Predicate, Type> const*);
+
+	static constexpr std::false_type test(...);
 };
 }  // namespace detail
 
