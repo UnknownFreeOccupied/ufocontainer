@@ -203,62 +203,24 @@ template <class, class = void>
 struct is_pred : std::false_type {
 };
 
+namespace detail
+{
+template <class Predicate, class Derived>
+struct is_pred {
+	template <FilterType Type>
+	static constexpr std::true_type  test(FilterBase<Predicate, Type> const*);
+	static constexpr std::false_type test(...);
+	using type = decltype(test(std::declval<Derived const*>()));
+};
+}  // namespace detail
+
 template <class Predicate>
-struct is_pred<Predicate,
-               std::void_t<std::is_base_of<FilterBase<Predicate>, Filter<Predicate>>>>
+struct is_pred<Predicate, std::void_t<detail::is_pred<Predicate, Filter<Predicate>>>>
     : std::true_type {
 };
 
 template <class Predicate>
 constexpr inline bool is_pred_v = is_pred<Predicate>::value;
-
-// template <class Predicate>
-// using is_pred = std::is_base_of<FilterBase<Predicate>, Filter<Predicate>>;
-
-// template <class Predicate>
-// constexpr inline bool is_pred_v = is_pred<Predicate>::value;
-
-// template <class, class, class = void>
-// struct is_pred : std::false_type {
-// };
-
-// template <class Pred, class Tree>
-// struct is_pred<
-//     Pred, Tree,
-//     std::void_t<
-//         decltype(Filter<Pred>::init(std::declval<Pred&>(), std::declval<Tree>())),
-//         decltype(Filter<Pred>::returnable(std::declval<Pred>(), std::declval<Tree>(),
-//                                           std::declval<typename Tree::Node>())),
-//         decltype(Filter<Pred>::traversable(std::declval<Pred>(), std::declval<Tree>(),
-//                                            std::declval<typename Tree::Node>()))>>
-//     : std::true_type {
-// };
-
-// template <class Pred, class Tree>
-// constexpr inline bool is_pred_v = is_pred<Pred, Tree>::value;
-
-// //
-// // Is value predicate
-// //
-
-// template <class, class, class, class = void>
-// struct is_value_pred : std::false_type {
-// };
-
-// template <class Pred, class Tree, class Value>
-// struct is_value_pred<
-//     Pred, Tree, Value,
-//     std::void_t<
-//         decltype(Filter<Pred>::init(std::declval<Pred&>(), std::declval<Tree>())),
-//         decltype(Filter<Pred>::returnable(std::declval<Pred>(),
-//         std::declval<Value>())),
-//         decltype(Filter<Pred>::traversable(std::declval<Pred>(), std::declval<Tree>(),
-//                                            std::declval<typename Tree::Node>()))>>
-//     : std::true_type {
-// };
-
-// template <class Pred, class Tree, class Value>
-// constexpr inline bool is_value_pred_v = is_value_pred<Pred, Tree, Value>::value;
 }  // namespace ufo::pred
 
 #endif  // UFO_CONTAINER_TREE_PREDICATE_FILTER_HPP
