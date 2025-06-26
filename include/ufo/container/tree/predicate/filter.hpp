@@ -44,6 +44,7 @@
 
 // UFO
 #include <ufo/container/tree/node.hpp>
+#include <ufo/utility/enum.hpp>
 #include <ufo/utility/type_traits.hpp>
 
 // STL
@@ -52,53 +53,110 @@
 namespace ufo::pred
 {
 template <class Predicate>
-struct Filter;
-// {
-// 	static_assert(dependent_false_v<Pred>, "Predicate not implemented correctly.");
-// };
+struct Filter {
+	static_assert(dependent_false_v<Predicate>, "Predicate not implemented correctly.");
+};
+
+enum class FilterType : std::size_t {
+	None  = 0u,
+	Init  = 1u << 0u,
+	Value = 1u << 1u,
+	Node  = 1u << 2u,
+	Ray   = 1u << 3u,
+};
+
+constexpr FilterType operator|(FilterType lhs, FilterType rhs)
+{
+	return static_cast<FilterType>(to_underlying(lhs) | to_underlying(rhs));
+}
+
+constexpr FilterType operator&(FilterType lhs, FilterType rhs)
+{
+	return static_cast<FilterType>(to_underlying(lhs) & to_underlying(rhs));
+}
+
+constexpr FilterType operator^(FilterType lhs, FilterType rhs)
+{
+	return static_cast<FilterType>(to_underlying(lhs) ^ to_underlying(rhs));
+}
+
+namespace detail
+{
+template <class Predicate, bool B>
+struct FilterInit {
+};
 
 template <class Predicate>
-struct FilterBase {
+struct FilterInit<Predicate, false> {
 	template <class Tree>
 	static constexpr void init(Predicate&, Tree const&)
 	{
 	}
+};
 
+template <class Predicate, bool B>
+struct FilterValue {
+};
+
+template <class Predicate>
+struct FilterValue<Predicate, false> {
 	template <class Value>
-	[[nodiscard]] static constexpr bool returnable(Predicate const&, Value const&)
+	[[nodiscard]] static constexpr bool returnableValue(Predicate const&, Value const&)
 	{
 		return true;
 	}
+};
 
+template <class Predicate, bool B>
+struct FilterNode {
+};
+
+template <class Predicate>
+struct FilterNode<Predicate, false> {
 	template <class Tree>
 	[[nodiscard]] static constexpr bool returnable(Predicate const&, Tree const&,
 	                                               typename Tree::Node const&)
 	{
 		return true;
 	}
-
-	template <class Tree>
-	[[nodiscard]] static constexpr bool returnable(Predicate const& p, Tree const& t,
-	                                               typename Tree::Node const& n,
-	                                               typename Tree::Ray const&)
-	{
-		return Filter<Predicate>::returnable(p, t, n);
-	}
-
 	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Predicate const&, Tree const&,
 	                                                typename Tree::Node const&)
 	{
 		return true;
 	}
+};
+
+template <class Predicate, bool B>
+struct FilterRay {
+};
+
+template <class Predicate>
+struct FilterRay<Predicate, false> {
+	template <class Tree>
+	[[nodiscard]] static constexpr bool returnableRay(Predicate const& p, Tree const& t,
+	                                                  typename Tree::Node const& n,
+	                                                  typename Tree::Ray const&)
+	{
+		return Filter<Predicate>::returnable(p, t, n);
+	}
 
 	template <class Tree>
-	[[nodiscard]] static constexpr bool traversable(Predicate const& p, Tree const& t,
-	                                                typename Tree::Node const& n,
-	                                                typename Tree::Ray const&)
+	[[nodiscard]] static constexpr bool traversableRay(Predicate const& p, Tree const& t,
+	                                                   typename Tree::Node const& n,
+	                                                   typename Tree::Ray const&)
 	{
 		return Filter<Predicate>::traversable(p, t, n);
 	}
+};
+}  // namespace detail
+
+template <class Predicate, FilterType Type = FilterType::None>
+struct FilterBase
+    : detail::FilterInit<Predicate, FilterType::Init == (FilterType::Init & Type)>
+    , detail::FilterValue<Predicate, FilterType::Value == (FilterType::Value & Type)>
+    , detail::FilterNode<Predicate, FilterType::Node == (FilterType::Node & Type)>
+    , detail::FilterRay<Predicate, FilterType::Ray == (FilterType::Ray & Type)> {
 };
 
 //
