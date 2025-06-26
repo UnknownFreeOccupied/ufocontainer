@@ -119,6 +119,7 @@ struct FilterNode<Predicate, false> {
 	{
 		return true;
 	}
+
 	template <class Tree>
 	[[nodiscard]] static constexpr bool traversable(Predicate const&, Tree const&,
 	                                                typename Tree::Node const&)
