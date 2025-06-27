@@ -66,8 +66,8 @@ struct TreeIndex {
 	static constexpr pos_t const NULL_POS       = std::numeric_limits<pos_t>::max();
 	static constexpr pos_t const PROCESSING_POS = NULL_POS - 1;
 
-	pos_t    pos    = NULL_POS;
-	offset_t offset = 0;
+	pos_t    pos;
+	offset_t offset;
 
 	constexpr bool operator==(TreeIndex rhs) const
 	{
