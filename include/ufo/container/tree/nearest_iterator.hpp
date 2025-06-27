@@ -187,21 +187,21 @@ class TreeNearestIterator
 
 	[[nodiscard]] Node sibling(Node const& node, offset_t sibling_index) const
 	{
-		return Node(t_->sibling(node.code, sibling_index),
-		            exists(node) ? t_->sibling(node.index, sibling_index) : node.index);
+		return Node{t_->sibling(node.code, sibling_index),
+		            exists(node) ? t_->sibling(node.index, sibling_index) : node.index};
 	}
 
 	[[nodiscard]] Node child(Node const& node, offset_t child_index) const
 	{
-		return Node(
+		return Node{
 		    t_->child(node.code, child_index),
-		    t_->isParent(node.index) ? t_->child(node.index, child_index) : node.index);
+		    t_->isParent(node.index) ? t_->child(node.index, child_index) : node.index};
 	}
 
 	[[nodiscard]] Node parent(Node const& node) const
 	{
-		return Node(t_->parent(node.code),
-		            exists(node) ? t_->parent(node.index) : node.index);
+		return Node{t_->parent(node.code),
+		            exists(node) ? t_->parent(node.index) : node.index};
 	}
 
 	[[nodiscard]] offset_t offset(Node const& node) const { return node.code.offset(); }

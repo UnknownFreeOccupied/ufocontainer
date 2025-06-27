@@ -62,24 +62,10 @@ struct TreeNode {
 	TreeCode<Dim> code;
 	TreeIndex     index;
 
-	constexpr TreeNode() = default;
-
-	constexpr TreeNode(TreeCode<Dim> const& code, TreeIndex const& index) noexcept
-	    : code(code), index(index)
-	{
-	}
-
 	operator TreeCode<Dim>() const noexcept { return code; }
 
 	explicit operator TreeIndex() const noexcept { return index; }
 };
-
-//
-// Deduction guide
-//
-
-template <std::size_t Dim>
-TreeNode(TreeCode<Dim>, TreeIndex) -> TreeNode<Dim>;
 
 //
 // Compare

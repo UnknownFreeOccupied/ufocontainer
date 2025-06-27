@@ -770,7 +770,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The index of the root node.
 	 */
-	[[nodiscard]] Index index() const { return Index(block(), 0); }
+	[[nodiscard]] Index index() const { return Index{block(), 0u}; }
 
 	template <class NodeType, std::enable_if_t<is_node_type_v<NodeType>, bool> = true>
 	[[nodiscard]] constexpr Index index(NodeType const& node) const
@@ -818,7 +818,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	 *
 	 * @return The root node.
 	 */
-	[[nodiscard]] Node node() const { return Node(code(), index()); }
+	[[nodiscard]] Node node() const { return Node{code(), index()}; }
 
 	/*!
 	 * @brief Returns the node corresponding to `node`.
@@ -832,11 +832,11 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
-			return Node(code(node), node);
+			return Node{code(node), node};
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return Node(node.code, index(node));
+			return Node{node.code, index(node)};
 		} else if constexpr (std::is_same_v<T, Code>) {
-			return Node(node, index(node));
+			return Node{node, index(node)};
 		} else {
 			return this->node(code(node));
 		}
@@ -1024,8 +1024,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		treeBlock(block).modifiedReset();
 
 		for (std::size_t i{}; BF > i; ++i) {
-			auto n = Index(block, i);
-			auto c = children(n);
+			Index n{block, static_cast<offset_t>(i)};
+			auto  c = children(n);
 			if (0u == (m & (1u << i)) || !valid(c)) {
 				continue;
 			}
@@ -1304,7 +1304,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 			auto c = children(node);
 			for (offset_t i{}; BF > i; ++i) {
-				eraseChildren(Index(c, i));
+				eraseChildren(Index{c, i});
 			}
 
 			pruneChildren(node);
@@ -1550,12 +1550,12 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
 			assert(valid(node));
-			return Index(children(node), i);
+			return Index{children(node), i};
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return Node(child(node.code, i), (valid(node.index) && isParent(node.index) &&
+			return Node{child(node.code, i), (valid(node.index) && isParent(node.index) &&
 			                                  code(node.index) == node.code)
 			                                     ? child(node.index, i)
-			                                     : node.index);
+			                                     : node.index};
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.child(i);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1596,12 +1596,12 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		using T = remove_cvref_t<NodeType>;
 		if constexpr (std::is_same_v<T, Index>) {
-			return Index(node.pos, i);
+			return Index{node.pos, i};
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return Node(sibling(node.code, i),
+			return Node{sibling(node.code, i),
 			            (valid(node.index) && code(node.index) == node.code)
 			                ? sibling(node.index, i)
-			                : node.index);
+			                : node.index};
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.sibling(i);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1647,9 +1647,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		if constexpr (std::is_same_v<T, Index>) {
 			return treeBlock(node).parent();
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return Node(parent(node.code), (valid(node.index) && code(node.index) == node.code)
+			return Node{parent(node.code), (valid(node.index) && code(node.index) == node.code)
 			                                   ? parent(node.index)
-			                                   : node.index);
+			                                   : node.index};
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.parent();
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1690,10 +1690,10 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			}
 			return treeBlock(block).parent();
 		} else if constexpr (std::is_same_v<T, Node>) {
-			return Node(ancestor(node.code, depth),
+			return Node{ancestor(node.code, depth),
 			            (valid(node.index) && code(node.index) == node.code)
 			                ? ancestor(node.index, depth)
-			                : node.index);
+			                : node.index};
 		} else if constexpr (std::is_same_v<T, Code>) {
 			return node.toDepth(depth);
 		} else if constexpr (std::is_same_v<T, Key>) {
@@ -1862,25 +1862,25 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			};
 
 			while (fun(cur)) {
-				cur = Node(child(cur.code, 0),
-				           isParent(cur.index) ? child(cur.index, 0) : cur.index);
+				cur = Node{child(cur.code, 0),
+				           isParent(cur.index) ? child(cur.index, 0) : cur.index};
 			}
 
 			while (root != cur) {
 				auto branch = cur.code.offset();
 				if (BF - 1 == branch) {
-					cur = Node(parent(cur.code),
-					           code(cur.index) == cur.code ? parent(cur.index) : cur.index);
+					cur = Node{parent(cur.code),
+					           code(cur.index) == cur.code ? parent(cur.index) : cur.index};
 					continue;
 				}
 
-				cur = Node(sibling(cur.code, branch + 1), code(cur.index) == cur.code
+				cur = Node{sibling(cur.code, branch + 1), code(cur.index) == cur.code
 				                                              ? sibling(cur.index, branch + 1)
-				                                              : cur.index);
+				                                              : cur.index};
 
 				while (fun(cur)) {
-					cur = Node(child(cur.code, 0),
-					           isParent(cur.index) ? child(cur.index, 0) : cur.index);
+					cur = Node{child(cur.code, 0),
+					           isParent(cur.index) ? child(cur.index, 0) : cur.index};
 				}
 			}
 		}
@@ -2103,8 +2103,9 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 		Node n = node(node);
 		if (!exists(n)) {
-			return TraceResult<Dim>{
-			    Index(), Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()), -1.0f};
+			return TraceResult<Dim>{Index{Index::NULL_POS},
+			                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
+			                        -1.0f};
 		}
 
 		auto params = traceInit(n, ray);
@@ -2181,7 +2182,8 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		if (!exists(n)) {
 			for (; last != first; ++first, ++d_first) {
 				*d_first = TraceResult<Dim>{
-				    Index(), Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()), -1.0f};
+				    Index{Index::NULL_POS},
+				    Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()), -1.0f};
 			}
 			return d_first;
 		}
@@ -2468,7 +2470,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			block_f(c);
 		} else {
 			for (std::size_t i{}; BF > i; ++i) {
-				recursLeaves(Index(c, i), node_f, block_f, update_f);
+				recursLeaves(Index{c, static_cast<offset_t>(i)}, node_f, block_f, update_f);
 			}
 		}
 
@@ -2520,7 +2522,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		}
 
 		for (std::size_t i{}; BF > i; ++i) {
-			Index node(block, i);
+			Index node{block, static_cast<offset_t>(i)};
 			if (isParent(node)) {
 				recursParentFirst(children(node), block_f);
 			}
@@ -2859,7 +2861,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
 
-		return Index(createChildren(node), child_index);
+		return Index{createChildren(node), child_index};
 	}
 
 	Index createChildThreadSafe(Index node, offset_t child_index)
@@ -2867,7 +2869,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		assert(0 < depth(node));
 		assert(branchingFactor() > child_index);
 
-		return Index(createChildrenThreadSafe(node), child_index);
+		return Index{createChildrenThreadSafe(node), child_index};
 	}
 
 	/**************************************************************************************
@@ -3035,7 +3037,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			cur.start();
 
 			for (std::size_t i{}; BF > i; ++i) {
-				Index node(block, i);
+				Index node{block, static_cast<offset_t>(i)};
 				cur.container[i].first = inner_f(node);
 				assert(!std::isnan(cur.container[i].first));
 				cur.container[i].second = children(node);
@@ -3097,7 +3099,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 					if constexpr (OnlyDistance) {
 						for (offset_t i{}; BF > i; ++i) {
-							d[i] = value_f(Index(child_block, i));
+							d[i] = value_f(Index{child_block, i});
 							assert(!std::isnan(d[i]));
 						}
 
@@ -3118,7 +3120,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 						c_dist = c_dist <= d[0] ? c_dist : d[0];
 					} else {
 						for (offset_t i{}; BF > i; ++i) {
-							d[i].first = value_f(Index(child_block, i));
+							d[i].first = value_f(Index{child_block, i});
 							assert(!std::isnan(d[i].first));
 							d[i].second = i;
 						}
@@ -3185,7 +3187,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			auto& candidates       = stack[depth - 1].second;
 
 			for (std::size_t i{}; BF > i; ++i) {
-				Index node(block, i);
+				Index node{block, static_cast<offset_t>(i)};
 				candidates[i].first = inner_f(node);
 				assert(!std::isnan(candidates[i].first));
 				candidates[i].second = children(node);
@@ -3199,7 +3201,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 					}
 
 					for (offset_t i{}; BF > i; ++i) {
-						d[i].first = value_f(Index(child_block, i));
+						d[i].first = value_f(Index{child_block, i});
 						assert(!std::isnan(d[i].first));
 						d[i].second = i;
 					}
@@ -3294,7 +3296,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	// 		std::array<std::pair<float, pos_t>, BF> candidates;
 	// 		for (std::size_t i{}; BF > i; ++i) {
-	// 			Index node(block, i);
+	//      Index node{block, static_cast<offset_t>(i)};
 	// 			candidates[i].first = inner_f(node);
 	// 			assert(!std::isnan(candidates[i].first));
 	// 			candidates[i].second = children(node);
@@ -3308,7 +3310,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// 				}
 
 	// 				for (offset_t i{}; BF > i; ++i) {
-	// 					d[i].first = value_f(Index(child_block, i));
+	// 					d[i].first = value_f(Index{child_block, i});
 	// 					assert(!std::isnan(d[i].first));
 	// 					d[i].second = i;
 	// 				}
@@ -3395,7 +3397,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 
 	// 		std::array<std::pair<float, pos_t>, BF> candidates;
 	// 		for (std::size_t i{}; BF > i; ++i) {
-	// 			Index node(block, i);
+	//      Index node{block, static_cast<offset_t>(i)};
 	// 			candidates[i].first = inner_f(node);
 	// 			assert(!std::isnan(candidates[i].first));
 	// 			candidates[i].second = children(node);
@@ -3409,7 +3411,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 	// 				}
 
 	// 				for (offset_t i{}; BF > i; ++i) {
-	// 					d[i].first = value_f(Index(child_block, i));
+	// 					d[i].first = value_f(Index{child_block, i});
 	// 					assert(!std::isnan(d[i].first));
 	// 					d[i].second = i;
 	// 				}
@@ -3560,7 +3562,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 		auto max_dist = min(t1);
 
 		if (min_dist >= max_dist || near_clip > max_dist || far_clip < min_dist) {
-			return TraceResult<Dim>{Index(),
+			return TraceResult<Dim>{Index{Index::NULL_POS},
 			                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
 			                        std::numeric_limits<float>::infinity()};
 		} else if (returnable(node, min_dist, max_dist)) {
@@ -3568,7 +3570,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			return TraceResult<Dim>{
 			    node.index, params.ray.origin + params.ray.direction * distance, distance};
 		} else if (!traversable(node, min_dist, max_dist)) {
-			return TraceResult<Dim>{Index(),
+			return TraceResult<Dim>{Index{Index::NULL_POS},
 			                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
 			                        std::numeric_limits<float>::infinity()};
 		}
@@ -3616,7 +3618,7 @@ class Tree : public TreeData<Derived, GPU, Block, Blocks...>
 			stack[++idx] = TraceStackElement{node, cur_node, t0, t1, tm};
 		}
 
-		return TraceResult<Dim>{Index(),
+		return TraceResult<Dim>{Index{Index::NULL_POS},
 		                        Vec<Dim, float>(std::numeric_limits<float>::quiet_NaN()),
 		                        std::numeric_limits<float>::infinity()};
 	}

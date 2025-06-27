@@ -126,7 +126,8 @@ struct TreeBlock {
 
 	[[nodiscard]] constexpr TreeIndex parent() const
 	{
-		return TreeIndex(parent_block_, code_.offset(code_.depth() + 1));
+		return TreeIndex{parent_block_,
+		                 static_cast<TreeIndex::offset_t>(code_.offset(code_.depth() + 1))};
 	}
 
 	[[nodiscard]] constexpr Code code(std::size_t idx) const

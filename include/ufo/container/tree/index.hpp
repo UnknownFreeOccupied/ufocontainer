@@ -66,18 +66,8 @@ struct TreeIndex {
 	static constexpr pos_t const NULL_POS       = std::numeric_limits<pos_t>::max();
 	static constexpr pos_t const PROCESSING_POS = NULL_POS - 1;
 
-	pos_t    pos{NULL_POS};
-	offset_t offset{0};
-
-	constexpr TreeIndex() noexcept = default;
-
-	constexpr TreeIndex(pos_t pos, offset_t offset) noexcept : pos(pos), offset(offset) {}
-
-	friend void swap(TreeIndex& lhs, TreeIndex& rhs) noexcept
-	{
-		std::swap(lhs.pos, rhs.pos);
-		std::swap(lhs.offset, rhs.offset);
-	}
+	pos_t    pos    = NULL_POS;
+	offset_t offset = 0;
 
 	constexpr bool operator==(TreeIndex rhs) const
 	{
