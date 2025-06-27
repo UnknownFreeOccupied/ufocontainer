@@ -1112,11 +1112,11 @@ class TreeMap
 		node             = Base::parent(node);
 		auto depth       = Base::depth(node);
 		for (; root_depth > depth; ++depth) {
-			Point min = boundsMin(Index{child_block, 0u});
-			Point max = boundsMax(Index{child_block, 0u});
+			Point min = boundsMin(Index(child_block, 0));
+			Point max = boundsMax(Index(child_block, 0));
 			for (std::size_t i = 1; Base::BF > i; ++i) {
-				min = ufo::min(min, boundsMin(Index{child_block, static_cast<offset_t>(i)}));
-				max = ufo::max(max, boundsMax(Index{child_block, static_cast<offset_t>(i)}));
+				min = ufo::min(min, boundsMin(Index(child_block, i)));
+				max = ufo::max(max, boundsMax(Index(child_block, i)));
 			}
 			boundsMin(node) = min;
 			boundsMax(node) = max;
@@ -1125,11 +1125,11 @@ class TreeMap
 		}
 
 		// Root
-		min = boundsMin(Index{child_block, 0u});
-		max = boundsMax(Index{child_block, 0u});
+		min = boundsMin(Index(child_block, 0));
+		max = boundsMax(Index(child_block, 0));
 		for (std::size_t i = 1; Base::BF > i; ++i) {
-			min = ufo::min(min, boundsMin(Index{child_block, static_cast<offset_t>(i)}));
-			max = ufo::max(max, boundsMax(Index{child_block, static_cast<offset_t>(i)}));
+			min = ufo::min(min, boundsMin(Index(child_block, i)));
+			max = ufo::max(max, boundsMax(Index(child_block, i)));
 		}
 		boundsMin(node) = min;
 		boundsMax(node) = max;

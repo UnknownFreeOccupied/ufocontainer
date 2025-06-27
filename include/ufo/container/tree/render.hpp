@@ -439,7 +439,7 @@ void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
 		            image.begin(), inner_f, hit_f, miss);
 	} else {
 		// Image<std::pair<TreeIndex, float>> iter_image(
-		//     rows, cols, std::make_pair(TreeIndex{TreeIndex::NULL_POS}, std::numeric_limits<float>::max()));
+		//     rows, cols, std::make_pair(TreeIndex{}, std::numeric_limits<float>::max()));
 
 		Index n = Base::index(node);
 
@@ -470,7 +470,7 @@ void render(ExecutionPolicy&& policy, NodeType node, Camera const& camera,
 		// 	}
 		// };
 
-		// auto tmp_miss = IterElement(TreeIndex{TreeIndex::NULL_POS}, std::numeric_limits<float>::max(),
+		// auto tmp_miss = IterElement(TreeIndex{}, std::numeric_limits<float>::max(),
 		// miss);
 
 		// std::sample(rays.begin(), rays.end(), std::back_inserter(out), 4,
