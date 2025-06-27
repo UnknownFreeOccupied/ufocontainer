@@ -53,10 +53,6 @@
 
 namespace ufo
 {
-/*!
- * @brief A wrapper around a UFOMap inner/leaf node.
- *
- */
 template <std::size_t Dim>
 struct TreeNode {
 	TreeCode<Dim> code;
